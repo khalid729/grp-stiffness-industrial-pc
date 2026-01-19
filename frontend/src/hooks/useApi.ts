@@ -425,3 +425,85 @@ export function useStepControl() {
 
   return { setStepDistance, stepForward, stepBackward };
 }
+
+// ========== LAN2 (PLC Network) Control ==========
+
+export function useLan2Control() {
+  const queryClient = useQueryClient();
+
+  const lan2Status = useQuery<LanStatus>({
+    queryKey: ['lan2-status'],
+    queryFn: async () => {
+      const response = await fetch(`${API_URL}/api/network/lan2/status`);
+      if (!response.ok) throw new Error('Failed to fetch LAN2 status');
+      return response.json();
+    },
+    refetchInterval: 10000,
+  });
+
+  const configureLan2 = useMutation({
+    mutationFn: async (config: LanConfigRequest) => {
+      const response = await fetch(`${API_URL}/api/network/lan2/configure`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to configure LAN2');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast.success(data.message);
+      queryClient.invalidateQueries({ queryKey: ['lan2-status'] });
+    },
+    onError: (error) => {
+      toast.error(`LAN2 configuration failed: ${error.message}`);
+    },
+  });
+
+  return {
+    lan2Status: lan2Status.data,
+    isLoading: lan2Status.isLoading,
+    configureLan2,
+  };
+}
+
+// ========== Power Control ==========
+
+export function usePowerControl() {
+  const shutdown = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`${API_URL}/api/network/power/shutdown`, {
+        method: 'POST',
+      });
+      if (!response.ok) throw new Error('Failed to shutdown');
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast.warning(data.message);
+    },
+    onError: (error) => {
+      toast.error(`Shutdown failed: ${error.message}`);
+    },
+  });
+
+  const restart = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`${API_URL}/api/network/power/restart`, {
+        method: 'POST',
+      });
+      if (!response.ok) throw new Error('Failed to restart');
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast.warning(data.message);
+    },
+    onError: (error) => {
+      toast.error(`Restart failed: ${error.message}`);
+    },
+  });
+
+  return { shutdown, restart };
+}

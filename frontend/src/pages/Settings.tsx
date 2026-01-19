@@ -7,10 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { useWifiControl, useLanControl } from '@/hooks/useApi';
+import { useWifiControl, useLanControl, useLan2Control } from '@/hooks/useApi';
 import {
   Languages, Moon, Sun, Monitor, Wifi, WifiOff, Network,
-  RefreshCw, Signal, Lock, Globe, Check, Loader2
+  RefreshCw, Signal, Lock, Globe, Check, Loader2, Cpu
 } from 'lucide-react';
 import type { WifiNetwork } from '@/types/api';
 
@@ -32,12 +32,19 @@ const Settings = () => {
   const [wifiPassword, setWifiPassword] = useState('');
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
 
-  // LAN state
+  // LAN state (enp2s0 - General Network)
   const { lanStatus, configureLan } = useLanControl();
   const [lanMode, setLanMode] = useState<'static' | 'dhcp'>(lanStatus?.mode || 'dhcp');
   const [lanIp, setLanIp] = useState(lanStatus?.ip_address || '192.168.0.5');
   const [lanSubnet, setLanSubnet] = useState(lanStatus?.subnet_mask || '255.255.255.0');
   const [lanGateway, setLanGateway] = useState(lanStatus?.gateway || '');
+
+  // LAN2 state (enp1s0 - PLC Network)
+  const { lan2Status, configureLan2 } = useLan2Control();
+  const [lan2Mode, setLan2Mode] = useState<'static' | 'dhcp'>(lan2Status?.mode || 'static');
+  const [lan2Ip, setLan2Ip] = useState(lan2Status?.ip_address || '192.168.0.100');
+  const [lan2Subnet, setLan2Subnet] = useState(lan2Status?.subnet_mask || '255.255.255.0');
+  const [lan2Gateway, setLan2Gateway] = useState(lan2Status?.gateway || '');
 
   const handleScanWifi = () => {
     scanNetworks();
@@ -75,6 +82,19 @@ const Settings = () => {
       });
     } else {
       configureLan.mutate({ mode: 'dhcp' });
+    }
+  };
+
+  const handleSaveLan2 = () => {
+    if (lan2Mode === 'static') {
+      configureLan2.mutate({
+        mode: 'static',
+        ip_address: lan2Ip,
+        subnet_mask: lan2Subnet,
+        gateway: lan2Gateway || undefined,
+      });
+    } else {
+      configureLan2.mutate({ mode: 'dhcp' });
     }
   };
 
@@ -147,161 +167,138 @@ const Settings = () => {
 
         {/* WiFi Card */}
         <Card className="industrial-card md:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Wifi className="w-5 h-5" />
-                {language === 'ar' ? 'إعدادات الواي فاي' : 'WiFi Settings'}
-              </div>
-              {wifiStatus?.connected && (
-                <Badge variant="outline" className="bg-green-500/20 text-green-500 border-green-500">
-                  <Check className="w-3 h-3 mr-1" />
-                  {wifiStatus.ssid}
-                </Badge>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              {wifiStatus?.connected ? (
+                <Wifi className="w-5 h-5 text-green-500" />
+              ) : (
+                <WifiOff className="w-5 h-5 text-muted-foreground" />
               )}
+              {language === 'ar' ? 'الواي فاي' : 'WiFi'}
             </CardTitle>
+            <TouchButton
+              variant="outline"
+              size="sm"
+              onClick={handleScanWifi}
+              disabled={isScanning}
+            >
+              {isScanning ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
+            </TouchButton>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Current Status */}
+            {/* Current Connection */}
             {wifiStatus?.connected && (
-              <div className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg">
+              <div className="flex items-center justify-between p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
                 <div className="flex items-center gap-3">
                   <Wifi className="w-5 h-5 text-green-500" />
                   <div>
                     <p className="font-medium">{wifiStatus.ssid}</p>
-                    <p className="text-sm text-muted-foreground">IP: {wifiStatus.ip_address}</p>
+                    <p className="text-sm text-muted-foreground">{wifiStatus.ip_address}</p>
                   </div>
                 </div>
                 <TouchButton
-                  variant="destructive"
+                  variant="danger"
                   size="sm"
                   onClick={handleDisconnectWifi}
                   disabled={disconnectWifi.isPending}
                 >
-                  <WifiOff className="w-4 h-4 mr-2" />
-                  {language === 'ar' ? 'قطع' : 'Disconnect'}
+                  {disconnectWifi.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    language === 'ar' ? 'قطع' : 'Disconnect'
+                  )}
                 </TouchButton>
               </div>
             )}
 
-            {/* Scan Button */}
-            <TouchButton
-              variant="outline"
-              onClick={handleScanWifi}
-              disabled={isScanning}
-              className="w-full"
-            >
-              {isScanning ? (
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-              ) : (
-                <RefreshCw className="w-5 h-5 mr-2" />
-              )}
-              {language === 'ar' ? 'البحث عن الشبكات' : 'Scan Networks'}
-            </TouchButton>
-
-            {/* Networks List */}
+            {/* Available Networks */}
             {networks.length > 0 && (
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {networks.map((network) => (
-                  <div
-                    key={network.ssid}
-                    className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors
-                      ${wifiStatus?.ssid === network.ssid
-                        ? 'bg-primary/20 border border-primary'
-                        : 'bg-secondary/30 hover:bg-secondary/50'
-                      }`}
-                    onClick={() => wifiStatus?.ssid !== network.ssid && handleSelectNetwork(network)}
-                  >
-                    <div className="flex items-center gap-3">
-                      {getSignalIcon(network.signal)}
-                      <div>
-                        <p className="font-medium">{network.ssid}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {network.signal}% - {network.security}
-                        </p>
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  {language === 'ar' ? 'الشبكات المتاحة:' : 'Available Networks:'}
+                </p>
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {networks.map((network, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-2 hover:bg-secondary/50 rounded cursor-pointer transition-colors"
+                      onClick={() => handleSelectNetwork(network)}
+                    >
+                      <div className="flex items-center gap-2">
+                        {getSignalIcon(network.signal)}
+                        <span>{network.ssid}</span>
+                        {network.security && <Lock className="w-3 h-3 text-muted-foreground" />}
                       </div>
+                      <Badge variant="outline" className="text-xs">
+                        {network.signal}%
+                      </Badge>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {network.security !== 'Open' && <Lock className="w-4 h-4 text-muted-foreground" />}
-                      {wifiStatus?.ssid === network.ssid && (
-                        <Check className="w-5 h-5 text-green-500" />
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* LAN Card */}
-        <Card className="industrial-card md:col-span-2">
+        {/* LAN Card (General Network - enp2s0) */}
+        <Card className="industrial-card">
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Network className="w-5 h-5" />
-                {language === 'ar' ? 'إعدادات الشبكة السلكية (LAN)' : 'LAN Settings (Ethernet)'}
-              </div>
-              {lanStatus?.connected && (
-                <Badge variant="outline" className="bg-green-500/20 text-green-500 border-green-500">
-                  <Globe className="w-3 h-3 mr-1" />
-                  {lanStatus.ip_address}
-                </Badge>
-              )}
+            <CardTitle className="flex items-center gap-2">
+              <Network className="w-5 h-5" />
+              {language === 'ar' ? 'الشبكة المحلية' : 'LAN'} (enp2s0)
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Mode Selection */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="flex gap-2">
               <TouchButton
                 variant={lanMode === 'dhcp' ? 'primary' : 'outline'}
+                size="sm"
                 onClick={() => setLanMode('dhcp')}
-                className="w-full"
+                className="flex-1"
               >
-                {language === 'ar' ? 'تلقائي (DHCP)' : 'Automatic (DHCP)'}
+                <Globe className="w-4 h-4 mr-2" />
+                DHCP
               </TouchButton>
               <TouchButton
                 variant={lanMode === 'static' ? 'primary' : 'outline'}
+                size="sm"
                 onClick={() => setLanMode('static')}
-                className="w-full"
+                className="flex-1"
               >
-                {language === 'ar' ? 'ثابت (Static)' : 'Static IP'}
+                <Network className="w-4 h-4 mr-2" />
+                Static
               </TouchButton>
             </div>
 
-            {/* Static IP Fields */}
+            {/* Static IP Configuration */}
             {lanMode === 'static' && (
-              <div className="grid gap-4 md:grid-cols-3 p-4 bg-secondary/30 rounded-lg">
-                <div className="space-y-2">
-                  <Label htmlFor="lan-ip">
-                    {language === 'ar' ? 'عنوان IP' : 'IP Address'}
-                  </Label>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">{language === 'ar' ? 'عنوان IP' : 'IP Address'}</Label>
                   <Input
-                    id="lan-ip"
                     value={lanIp}
                     onChange={(e) => setLanIp(e.target.value)}
                     placeholder="192.168.0.5"
                     className="font-mono"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lan-subnet">
-                    {language === 'ar' ? 'قناع الشبكة' : 'Subnet Mask'}
-                  </Label>
+                <div className="space-y-1">
+                  <Label className="text-xs">{language === 'ar' ? 'قناع الشبكة' : 'Subnet Mask'}</Label>
                   <Input
-                    id="lan-subnet"
                     value={lanSubnet}
                     onChange={(e) => setLanSubnet(e.target.value)}
                     placeholder="255.255.255.0"
                     className="font-mono"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lan-gateway">
-                    {language === 'ar' ? 'البوابة (اختياري)' : 'Gateway (optional)'}
-                  </Label>
+                <div className="space-y-1">
+                  <Label className="text-xs">{language === 'ar' ? 'البوابة' : 'Gateway'}</Label>
                   <Input
-                    id="lan-gateway"
                     value={lanGateway}
                     onChange={(e) => setLanGateway(e.target.value)}
                     placeholder="192.168.0.1"
@@ -336,6 +333,105 @@ const Settings = () => {
                 disabled={configureLan.isPending}
               >
                 {configureLan.isPending ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Check className="w-4 h-4 mr-2" />
+                )}
+                {language === 'ar' ? 'حفظ' : 'Save'}
+              </TouchButton>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* LAN2 Card (PLC Network - enp1s0) */}
+        <Card className="industrial-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Cpu className="w-5 h-5 text-orange-500" />
+              {language === 'ar' ? 'شبكة PLC' : 'PLC Network'} (enp1s0)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Mode Selection */}
+            <div className="flex gap-2">
+              <TouchButton
+                variant={lan2Mode === 'dhcp' ? 'primary' : 'outline'}
+                size="sm"
+                onClick={() => setLan2Mode('dhcp')}
+                className="flex-1"
+              >
+                <Globe className="w-4 h-4 mr-2" />
+                DHCP
+              </TouchButton>
+              <TouchButton
+                variant={lan2Mode === 'static' ? 'primary' : 'outline'}
+                size="sm"
+                onClick={() => setLan2Mode('static')}
+                className="flex-1"
+              >
+                <Network className="w-4 h-4 mr-2" />
+                Static
+              </TouchButton>
+            </div>
+
+            {/* Static IP Configuration */}
+            {lan2Mode === 'static' && (
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">{language === 'ar' ? 'عنوان IP' : 'IP Address'}</Label>
+                  <Input
+                    value={lan2Ip}
+                    onChange={(e) => setLan2Ip(e.target.value)}
+                    placeholder="192.168.0.100"
+                    className="font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">{language === 'ar' ? 'قناع الشبكة' : 'Subnet Mask'}</Label>
+                  <Input
+                    value={lan2Subnet}
+                    onChange={(e) => setLan2Subnet(e.target.value)}
+                    placeholder="255.255.255.0"
+                    className="font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">{language === 'ar' ? 'البوابة' : 'Gateway'}</Label>
+                  <Input
+                    value={lan2Gateway}
+                    onChange={(e) => setLan2Gateway(e.target.value)}
+                    placeholder="192.168.0.1"
+                    className="font-mono"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Current Status */}
+            <div className="flex items-center justify-between p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+              <div className="text-sm">
+                <p className="text-muted-foreground">
+                  {language === 'ar' ? 'الوضع الحالي:' : 'Current Mode:'}{' '}
+                  <span className="font-medium text-foreground">
+                    {lan2Status?.mode === 'static'
+                      ? (language === 'ar' ? 'ثابت' : 'Static')
+                      : (language === 'ar' ? 'تلقائي' : 'DHCP')
+                    }
+                  </span>
+                </p>
+                {lan2Status?.ip_address && (
+                  <p className="text-muted-foreground">
+                    IP: <span className="font-mono text-foreground">{lan2Status.ip_address}</span>
+                  </p>
+                )}
+              </div>
+              <TouchButton
+                variant="success"
+                size="sm"
+                onClick={handleSaveLan2}
+                disabled={configureLan2.isPending}
+              >
+                {configureLan2.isPending ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : (
                   <Check className="w-4 h-4 mr-2" />

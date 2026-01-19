@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, 
   Gamepad2, 
@@ -8,19 +8,31 @@ import {
   X,
   Languages,
   Settings2,
-  Bell
-} from 'lucide-react';
-import { useState } from 'react';
-import { cn } from '@/lib/utils';
-import { useLanguage } from '@/contexts/LanguageContext';
+  Bell,
+  Power,
+  RotateCcw
+} from "lucide-react";
+import { useState } from "react";
+import { cn } from "@/lib/utils";
+import { useLanguage } from "@/contexts/LanguageContext";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const navItems = [
-  { path: '/', icon: LayoutDashboard, labelKey: 'nav.dashboard' },
-  { path: '/manual', icon: Gamepad2, labelKey: 'nav.manual' },
-  { path: '/test-setup', icon: Settings2, labelKey: 'nav.testSetup' },
-  { path: '/alarms', icon: Bell, labelKey: 'nav.alarms' },
-  { path: '/history', icon: History, labelKey: 'nav.history' },
-  { path: '/settings', icon: Settings, labelKey: 'nav.settings' },
+  { path: "/", icon: LayoutDashboard, labelKey: "nav.dashboard" },
+  { path: "/manual", icon: Gamepad2, labelKey: "nav.manual" },
+  { path: "/test-setup", icon: Settings2, labelKey: "nav.testSetup" },
+  { path: "/alarms", icon: Bell, labelKey: "nav.alarms" },
+  { path: "/history", icon: History, labelKey: "nav.history" },
+  { path: "/settings", icon: Settings, labelKey: "nav.settings" },
 ];
 
 interface SidebarProps {
@@ -29,11 +41,36 @@ interface SidebarProps {
 
 export function Sidebar({ children }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [showShutdownDialog, setShowShutdownDialog] = useState(false);
+  const [showRestartDialog, setShowRestartDialog] = useState(false);
+  const [isPowerLoading, setIsPowerLoading] = useState(false);
   const location = useLocation();
   const { t, language, setLanguage, isRTL } = useLanguage();
 
   const toggleLanguage = () => {
-    setLanguage(language === 'en' ? 'ar' : 'en');
+    setLanguage(language === "en" ? "ar" : "en");
+  };
+
+  const handleShutdown = async () => {
+    setIsPowerLoading(true);
+    try {
+      await fetch("/api/network/power/shutdown", { method: "POST" });
+    } catch (e) {
+      console.error("Shutdown failed:", e);
+    }
+    setIsPowerLoading(false);
+    setShowShutdownDialog(false);
+  };
+
+  const handleRestart = async () => {
+    setIsPowerLoading(true);
+    try {
+      await fetch("/api/network/power/restart", { method: "POST" });
+    } catch (e) {
+      console.error("Restart failed:", e);
+    }
+    setIsPowerLoading(false);
+    setShowRestartDialog(false);
   };
 
   return (
@@ -67,11 +104,11 @@ export function Sidebar({ children }: SidebarProps) {
 
       {/* Sidebar */}
       <aside className={cn(
-        'fixed lg:static inset-y-0 z-40 w-64 bg-sidebar border-r border-sidebar-border',
-        'transform transition-transform duration-300 ease-in-out',
-        isRTL ? 'right-0 lg:right-auto' : 'left-0 lg:left-auto',
-        isOpen ? 'translate-x-0' : (isRTL ? 'translate-x-full lg:translate-x-0' : '-translate-x-full lg:translate-x-0'),
-        'flex flex-col pt-16 lg:pt-0'
+        "fixed lg:static inset-y-0 z-40 w-64 bg-sidebar border-r border-sidebar-border",
+        "transform transition-transform duration-300 ease-in-out",
+        isRTL ? "right-0 lg:right-auto" : "left-0 lg:left-auto",
+        isOpen ? "translate-x-0" : (isRTL ? "translate-x-full lg:translate-x-0" : "-translate-x-full lg:translate-x-0"),
+        "flex flex-col pt-16 lg:pt-0"
       )}>
         {/* Logo */}
         <div className="hidden lg:flex items-center gap-3 px-6 py-5 border-b border-sidebar-border">
@@ -92,8 +129,8 @@ export function Sidebar({ children }: SidebarProps) {
               to={item.path}
               onClick={() => setIsOpen(false)}
               className={({ isActive }) => cn(
-                'nav-item',
-                isActive && 'active'
+                "nav-item",
+                isActive && "active"
               )}
             >
               <item.icon className="w-5 h-5" />
@@ -102,15 +139,34 @@ export function Sidebar({ children }: SidebarProps) {
           ))}
         </nav>
 
-        {/* Language Toggle */}
-        <div className="hidden lg:block p-4 border-t border-sidebar-border">
+        {/* Bottom Section: Language + Power Controls */}
+        <div className="hidden lg:block p-4 border-t border-sidebar-border space-y-2">
+          {/* Language Toggle */}
           <button
             onClick={toggleLanguage}
             className="w-full nav-item justify-center"
           >
             <Languages className="w-5 h-5" />
-            <span>{language === 'en' ? 'العربية' : 'English'}</span>
+            <span>{language === "en" ? "العربية" : "English"}</span>
           </button>
+
+          {/* Power Controls */}
+          <div className="flex gap-2 pt-2">
+            <button
+              onClick={() => setShowRestartDialog(true)}
+              className="flex-1 nav-item justify-center text-yellow-500 hover:bg-yellow-500/10"
+              title={language === "ar" ? "إعادة التشغيل" : "Restart"}
+            >
+              <RotateCcw className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setShowShutdownDialog(true)}
+              className="flex-1 nav-item justify-center text-red-500 hover:bg-red-500/10"
+              title={language === "ar" ? "إيقاف التشغيل" : "Shutdown"}
+            >
+              <Power className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -120,6 +176,74 @@ export function Sidebar({ children }: SidebarProps) {
           {children}
         </div>
       </main>
+
+      {/* Shutdown Confirmation Dialog */}
+      <AlertDialog open={showShutdownDialog} onOpenChange={setShowShutdownDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-500">
+              <Power className="w-5 h-5" />
+              {language === "ar" ? "إيقاف تشغيل النظام" : "Shutdown System"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === "ar" 
+                ? "هل أنت متأكد من إيقاف تشغيل النظام؟ سيتم إغلاق جميع العمليات."
+                : "Are you sure you want to shutdown the system? All processes will be terminated."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPowerLoading}>
+              {language === "ar" ? "إلغاء" : "Cancel"}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleShutdown}
+              disabled={isPowerLoading}
+              className="bg-red-500 hover:bg-red-600"
+            >
+              {isPowerLoading ? (
+                <RotateCcw className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Power className="w-4 h-4 mr-2" />
+              )}
+              {language === "ar" ? "إيقاف" : "Shutdown"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Restart Confirmation Dialog */}
+      <AlertDialog open={showRestartDialog} onOpenChange={setShowRestartDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-yellow-500">
+              <RotateCcw className="w-5 h-5" />
+              {language === "ar" ? "إعادة تشغيل النظام" : "Restart System"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === "ar" 
+                ? "هل أنت متأكد من إعادة تشغيل النظام؟ سيستغرق ذلك بضع دقائق."
+                : "Are you sure you want to restart the system? This will take a few minutes."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPowerLoading}>
+              {language === "ar" ? "إلغاء" : "Cancel"}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRestart}
+              disabled={isPowerLoading}
+              className="bg-yellow-500 hover:bg-yellow-600 text-black"
+            >
+              {isPowerLoading ? (
+                <RotateCcw className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <RotateCcw className="w-4 h-4 mr-2" />
+              )}
+              {language === "ar" ? "إعادة التشغيل" : "Restart"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
