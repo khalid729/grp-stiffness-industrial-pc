@@ -26,6 +26,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 const navItems = [
   { path: "/", icon: LayoutDashboard, labelKey: "nav.dashboard" },
   { path: "/manual", icon: Gamepad2, labelKey: "nav.manual" },
@@ -54,7 +56,7 @@ export function Sidebar({ children }: SidebarProps) {
   const handleShutdown = async () => {
     setIsPowerLoading(true);
     try {
-      await fetch("/api/network/power/shutdown", { method: "POST" });
+      await fetch(`${API_URL}/api/network/power/shutdown`, { method: "POST" });
     } catch (e) {
       console.error("Shutdown failed:", e);
     }
@@ -65,7 +67,7 @@ export function Sidebar({ children }: SidebarProps) {
   const handleRestart = async () => {
     setIsPowerLoading(true);
     try {
-      await fetch("/api/network/power/restart", { method: "POST" });
+      await fetch(`${API_URL}/api/network/power/restart`, { method: "POST" });
     } catch (e) {
       console.error("Restart failed:", e);
     }
@@ -196,7 +198,7 @@ export function Sidebar({ children }: SidebarProps) {
               {language === "ar" ? "إلغاء" : "Cancel"}
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleShutdown}
+              onClick={(e) => { e.preventDefault(); handleShutdown(); }}
               disabled={isPowerLoading}
               className="bg-red-500 hover:bg-red-600"
             >
@@ -230,7 +232,7 @@ export function Sidebar({ children }: SidebarProps) {
               {language === "ar" ? "إلغاء" : "Cancel"}
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleRestart}
+              onClick={(e) => { e.preventDefault(); handleRestart(); }}
               disabled={isPowerLoading}
               className="bg-yellow-500 hover:bg-yellow-600 text-black"
             >
