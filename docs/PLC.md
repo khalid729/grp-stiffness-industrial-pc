@@ -12,7 +12,7 @@ The system uses **Snap7** library to communicate with a Siemens S7-1200 series P
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| IP Address | 192.168.0.100 | PLC IP address |
+| IP Address | 192.168.0.10 | PLC IP address |
 | Rack | 0 | PLC rack number |
 | Slot | 1 | PLC slot number |
 | Port | 102 | S7 communication port |
@@ -331,7 +331,7 @@ Disable optimized block access for Data Blocks:
 │         │                               │
 │         │ TCP Port 102                  │
 │         ▼                               │
-│  PLC: 192.168.0.100                    │
+│  PLC: 192.168.0.10                    │
 │                                         │
 └────────────────────────────────────────┘
 ```

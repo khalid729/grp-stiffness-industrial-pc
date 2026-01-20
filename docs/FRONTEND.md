@@ -25,45 +25,45 @@ Complete documentation for the React frontend application.
 
 ```
 frontend/src/
-├── api/
-│   ├── client.ts           # REST API client
-│   └── socket.ts           # WebSocket client
-│
 ├── components/
 │   ├── ui/                  # shadcn/ui components
 │   │   ├── button.tsx
 │   │   ├── card.tsx
 │   │   ├── input.tsx
+│   │   ├── TouchButton.tsx  # Touch-optimized button
+│   │   ├── EStopButton.tsx  # Emergency stop button
 │   │   └── ...
 │   ├── layout/
-│   │   ├── Header.tsx
-│   │   ├── Sidebar.tsx
-│   │   └── MainLayout.tsx
+│   │   └── PortraitLayout.tsx  # Main kiosk layout (1080x1920)
 │   └── dashboard/
-│       ├── StatusCard.tsx
-│       ├── ForceChart.tsx
-│       └── Indicators.tsx
+│       ├── StatusCard.tsx       # Force/Weight/Position/Deflection cards
+│       ├── ForceDeflectionChart.tsx  # Real-time chart
+│       ├── SafetyIndicators.tsx # Safety status indicators
+│       ├── ModeToggle.tsx       # Local/Remote mode switch
+│       └── TestStatusBadge.tsx  # Test status display
+│
+├── contexts/
+│   ├── LanguageContext.tsx  # i18n (English/Arabic)
+│   └── ThemeContext.tsx     # Light/Dark theme
 │
 ├── hooks/
-│   ├── useLiveData.ts       # Real-time data hook
-│   └── useApi.ts            # React Query hooks
+│   ├── useLiveData.ts       # Real-time WebSocket data
+│   ├── useApi.ts            # React Query hooks
+│   └── useStepControl.ts    # Step motor control
 │
 ├── pages/
 │   ├── Dashboard.tsx        # Main dashboard
 │   ├── TestSetup.tsx        # Test configuration
-│   ├── ManualControl.tsx    # Manual controls
-│   ├── Reports.tsx          # Test history
 │   ├── Alarms.tsx           # Alarm management
-│   └── Settings.tsx         # System settings
-│
-├── types/
-│   └── api.ts               # TypeScript interfaces
+│   ├── History.tsx          # Test history
+│   └── Settings.tsx         # System settings (Network, Theme, Language)
 │
 ├── lib/
 │   └── utils.ts             # Utility functions
 │
-├── App.tsx                   # Main app component
-└── main.tsx                  # Entry point
+├── index.css                # Tailwind + Light/Dark themes
+├── App.tsx                  # Main app component
+└── main.tsx                 # Entry point
 ```
 
 ---
@@ -630,4 +630,107 @@ npm run type-check
 
 # Linting
 npm run lint
+```
+
+---
+
+## Portrait/Kiosk Mode
+
+The frontend is designed for a **1080x1920 portrait display** in kiosk mode.
+
+### Layout Structure
+
+```
+┌─────────────────────────────────┐
+│  Header                         │
+│  - Page Title                   │
+│  - PLC Status                   │
+│  - Test Status                  │
+├─────────────────────────────────┤
+│  Safety & Machine Indicators    │
+│  Mode Toggle    │  E-Stop       │
+├─────────────────────────────────┤
+│  Status Cards (4 columns)       │
+│  Force | Weight | Pos | Defl    │
+├─────────────────────────────────┤
+│                                 │
+│  Page Content                   │
+│  (Dashboard, Settings, etc.)    │
+│                                 │
+├─────────────────────────────────┤
+│  Bottom Navigation Bar          │
+│  Dashboard|Setup|Alarms|History|Settings
+└─────────────────────────────────┘
+```
+
+### Touch Optimization
+
+- Minimum touch target: 48x48px
+- Large fonts for readability
+- Touch-friendly button sizes
+- Bottom navigation bar with large icons
+
+---
+
+## Theme Support
+
+The app supports **Light** and **Dark** themes.
+
+### Theme Toggle
+
+Located in Settings page. Theme preference is saved in localStorage.
+
+### CSS Variables
+
+Themes are defined in `index.css` using CSS custom properties:
+
+```css
+:root {
+  /* Dark theme (default) */
+  --background: 220 20% 8%;
+  --foreground: 210 40% 98%;
+  --card: 220 18% 12%;
+  /* ... */
+}
+
+.light {
+  /* Light theme */
+  --background: 210 20% 98%;
+  --foreground: 220 20% 10%;
+  --card: 0 0% 100%;
+  /* ... */
+}
+```
+
+---
+
+## Internationalization (i18n)
+
+Supports **English** and **Arabic** languages.
+
+### Language Toggle
+
+Located in Settings page. Language preference is saved in localStorage.
+
+### Adding Translations
+
+Edit `src/contexts/LanguageContext.tsx`:
+
+```typescript
+const translations = {
+  "key.name": { en: "English text", ar: "النص العربي" },
+  // ...
+};
+```
+
+### Usage
+
+```typescript
+const { t, language, setLanguage } = useLanguage();
+
+// Use translation
+<span>{t(nav.dashboard)}</span>
+
+// Change language
+setLanguage(ar);
 ```

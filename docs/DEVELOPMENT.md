@@ -446,7 +446,7 @@ VS Code launch configuration:
 # Quick PLC test script
 from plc.connector import PLCConnector
 
-plc = PLCConnector("192.168.0.100")
+plc = PLCConnector("192.168.0.10")
 print(f"Connected: {plc.connect()}")
 
 # Read DB1 parameters

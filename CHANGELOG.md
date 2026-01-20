@@ -3,7 +3,7 @@
 ## 2026-01-19 - Industrial PC Deployment
 
 ### Network Configuration
-- Configured enp1s0 as static IP (192.168.0.100) for PLC
+- Configured enp1s0 as static IP (192.168.0.10) for PLC
 - Configured enp2s0 as DHCP for general network
 - Created netplan configuration
 
@@ -50,7 +50,7 @@
 - Fixed backend network.py to use netplan instead of nmcli
 - Fixed run_command() to properly handle sudo + command path resolution
 - Updated cmd_paths: netplan → /usr/sbin/netplan
-- Fixed IP conflict: changed computer from 192.168.0.100 to 192.168.0.10 on PLC network
+- Fixed IP conflict: changed computer from 192.168.0.10 to 192.168.0.10 on PLC network
 - Sudoers configuration updated for sudo-rs compatibility
 
 ### Theme Support

@@ -51,7 +51,7 @@ Ring stiffness testing measures the mechanical properties of GRP pipes by applyi
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                  SIEMENS S7-1214C PLC                       │
-│                    192.168.0.100                            │
+│                    192.168.0.10                            │
 │         Servo Motor + Load Cell + Position Sensor          │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -130,7 +130,7 @@ source venv/bin/activate  # Linux/Mac
 pip install -r requirements.txt
 
 # Configure PLC IP (edit .env file)
-echo "PLC_IP=192.168.0.100" > .env
+echo "PLC_IP=192.168.0.10" > .env
 
 # Run server
 uvicorn main:socket_app --host 0.0.0.0 --port 8000 --reload

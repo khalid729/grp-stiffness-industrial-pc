@@ -25,7 +25,7 @@ Health check endpoint.
 {
   "status": "healthy",
   "plc_connected": true,
-  "plc_ip": "192.168.0.100"
+  "plc_ip": "192.168.0.10"
 }
 ```
 
@@ -57,7 +57,7 @@ Get all live data from PLC.
   "plc": {
     "connected": true,
     "cpu_state": "run",
-    "ip": "192.168.0.100"
+    "ip": "192.168.0.10"
   }
 }
 ```
@@ -134,7 +134,7 @@ Get PLC connection status.
 ```json
 {
   "connected": true,
-  "ip": "192.168.0.100",
+  "ip": "192.168.0.10",
   "message": "Connected"
 }
 ```

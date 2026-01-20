@@ -26,7 +26,7 @@ This project is deployed on an Industrial PC running Ubuntu 25.10 Server as an H
 
 | Interface | Type | Configuration | Purpose |
 |-----------|------|---------------|---------|
-| **enp1s0** | Ethernet | Static: 192.168.0.100/24 | PLC Connection |
+| **enp1s0** | Ethernet | Static: 192.168.0.10/24 | PLC Connection |
 | **enp2s0** | Ethernet | DHCP | Internet/LAN |
 | **wlp3s0** | WiFi | Disabled | Not used |
 

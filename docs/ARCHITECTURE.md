@@ -69,7 +69,7 @@ The GRP Ring Stiffness Test Machine uses a three-tier architecture:
 │                              HARDWARE                                    │
 │  ┌────────────────────────────────┴────────────────────────────────────┐│
 │  │                      SIEMENS S7-1214C PLC                           ││
-│  │                        192.168.0.100                                ││
+│  │                        192.168.0.10                                ││
 │  │  ┌─────────────────────────────────────────────────────────────┐   ││
 │  │  │                      Data Blocks                             │   ││
 │  │  │  DB1: Parameters │ DB2: Results │ DB3: Servo Control        │   ││

@@ -6,7 +6,7 @@
 
 File: /etc/netplan/00-installer-config.yaml
 
-- enp1s0: Static 192.168.0.100/24 (PLC Connection)
+- enp1s0: Static 192.168.0.10/24 (PLC Connection)
 - enp2s0: DHCP (Internet/LAN)
 
 Commands:
