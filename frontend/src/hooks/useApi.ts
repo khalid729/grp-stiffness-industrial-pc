@@ -507,3 +507,204 @@ export function usePowerControl() {
 
   return { shutdown, restart };
 }
+
+// ========== Parameters Control ==========
+
+export interface TestParameters {
+  pipe_diameter?: number;
+  pipe_length?: number;
+  deflection_percent?: number;
+  test_speed?: number;
+  max_stroke?: number;
+  max_force?: number;
+  connected?: boolean;
+}
+
+export function useParametersControl() {
+  const queryClient = useQueryClient();
+
+  const parameters = useQuery<TestParameters>({
+    queryKey: ['parameters'],
+    queryFn: async () => {
+      const response = await fetch(`${API_URL}/api/parameters`);
+      if (!response.ok) throw new Error('Failed to fetch parameters');
+      return response.json();
+    },
+    refetchInterval: 5000,
+  });
+
+  const setParameters = useMutation({
+    mutationFn: async (params: TestParameters) => {
+      const response = await fetch(`${API_URL}/api/parameters`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to set parameters');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast.success(data.message || 'Parameters saved');
+      queryClient.invalidateQueries({ queryKey: ['parameters'] });
+    },
+    onError: (error) => {
+      toast.error(`Failed to save parameters: ${error.message}`);
+    },
+  });
+
+  return {
+    parameters: parameters.data,
+    isLoading: parameters.isLoading,
+    setParameters,
+  };
+}
+
+// ========== Alarms ==========
+
+export interface Alarm {
+  id: number;
+  alarm_code: string;
+  message: string;
+  severity: 'critical' | 'warning' | 'info';
+  timestamp: string;
+  acknowledged: boolean;
+  ack_timestamp?: string;
+  ack_by?: string;
+}
+
+export function useAlarmsControl() {
+  const queryClient = useQueryClient();
+
+  const alarms = useQuery<{ alarms: Alarm[]; page: number; page_size: number }>({
+    queryKey: ['alarms'],
+    queryFn: async () => {
+      const response = await fetch(`${API_URL}/api/alarms`);
+      if (!response.ok) throw new Error('Failed to fetch alarms');
+      return response.json();
+    },
+    refetchInterval: 5000,
+  });
+
+  const acknowledgeAlarm = useMutation({
+    mutationFn: async (alarmId: number) => {
+      const response = await fetch(`${API_URL}/api/alarms/${alarmId}/acknowledge`, {
+        method: 'POST',
+      });
+      if (!response.ok) throw new Error('Failed to acknowledge alarm');
+      return response.json();
+    },
+    onSuccess: () => {
+      toast.success('Alarm acknowledged');
+      queryClient.invalidateQueries({ queryKey: ['alarms'] });
+    },
+    onError: (error) => {
+      toast.error(`Failed to acknowledge: ${error.message}`);
+    },
+  });
+
+  const acknowledgeAll = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`${API_URL}/api/alarms/acknowledge-all`, {
+        method: 'POST',
+      });
+      if (!response.ok) throw new Error('Failed to acknowledge alarms');
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast.success(data.message || 'All alarms acknowledged');
+      queryClient.invalidateQueries({ queryKey: ['alarms'] });
+    },
+    onError: (error) => {
+      toast.error(`Failed to acknowledge all: ${error.message}`);
+    },
+  });
+
+  return {
+    alarms: alarms.data?.alarms || [],
+    isLoading: alarms.isLoading,
+    refetch: alarms.refetch,
+    acknowledgeAlarm,
+    acknowledgeAll,
+  };
+}
+
+// ========== Test History ==========
+
+export interface TestRecord {
+  id: number;
+  sample_id?: string;
+  operator?: string;
+  test_date: string;
+  pipe_diameter: number;
+  pipe_length: number;
+  deflection_percent: number;
+  force_at_target?: number;
+  max_force?: number;
+  ring_stiffness?: number;
+  sn_class?: number;
+  passed: boolean;
+  test_speed?: number;
+  duration?: number;
+  notes?: string;
+}
+
+export function useTestHistory() {
+  const queryClient = useQueryClient();
+
+  const tests = useQuery<{ tests: TestRecord[]; total: number; page: number; page_size: number; total_pages: number }>({
+    queryKey: ['tests'],
+    queryFn: async () => {
+      const response = await fetch(`${API_URL}/api/tests`);
+      if (!response.ok) throw new Error('Failed to fetch tests');
+      return response.json();
+    },
+  });
+
+  const deleteTest = useMutation({
+    mutationFn: async (testId: number) => {
+      const response = await fetch(`${API_URL}/api/tests/${testId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) throw new Error('Failed to delete test');
+      return response.json();
+    },
+    onSuccess: () => {
+      toast.success('Test deleted');
+      queryClient.invalidateQueries({ queryKey: ['tests'] });
+    },
+    onError: (error) => {
+      toast.error(`Failed to delete: ${error.message}`);
+    },
+  });
+
+  const downloadPdf = async (testId: number) => {
+    try {
+      const response = await fetch(`${API_URL}/api/report/pdf/${testId}`);
+      if (!response.ok) throw new Error('Failed to download PDF');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `test_report_${testId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('PDF downloaded');
+    } catch (error) {
+      toast.error('Failed to download PDF');
+    }
+  };
+
+  return {
+    tests: tests.data?.tests || [],
+    total: tests.data?.total || 0,
+    isLoading: tests.isLoading,
+    refetch: tests.refetch,
+    deleteTest,
+    downloadPdf,
+  };
+}

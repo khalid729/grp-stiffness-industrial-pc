@@ -1,6 +1,6 @@
-import { cn } from '@/lib/utils';
-import { AlertTriangle, Home, ArrowUpToLine, ArrowDownToLine, ShieldCheck, ShieldX } from 'lucide-react';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { cn } from "@/lib/utils";
+import { Shield, AlertTriangle, ArrowUp, ArrowDown, Home, CheckCircle, Cog } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface SafetyIndicatorsProps {
   eStop: boolean;
@@ -11,31 +11,13 @@ interface SafetyIndicatorsProps {
   motionAllowed: boolean;
 }
 
-interface IndicatorProps {
-  label: string;
-  active: boolean;
-  isError?: boolean;
-  icon: React.ReactNode;
-}
-
-function Indicator({ label, active, isError, icon }: IndicatorProps) {
-  return (
-    <div className={cn(
-      'flex items-center gap-2 px-3 py-2 rounded-lg border transition-all',
-      active && isError && 'bg-destructive/10 border-destructive text-destructive',
-      active && !isError && 'bg-green-500/10 border-green-500 text-green-600 dark:text-green-400',
-      !active && 'bg-muted/50 border-border text-muted-foreground'
-    )}>
-      <div className={cn(
-        'w-3 h-3 rounded-full',
-        active && isError && 'bg-destructive animate-pulse',
-        active && !isError && 'bg-green-500',
-        !active && 'bg-muted-foreground/30'
-      )} />
-      {icon}
-      <span className="text-sm font-medium">{label}</span>
-    </div>
-  );
+interface MachineIndicatorsProps {
+  servoReady: boolean;
+  servoEnabled: boolean;
+  servoError: boolean;
+  atHome: boolean;
+  upperLock: boolean;
+  lowerLock: boolean;
 }
 
 export function SafetyIndicators({
@@ -44,58 +26,129 @@ export function SafetyIndicators({
   lowerLimit,
   home,
   safetyOk,
-  motionAllowed
+  motionAllowed,
 }: SafetyIndicatorsProps) {
   const { t } = useLanguage();
+  
+  const indicators = [
+    { 
+      label: "E-STOP", 
+      active: eStop, 
+      isError: eStop,
+      icon: AlertTriangle 
+    },
+    { 
+      label: "Upper", 
+      active: upperLimit, 
+      isError: upperLimit,
+      icon: ArrowUp 
+    },
+    { 
+      label: "Lower", 
+      active: lowerLimit, 
+      isError: lowerLimit,
+      icon: ArrowDown 
+    },
+    { 
+      label: "Home", 
+      active: home, 
+      isError: false,
+      icon: Home 
+    },
+    { 
+      label: "Safety", 
+      active: safetyOk, 
+      isError: !safetyOk,
+      icon: Shield 
+    },
+    { 
+      label: "Motion", 
+      active: motionAllowed, 
+      isError: !motionAllowed,
+      icon: CheckCircle 
+    },
+  ];
 
   return (
-    <div className="industrial-card p-4">
-      <h3 className="text-sm lg:text-base font-semibold mb-3 text-muted-foreground flex items-center gap-2">
-        {safetyOk ? (
-          <ShieldCheck className="w-5 h-5 text-green-500" />
-        ) : (
-          <ShieldX className="w-5 h-5 text-destructive" />
-        )}
-        {t('dashboard.safetyStatus') || 'Safety Status'}
-      </h3>
-      
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-        <Indicator 
-          label={t('safety.eStop') || 'E-Stop'}
-          active={eStop}
-          isError={true}
-          icon={<AlertTriangle className="w-4 h-4" />}
-        />
-        <Indicator 
-          label={t('safety.upperLimit') || 'Upper Limit'}
-          active={upperLimit}
-          isError={true}
-          icon={<ArrowUpToLine className="w-4 h-4" />}
-        />
-        <Indicator 
-          label={t('safety.lowerLimit') || 'Lower Limit'}
-          active={lowerLimit}
-          isError={true}
-          icon={<ArrowDownToLine className="w-4 h-4" />}
-        />
-        <Indicator 
-          label={t('safety.home') || 'Home'}
-          active={home}
-          isError={false}
-          icon={<Home className="w-4 h-4" />}
-        />
-        <Indicator 
-          label={t('safety.safetyOk') || 'Safety OK'}
-          active={safetyOk}
-          isError={false}
-          icon={<ShieldCheck className="w-4 h-4" />}
-        />
-        <Indicator 
-          label={t('safety.motionOk') || 'Motion OK'}
-          active={motionAllowed}
-          isError={false}
-          icon={<ShieldCheck className="w-4 h-4" />}
-        />
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-1.5">
+        <Shield className="w-5 h-5 text-muted-foreground" />
+        <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+          {t('indicators.safety')}
+        </span>
+      </div>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {indicators.map((ind) => {
+          const Icon = ind.icon;
+          return (
+            <div
+              key={ind.label}
+              className={cn(
+                "flex items-center gap-1.5 px-2 py-1 rounded text-base font-medium",
+                ind.isError
+                  ? "bg-destructive/20 text-destructive"
+                  : ind.active
+                    ? "bg-success/20 text-success"
+                    : "bg-secondary/50 text-muted-foreground"
+              )}
+            >
+              <Icon className="w-5 h-5" />
+              <span>{ind.label}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export function MachineIndicatorsGroup({
+  servoReady,
+  servoEnabled,
+  servoError,
+  atHome,
+  upperLock,
+  lowerLock,
+}: MachineIndicatorsProps) {
+  const { t } = useLanguage();
+  
+  const indicators = [
+    { label: t('dashboard.servoReady'), active: servoReady, isError: false },
+    { label: t('dashboard.servoEnabled'), active: servoEnabled, isError: false },
+    { label: t('dashboard.servoError'), active: servoError, isError: servoError },
+    { label: t('dashboard.atHome'), active: atHome, isError: false },
+    { label: t('dashboard.upperLock'), active: upperLock, isError: false },
+    { label: t('dashboard.lowerLock'), active: lowerLock, isError: false },
+  ];
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-1.5">
+        <Cog className="w-5 h-5 text-muted-foreground" />
+        <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+          {t('indicators.machine')}
+        </span>
+      </div>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {indicators.map((ind) => (
+          <div
+            key={ind.label}
+            className={cn(
+              "flex items-center gap-1.5 px-2 py-1 rounded text-base font-medium",
+              ind.isError
+                ? "bg-destructive/20 text-destructive"
+                : ind.active
+                  ? "bg-success/20 text-success"
+                  : "bg-secondary/50 text-muted-foreground"
+            )}
+          >
+            <span className={cn(
+              "w-2.5 h-2.5 rounded-full",
+              ind.isError ? "bg-destructive" : ind.active ? "bg-success" : "bg-muted-foreground"
+            )} />
+            <span>{ind.label}</span>
+          </div>
+        ))}
       </div>
     </div>
   );

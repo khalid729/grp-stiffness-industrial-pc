@@ -1,102 +1,82 @@
-import { 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  ReferenceLine
-} from 'recharts';
+import { useMemo } from "react";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 
-interface DataPoint {
+interface ChartDataPoint {
   deflection: number;
   force: number;
 }
 
 interface ForceDeflectionChartProps {
-  data: DataPoint[];
+  data: ChartDataPoint[];
   targetDeflection?: number;
 }
 
-export function ForceDeflectionChart({ 
-  data, 
-  targetDeflection 
-}: ForceDeflectionChartProps) {
+export function ForceDeflectionChart({ data, targetDeflection }: ForceDeflectionChartProps) {
+  const chartData = useMemo(() => {
+    if (data.length === 0) {
+      return [{ deflection: 0, force: 0 }];
+    }
+    return data;
+  }, [data]);
+
+  const maxForce = useMemo(() => {
+    const max = Math.max(...chartData.map(d => d.force), 1000);
+    return Math.ceil(max / 1000) * 1000;
+  }, [chartData]);
+
+  const maxDeflection = useMemo(() => {
+    const max = Math.max(...chartData.map(d => d.deflection), targetDeflection || 10);
+    return Math.ceil(max / 5) * 5 + 5;
+  }, [chartData, targetDeflection]);
+
   return (
-    <div className="h-full min-h-[250px]">
-      <h3 className="text-sm font-semibold text-muted-foreground mb-4">
-        Force vs Deflection
-      </h3>
-      <ResponsiveContainer width="100%" height={220}>
-        <LineChart data={data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-          <CartesianGrid 
-            strokeDasharray="3 3" 
-            stroke="hsl(var(--border))" 
-            opacity={0.5} 
-          />
+    <div className="w-full h-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={chartData} margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 15% 20%)" />
           <XAxis 
             dataKey="deflection" 
-            stroke="hsl(var(--muted-foreground))"
-            fontSize={12}
-            tickFormatter={(value) => `${value.toFixed(1)}`}
-            label={{ 
-              value: 'Deflection (mm)', 
-              position: 'bottom', 
-              fill: 'hsl(var(--muted-foreground))',
-              fontSize: 11
-            }}
+            stroke="hsl(215 20% 55%)"
+            fontSize={14}
+            tickFormatter={(v) => `${v.toFixed(1)}`}
+            label={{ value: 'Deflection (mm)', position: 'bottom', offset: 5, fill: 'hsl(215 20% 55%)', fontSize: 14 }}
+            domain={[0, maxDeflection]}
           />
           <YAxis 
-            stroke="hsl(var(--muted-foreground))"
-            fontSize={12}
-            tickFormatter={(value) => `${value.toFixed(1)}`}
-            label={{ 
-              value: 'Force (N)', 
-              angle: -90, 
-              position: 'insideLeft',
-              fill: 'hsl(var(--muted-foreground))',
-              fontSize: 11
-            }}
+            stroke="hsl(215 20% 55%)"
+            fontSize={14}
+            tickFormatter={(v) => `${(v/1000).toFixed(1)}k`}
+            label={{ value: 'Force (N)', angle: -90, position: 'insideLeft', fill: 'hsl(215 20% 55%)', fontSize: 14 }}
+            domain={[0, maxForce]}
           />
           <Tooltip 
             contentStyle={{ 
-              backgroundColor: 'hsl(var(--card))',
-              border: '1px solid hsl(var(--border))',
+              backgroundColor: 'hsl(220 18% 12%)', 
+              border: '1px solid hsl(220 15% 22%)',
               borderRadius: '8px',
-              fontSize: 12
+              fontSize: '14px'
             }}
-            labelStyle={{ color: 'hsl(var(--foreground))' }}
-            formatter={(value: number) => [value.toFixed(3), '']}
-            labelFormatter={(label) => `Deflection: ${Number(label).toFixed(2)} mm`}
+            labelFormatter={(value) => `Deflection: ${Number(value).toFixed(2)} mm`}
+            formatter={(value: number) => [`${value.toFixed(0)} N`, 'Force']}
           />
-          {targetDeflection && targetDeflection > 0 && (
+          {targetDeflection && (
             <ReferenceLine 
               x={targetDeflection} 
-              stroke="hsl(var(--warning))" 
+              stroke="hsl(142 70% 45%)" 
               strokeDasharray="5 5"
-              label={{ 
-                value: 'Target', 
-                fill: 'hsl(var(--warning))',
-                fontSize: 11
-              }}
+              label={{ value: 'Target', fill: 'hsl(142 70% 45%)', fontSize: 14, position: 'top' }}
             />
           )}
           <Line 
             type="monotone" 
             dataKey="force" 
-            stroke="hsl(var(--primary))" 
+            stroke="hsl(210 100% 55%)" 
             strokeWidth={2}
             dot={false}
-            activeDot={{ r: 4, fill: 'hsl(var(--primary))' }}
+            isAnimationActive={false}
           />
         </LineChart>
       </ResponsiveContainer>
-      {data.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">
-          No test data - Start a test to see the chart
-        </div>
-      )}
     </div>
   );
 }

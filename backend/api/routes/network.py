@@ -5,6 +5,7 @@ Network Configuration API - WiFi and LAN settings
 import subprocess
 import os
 import logging
+import re
 import re as regex
 from typing import Optional
 from fastapi import APIRouter, HTTPException
@@ -33,11 +34,18 @@ def run_command(cmd: list[str], timeout: int = 30) -> tuple[bool, str]:
         "ip": "/usr/sbin/ip",
         "sudo": "/usr/bin/sudo",
         "iwlist": "/usr/sbin/iwlist",
+        "cp": "/bin/cp",
+        "cat": "/bin/cat",
+        "netplan": "/usr/sbin/netplan",
     }
-    if cmd and cmd[0] in cmd_paths:
+    # Handle sudo specially - need to replace both sudo and the command after it
+    if cmd and cmd[0] == "sudo":
+        cmd = list(cmd)  # Make a copy
+        cmd[0] = cmd_paths.get("sudo", cmd[0])
+        if len(cmd) > 1 and cmd[1] in cmd_paths:
+            cmd[1] = cmd_paths[cmd[1]]
+    elif cmd and cmd[0] in cmd_paths:
         cmd = [cmd_paths[cmd[0]]] + cmd[1:]
-    elif cmd and len(cmd) > 1 and cmd[0] == "sudo" and cmd[1] in cmd_paths:
-        cmd = [cmd_paths["sudo"], cmd_paths[cmd[1]]] + cmd[2:]
     try:
         result = subprocess.run(
             cmd,
@@ -151,23 +159,74 @@ async def get_lan_status():
 
 @router.post("/lan/configure")
 async def configure_lan(request: LanConfigRequest):
-    """Configure LAN (enp2s0)"""
-    logger.info(f"Configuring LAN: mode={request.mode}")
-    if request.mode == "static":
-        if not request.ip_address:
-            raise HTTPException(status_code=400, detail="IP address required")
-        run_command(["sudo", "nmcli", "con", "mod", "Wired connection 1", "ipv4.method", "manual"])
-        run_command(["sudo", "nmcli", "con", "mod", "Wired connection 1", "ipv4.addresses", f"{request.ip_address}/{request.subnet_mask or '255.255.255.0'}"])
-        if request.gateway:
-            run_command(["sudo", "nmcli", "con", "mod", "Wired connection 1", "ipv4.gateway", request.gateway])
-    else:
-        run_command(["sudo", "nmcli", "con", "mod", "Wired connection 1", "ipv4.method", "auto"])
-        run_command(["sudo", "nmcli", "con", "mod", "Wired connection 1", "ipv4.addresses", ""])
-        run_command(["sudo", "nmcli", "con", "mod", "Wired connection 1", "ipv4.gateway", ""])
-    run_command(["sudo", "nmcli", "con", "down", "Wired connection 1"])
-    success, output = run_command(["sudo", "nmcli", "con", "up", "Wired connection 1"])
-    if not success:
-        raise HTTPException(status_code=500, detail=f"Failed to apply: {output}")
+    """Configure LAN (enp2s0) via netplan"""
+    logger.info(f"Configuring LAN (enp2s0): mode={request.mode}")
+    
+    try:
+        # Read current LAN2 (enp1s0) config to preserve it
+        lan2_config = ""
+        try:
+            success, netplan_out = run_command(["sudo", "cat", "/etc/netplan/00-installer-config.yaml"])
+            if success and "enp1s0" in netplan_out:
+                # Extract enp1s0 section
+                match = regex.search(r'enp1s0:[^e]*?(?=enp|$)', netplan_out, regex.DOTALL)
+                if match:
+                    lan2_config = match.group(0).rstrip()
+        except:
+            pass
+        
+        if not lan2_config:
+            lan2_config = """enp1s0:
+      addresses:
+        - 192.168.0.5/24"""
+        
+        if request.mode == "static":
+            if not request.ip_address:
+                raise HTTPException(status_code=400, detail="IP address required for static mode")
+            prefix = 24
+            if request.subnet_mask:
+                octets = request.subnet_mask.split(".")
+                binary = "".join(format(int(o), "08b") for o in octets)
+                prefix = binary.count("1")
+            
+            lan1_config = f"""enp2s0:
+      addresses:
+        - {request.ip_address}/{prefix}"""
+            if request.gateway:
+                lan1_config += f"""
+      routes:
+        - to: default
+          via: {request.gateway}"""
+        else:
+            lan1_config = """enp2s0:
+      dhcp4: true
+      dhcp6: true"""
+        
+        netplan_config = f"""network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    {lan2_config}
+    {lan1_config}
+"""
+        
+        with open("/tmp/netplan-config.yaml", "w") as f:
+            f.write(netplan_config)
+        
+        success, output = run_command(["sudo", "cp", "/tmp/netplan-config.yaml", "/etc/netplan/00-installer-config.yaml"])
+        if not success:
+            raise HTTPException(status_code=500, detail=f"Failed to write config: {output}")
+        
+        success, output = run_command(["sudo", "netplan", "apply"])
+        if not success:
+            raise HTTPException(status_code=500, detail=f"Failed to apply netplan: {output}")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to apply: {str(e)}")
+    
+    logger.info(f"LAN (enp2s0) configured successfully: {request.mode}")
     return {"success": True, "message": f"LAN configured as {request.mode}"}
 
 

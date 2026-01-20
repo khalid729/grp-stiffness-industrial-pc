@@ -5,9 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
-import { Sidebar } from "@/components/layout/Sidebar";
+import { PortraitLayout } from "@/components/layout/PortraitLayout";
 import Dashboard from "./pages/Dashboard";
-import ManualControl from "./pages/ManualControl";
 import TestSetup from "./pages/TestSetup";
 import Alarms from "./pages/Alarms";
 import History from "./pages/History";
@@ -24,17 +23,16 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <Sidebar>
+            <PortraitLayout>
               <Routes>
                 <Route path="/" element={<Dashboard />} />
-                <Route path="/manual" element={<ManualControl />} />
                 <Route path="/test-setup" element={<TestSetup />} />
                 <Route path="/alarms" element={<Alarms />} />
                 <Route path="/history" element={<History />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
-            </Sidebar>
+            </PortraitLayout>
           </BrowserRouter>
         </TooltipProvider>
       </LanguageProvider>

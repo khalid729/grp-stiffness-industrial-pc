@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { socketClient } from '@/api/socket';
-import type { LiveData, TEST_STAGE_NAMES } from '@/types/api';
+import type { LiveData } from '@/types/api';
 
 const defaultLiveData: LiveData = {
   // Structured data
@@ -69,11 +69,13 @@ export function useLiveData() {
     setLiveData(prev => ({ ...prev, remote_mode: mode }));
   }, []);
 
-  return { liveData, isConnected, setRemoteMode };
+  return { liveData, setLiveData, isConnected, setRemoteMode };
 }
 
 // Jog control via WebSocket for real-time response
 export function useJogControl() {
+  const [jogSpeed, setJogSpeedState] = useState(50);
+
   const jogForward = useCallback((pressed: boolean) => {
     socketClient.jogForward(pressed);
   }, []);
@@ -83,10 +85,11 @@ export function useJogControl() {
   }, []);
 
   const setJogSpeed = useCallback((speed: number) => {
+    setJogSpeedState(speed);
     socketClient.setJogSpeed(speed);
   }, []);
 
-  return { jogForward, jogBackward, setJogSpeed };
+  return { jogForward, jogBackward, setJogSpeed, jogSpeed };
 }
 
 // Test status helper

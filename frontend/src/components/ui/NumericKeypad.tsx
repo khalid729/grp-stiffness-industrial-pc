@@ -1,254 +1,140 @@
-import { useState, useEffect, useCallback } from 'react';
-import { X, Delete, Check } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
+import { Delete, Check, X } from 'lucide-react';
 
 interface NumericKeypadProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (value: string) => void;
-  initialValue?: string;
-  title?: string;
-  min?: number;
-  max?: number;
-  unit?: string;
+  onConfirm: (value: number) => void;
+  initialValue: number;
+  label: string;
+  unit: string;
 }
 
 export const NumericKeypad = ({
   isOpen,
   onClose,
   onConfirm,
-  initialValue = '',
-  title = 'Enter Value',
-  min,
-  max,
-  unit = '',
+  initialValue,
+  label,
+  unit,
 }: NumericKeypadProps) => {
-  const [value, setValue] = useState(initialValue);
-  const [error, setError] = useState('');
+  const [inputValue, setInputValue] = useState(initialValue.toString());
+  const [isFirstInput, setIsFirstInput] = useState(true);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Reset value when opened
   useEffect(() => {
     if (isOpen) {
-      setValue(initialValue);
-      setError('');
+      setInputValue(initialValue.toString());
+      setIsFirstInput(true);
+      // Select all text when opened
+      setTimeout(() => {
+        inputRef.current?.select();
+      }, 50);
     }
   }, [isOpen, initialValue]);
 
-  const handleKeyPress = useCallback((key: string) => {
-    setError('');
-
-    if (key === 'backspace') {
-      setValue(prev => prev.slice(0, -1));
-    } else if (key === 'clear') {
-      setValue('');
-    } else if (key === '.') {
-      // Only allow one decimal point
-      if (!value.includes('.')) {
-        setValue(prev => prev + '.');
-      }
-    } else if (key === '-') {
-      // Toggle negative sign
-      if (value.startsWith('-')) {
-        setValue(prev => prev.slice(1));
-      } else {
-        setValue(prev => '-' + prev);
-      }
-    } else {
-      setValue(prev => prev + key);
-    }
-  }, [value]);
-
-  const handleConfirm = useCallback(() => {
-    const numValue = parseFloat(value);
-
-    if (value === '' || value === '-' || value === '.') {
-      setError('Please enter a valid number');
-      return;
-    }
-
-    if (isNaN(numValue)) {
-      setError('Invalid number');
-      return;
-    }
-
-    if (min !== undefined && numValue < min) {
-      setError(`Minimum: ${min}`);
-      return;
-    }
-
-    if (max !== undefined && numValue > max) {
-      setError(`Maximum: ${max}`);
-      return;
-    }
-
-    onConfirm(value);
-    onClose();
-  }, [value, min, max, onConfirm, onClose]);
-
   if (!isOpen) return null;
 
-  const keypadButtons = [
-    ['7', '8', '9'],
-    ['4', '5', '6'],
-    ['1', '2', '3'],
-    ['.', '0', 'backspace'],
-  ];
+  const handleKeyPress = (key: string) => {
+    if (isFirstInput) {
+      // First input replaces the entire value
+      if (key === '.') {
+        setInputValue('0.');
+      } else {
+        setInputValue(key);
+      }
+      setIsFirstInput(false);
+    } else {
+      // Subsequent inputs append
+      if (key === '.' && inputValue.includes('.')) return;
+      setInputValue(prev => prev + key);
+    }
+  };
+
+  const handleBackspace = () => {
+    setIsFirstInput(false);
+    setInputValue(prev => {
+      if (prev.length <= 1) return '0';
+      return prev.slice(0, -1);
+    });
+  };
+
+  const handleClear = () => {
+    setInputValue('0');
+    setIsFirstInput(true);
+  };
+
+  const handleConfirm = () => {
+    const numValue = parseFloat(inputValue) || 0;
+    onConfirm(numValue);
+    onClose();
+  };
+
+  const keys = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0', 'C'];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
-
-      {/* Keypad Modal */}
-      <div className="relative bg-card border-2 border-border rounded-2xl shadow-2xl p-4 w-[340px] max-w-[95vw] animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-card border border-border rounded-xl shadow-2xl p-4 w-[300px] animate-scale-in">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-foreground">{title}</h3>
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-sm font-semibold text-foreground">{label}</span>
           <button
             onClick={onClose}
-            className="p-2 rounded-full hover:bg-secondary transition-colors"
+            className="p-1.5 rounded-lg hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Display */}
-        <div className="mb-4">
-          <div className={cn(
-            "bg-secondary/50 border-2 rounded-xl p-4 text-center",
-            error ? "border-destructive" : "border-border"
-          )}>
-            <span className="text-3xl font-mono font-bold text-foreground">
-              {value || '0'}
-            </span>
-            {unit && (
-              <span className="text-lg text-muted-foreground ml-2">{unit}</span>
-            )}
-          </div>
-
-          {/* Min/Max hint */}
-          {(min !== undefined || max !== undefined) && (
-            <p className="text-xs text-muted-foreground text-center mt-2">
-              {min !== undefined && `Min: ${min}`}
-              {min !== undefined && max !== undefined && ' | '}
-              {max !== undefined && `Max: ${max}`}
-              {unit && ` ${unit}`}
-            </p>
-          )}
-
-          {/* Error message */}
-          {error && (
-            <p className="text-sm text-destructive text-center mt-2 font-medium">
-              {error}
-            </p>
-          )}
-        </div>
-
-        {/* Keypad Grid */}
-        <div className="grid grid-cols-3 gap-2 mb-3">
-          {keypadButtons.map((row, rowIndex) => (
-            row.map((key, keyIndex) => (
-              <button
-                key={`${rowIndex}-${keyIndex}`}
-                onClick={() => handleKeyPress(key)}
-                className={cn(
-                  "h-16 rounded-xl font-bold text-xl transition-all duration-100",
-                  "active:scale-95 touch-none select-none",
-                  key === 'backspace'
-                    ? "bg-warning/20 text-warning hover:bg-warning/30 flex items-center justify-center"
-                    : "bg-secondary hover:bg-secondary/80 text-foreground"
-                )}
-              >
-                {key === 'backspace' ? <Delete className="w-6 h-6" /> : key}
-              </button>
-            ))
-          ))}
-        </div>
-
-        {/* Action Buttons */}
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={() => handleKeyPress('clear')}
+        {/* Display - single line with value and unit inside */}
+        <div className="flex items-center bg-secondary/50 rounded-lg p-3 mb-3 border border-border">
+          <input
+            ref={inputRef}
+            type="text"
+            value={inputValue}
+            readOnly
             className={cn(
-              "h-14 rounded-xl font-bold text-base transition-all duration-100",
-              "active:scale-95 touch-none select-none",
-              "bg-destructive/20 text-destructive hover:bg-destructive/30"
+              "flex-1 text-2xl font-mono font-bold text-primary bg-transparent border-none outline-none text-center",
+              isFirstInput && "bg-primary/10 rounded"
             )}
-          >
-            CLEAR
+          />
+          <span className="text-sm text-muted-foreground ml-2 flex-shrink-0">{unit}</span>
+        </div>
+
+        {/* Keypad Grid - 4 columns */}
+        <div className="grid grid-cols-4 gap-2">
+          {/* Row 1 */}
+          <button onClick={() => handleKeyPress('7')} className="h-14 rounded-lg font-bold text-xl bg-secondary hover:bg-secondary/80 text-foreground border border-border transition-all active:scale-95">7</button>
+          <button onClick={() => handleKeyPress('8')} className="h-14 rounded-lg font-bold text-xl bg-secondary hover:bg-secondary/80 text-foreground border border-border transition-all active:scale-95">8</button>
+          <button onClick={() => handleKeyPress('9')} className="h-14 rounded-lg font-bold text-xl bg-secondary hover:bg-secondary/80 text-foreground border border-border transition-all active:scale-95">9</button>
+          <button onClick={handleBackspace} className="h-14 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground border border-border transition-all active:scale-95 flex items-center justify-center">
+            <Delete className="w-5 h-5" />
           </button>
-          <button
-            onClick={handleConfirm}
-            className={cn(
-              "h-14 rounded-xl font-bold text-base transition-all duration-100",
-              "active:scale-95 touch-none select-none flex items-center justify-center gap-2",
-              "bg-success text-success-foreground hover:bg-success/90"
-            )}
+          
+          {/* Row 2 */}
+          <button onClick={() => handleKeyPress('4')} className="h-14 rounded-lg font-bold text-xl bg-secondary hover:bg-secondary/80 text-foreground border border-border transition-all active:scale-95">4</button>
+          <button onClick={() => handleKeyPress('5')} className="h-14 rounded-lg font-bold text-xl bg-secondary hover:bg-secondary/80 text-foreground border border-border transition-all active:scale-95">5</button>
+          <button onClick={() => handleKeyPress('6')} className="h-14 rounded-lg font-bold text-xl bg-secondary hover:bg-secondary/80 text-foreground border border-border transition-all active:scale-95">6</button>
+          <button onClick={handleClear} className="h-14 rounded-lg font-bold text-lg bg-warning/20 text-warning hover:bg-warning/30 border border-warning/30 transition-all active:scale-95">C</button>
+          
+          {/* Row 3 */}
+          <button onClick={() => handleKeyPress('1')} className="h-14 rounded-lg font-bold text-xl bg-secondary hover:bg-secondary/80 text-foreground border border-border transition-all active:scale-95">1</button>
+          <button onClick={() => handleKeyPress('2')} className="h-14 rounded-lg font-bold text-xl bg-secondary hover:bg-secondary/80 text-foreground border border-border transition-all active:scale-95">2</button>
+          <button onClick={() => handleKeyPress('3')} className="h-14 rounded-lg font-bold text-xl bg-secondary hover:bg-secondary/80 text-foreground border border-border transition-all active:scale-95">3</button>
+          <button 
+            onClick={handleConfirm} 
+            className="h-[124px] rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold transition-all active:scale-95 flex flex-col items-center justify-center gap-1 row-span-2"
           >
-            <Check className="w-5 h-5" />
-            SET
+            <Check className="w-6 h-6" />
+            <span className="text-sm">Set</span>
           </button>
+          
+          {/* Row 4 */}
+          <button onClick={() => handleKeyPress('.')} className="h-14 rounded-lg font-bold text-xl bg-secondary hover:bg-secondary/80 text-foreground border border-border transition-all active:scale-95">.</button>
+          <button onClick={() => handleKeyPress('0')} className="h-14 rounded-lg font-bold text-xl bg-secondary hover:bg-secondary/80 text-foreground border border-border transition-all active:scale-95 col-span-2">0</button>
         </div>
       </div>
     </div>
   );
-};
-
-// Hook for using numeric keypad with any input
-export const useNumericKeypad = () => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [config, setConfig] = useState<{
-    initialValue: string;
-    title: string;
-    min?: number;
-    max?: number;
-    unit?: string;
-    onConfirm: (value: string) => void;
-  }>({
-    initialValue: '',
-    title: 'Enter Value',
-    onConfirm: () => {},
-  });
-
-  const openKeypad = useCallback((options: {
-    initialValue?: string;
-    title?: string;
-    min?: number;
-    max?: number;
-    unit?: string;
-    onConfirm: (value: string) => void;
-  }) => {
-    setConfig({
-      initialValue: options.initialValue || '',
-      title: options.title || 'Enter Value',
-      min: options.min,
-      max: options.max,
-      unit: options.unit,
-      onConfirm: options.onConfirm,
-    });
-    setIsOpen(true);
-  }, []);
-
-  const closeKeypad = useCallback(() => {
-    setIsOpen(false);
-  }, []);
-
-  return {
-    isOpen,
-    openKeypad,
-    closeKeypad,
-    keypadProps: {
-      isOpen,
-      onClose: closeKeypad,
-      onConfirm: config.onConfirm,
-      initialValue: config.initialValue,
-      title: config.title,
-      min: config.min,
-      max: config.max,
-      unit: config.unit,
-    },
-  };
 };

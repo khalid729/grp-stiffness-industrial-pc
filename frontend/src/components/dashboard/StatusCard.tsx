@@ -1,55 +1,81 @@
-import { ReactNode } from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from "@/lib/utils";
+import { ReactNode } from "react";
 
 interface StatusCardProps {
   title: string;
   value: string | number;
   unit?: string;
   icon?: ReactNode;
-  variant?: 'default' | 'info' | 'success' | 'warning' | 'destructive';
+  variant?: "default" | "info" | "warning" | "success" | "destructive";
+  compact?: boolean;
+  actionButton?: ReactNode;
 }
-
-const variantStyles = {
-  default: 'border-border',
-  info: 'border-info/30 bg-info/5',
-  success: 'border-success/30 bg-success/5',
-  warning: 'border-warning/30 bg-warning/5',
-  destructive: 'border-destructive/30 bg-destructive/5',
-};
-
-const iconStyles = {
-  default: 'text-muted-foreground',
-  info: 'text-info',
-  success: 'text-success',
-  warning: 'text-warning',
-  destructive: 'text-destructive',
-};
 
 export function StatusCard({ 
   title, 
   value, 
   unit, 
   icon, 
-  variant = 'default' 
+  variant = "default",
+  compact = false,
+  actionButton,
 }: StatusCardProps) {
+  const variantStyles = {
+    default: "border-border",
+    info: "border-info/30 bg-info/5",
+    warning: "border-warning/30 bg-warning/5",
+    success: "border-success/30 bg-success/5",
+    destructive: "border-destructive/30 bg-destructive/5",
+  };
+
+  const valueStyles = {
+    default: "text-foreground",
+    info: "text-info",
+    warning: "text-warning",
+    success: "text-success",
+    destructive: "text-destructive",
+  };
+
+  if (compact) {
+    return (
+      <div className={cn(
+        "industrial-card border p-2 flex flex-col gap-1",
+        variantStyles[variant]
+      )}>
+        <div className="flex items-center justify-between gap-1">
+          {icon && <span className="text-muted-foreground">{icon}</span>}
+          <p className="text-sm text-muted-foreground truncate flex-1">{title}</p>
+        </div>
+        <div className="flex items-center justify-between gap-1">
+          <div className="flex items-baseline gap-1">
+            <span className={cn("status-value text-3xl font-bold", valueStyles[variant])}>
+              {value}
+            </span>
+            {unit && <span className="text-sm text-muted-foreground">{unit}</span>}
+          </div>
+          {actionButton && <div className="shrink-0">{actionButton}</div>}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={cn(
-      'industrial-card p-4 flex flex-col gap-2 border',
+      "industrial-card border p-3",
       variantStyles[variant]
     )}>
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground font-medium">{title}</span>
-        {icon && (
-          <span className={cn(iconStyles[variant])}>
-            {icon}
-          </span>
-        )}
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-sm text-muted-foreground">{title}</span>
+        {icon && <span className="text-muted-foreground">{icon}</span>}
       </div>
-      <div className="flex items-baseline gap-1">
-        <span className="status-value">{value}</span>
-        {unit && (
-          <span className="text-sm text-muted-foreground font-medium">{unit}</span>
-        )}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-baseline gap-1">
+          <span className={cn("status-value text-3xl font-bold", valueStyles[variant])}>
+            {value}
+          </span>
+          {unit && <span className="text-base text-muted-foreground">{unit}</span>}
+        </div>
+        {actionButton && <div className="shrink-0">{actionButton}</div>}
       </div>
     </div>
   );

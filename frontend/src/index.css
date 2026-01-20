@@ -4,39 +4,39 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Industrial Control System Design System */
+/* Industrial Control System - Portrait 1080x1920 Display */
 
 @layer base {
   :root {
-    /* Dark Industrial Theme - Base colors */
-    --background: 220 20% 10%;
+    /* Dark Industrial Theme */
+    --background: 220 20% 8%;
     --foreground: 210 40% 98%;
 
-    --card: 220 18% 14%;
+    --card: 220 18% 12%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 220 18% 12%;
+    --popover: 220 18% 10%;
     --popover-foreground: 210 40% 98%;
 
     /* Primary - Industrial Blue */
     --primary: 210 100% 50%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary - Muted Steel */
-    --secondary: 220 15% 22%;
+    /* Secondary - Steel */
+    --secondary: 220 15% 18%;
     --secondary-foreground: 210 40% 98%;
 
-    /* Muted - Dark Steel */
-    --muted: 220 15% 18%;
-    --muted-foreground: 215 20% 60%;
+    /* Muted */
+    --muted: 220 15% 15%;
+    --muted-foreground: 215 20% 55%;
 
-    /* Accent - Industrial Cyan */
+    /* Accent - Cyan */
     --accent: 190 90% 45%;
     --accent-foreground: 0 0% 100%;
 
     /* Mode Colors */
     --mode-local: 35 95% 55%;
-    --mode-local-foreground: 35 100% 15%;
+    --mode-local-foreground: 35 100% 10%;
     --mode-remote: 210 100% 55%;
     --mode-remote-foreground: 0 0% 100%;
 
@@ -44,24 +44,31 @@
     --success: 142 70% 45%;
     --success-foreground: 0 0% 100%;
     --warning: 35 95% 55%;
-    --warning-foreground: 35 100% 15%;
+    --warning-foreground: 35 100% 10%;
     --destructive: 0 72% 50%;
     --destructive-foreground: 0 0% 100%;
     --info: 200 90% 50%;
     --info-foreground: 0 0% 100%;
 
-    /* Industrial Alert */
+    /* Emergency */
     --emergency: 0 85% 55%;
     --emergency-foreground: 0 0% 100%;
 
     /* Borders & Input */
-    --border: 220 15% 25%;
-    --input: 220 15% 20%;
+    --border: 220 15% 22%;
+    --input: 220 15% 18%;
     --ring: 210 100% 50%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
 
-    /* Sidebar */
+    /* Chart */
+    --chart-1: 210 100% 55%;
+    --chart-2: 142 70% 45%;
+    --chart-3: 35 95% 55%;
+    --chart-4: 280 70% 55%;
+    --chart-5: 0 72% 50%;
+
+    /* Sidebar - not used but kept for compatibility */
     --sidebar-background: 220 20% 8%;
     --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 210 100% 55%;
@@ -70,21 +77,7 @@
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 220 15% 20%;
     --sidebar-ring: 210 100% 55%;
-
-    /* Chart colors */
-    --chart-1: 210 100% 55%;
-    --chart-2: 142 70% 45%;
-    --chart-3: 35 95% 55%;
-    --chart-4: 280 70% 55%;
-    --chart-5: 0 72% 50%;
   }
-
-  .dark {
-    /* Same as root - dark industrial theme by default */
-    --background: 220 20% 10%;
-    --foreground: 210 40% 98%;
-  }
-
   .light {
     /* Light Industrial Theme */
     --background: 210 20% 98%;
@@ -104,17 +97,17 @@
     --secondary: 220 15% 92%;
     --secondary-foreground: 220 20% 10%;
 
-    /* Muted - Light Gray */
-    --muted: 220 15% 94%;
-    --muted-foreground: 220 15% 45%;
+    /* Muted */
+    --muted: 220 15% 95%;
+    --muted-foreground: 215 15% 45%;
 
-    /* Accent - Industrial Cyan */
+    /* Accent - Cyan */
     --accent: 190 90% 40%;
     --accent-foreground: 0 0% 100%;
 
     /* Mode Colors */
     --mode-local: 35 95% 50%;
-    --mode-local-foreground: 35 100% 15%;
+    --mode-local-foreground: 35 100% 10%;
     --mode-remote: 210 100% 50%;
     --mode-remote-foreground: 0 0% 100%;
 
@@ -122,38 +115,39 @@
     --success: 142 70% 40%;
     --success-foreground: 0 0% 100%;
     --warning: 35 95% 50%;
-    --warning-foreground: 35 100% 15%;
+    --warning-foreground: 35 100% 10%;
     --destructive: 0 72% 50%;
     --destructive-foreground: 0 0% 100%;
     --info: 200 90% 45%;
     --info-foreground: 0 0% 100%;
 
-    /* Industrial Alert */
+    /* Emergency */
     --emergency: 0 85% 50%;
     --emergency-foreground: 0 0% 100%;
 
     /* Borders & Input */
     --border: 220 15% 85%;
-    --input: 220 15% 90%;
+    --input: 220 15% 92%;
     --ring: 210 100% 45%;
 
-    /* Sidebar */
-    --sidebar-background: 220 20% 96%;
-    --sidebar-foreground: 220 20% 10%;
-    --sidebar-primary: 210 100% 45%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 15% 92%;
-    --sidebar-accent-foreground: 220 20% 10%;
-    --sidebar-border: 220 15% 88%;
-    --sidebar-ring: 210 100% 45%;
-
-    /* Chart colors */
-    --chart-1: 210 100% 45%;
+    /* Chart */
+    --chart-1: 210 100% 50%;
     --chart-2: 142 70% 40%;
     --chart-3: 35 95% 50%;
     --chart-4: 280 70% 50%;
     --chart-5: 0 72% 50%;
+
+    /* Sidebar */
+    --sidebar-background: 210 20% 98%;
+    --sidebar-foreground: 220 20% 10%;
+    --sidebar-primary: 210 100% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 15% 95%;
+    --sidebar-accent-foreground: 220 20% 10%;
+    --sidebar-border: 220 15% 85%;
+    --sidebar-ring: 210 100% 50%;
   }
+
 }
 
 @layer base {
@@ -170,6 +164,7 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    overflow: hidden;
   }
 
   /* Prevent text selection on touch */
@@ -181,103 +176,97 @@
 }
 
 @layer components {
-  /* Industrial Card Style */
-  .industrial-card {
-    @apply bg-card border border-border rounded-xl shadow-lg;
+  /* Portrait screen container - 1080x1920 */
+  .portrait-container {
+    @apply w-screen h-screen flex flex-col overflow-hidden;
+    max-height: 100vh;
+    max-height: 100dvh;
   }
 
-  .dark .industrial-card {
+  /* Fixed Header */
+  .fixed-header {
+    @apply flex-shrink-0 bg-card border-b border-border;
+  }
+
+  /* Main Content Area - fills remaining space */
+  .main-content {
+    @apply flex-1 overflow-hidden flex flex-col;
+  }
+
+  /* Industrial Card */
+  .industrial-card {
+    @apply bg-card border border-border rounded-lg;
     background: linear-gradient(
       180deg,
       hsl(var(--card)) 0%,
-      hsl(220 18% 12%) 100%
+      hsl(var(--card)) 100%
     );
   }
 
-  .light .industrial-card {
-    background: hsl(var(--card));
-    box-shadow: 0 4px 20px hsl(220 15% 80% / 0.3);
-  }
-
-  /* Status Value Display - Monospace for numbers */
+  /* Status Value Display */
   .status-value {
     font-family: 'JetBrains Mono', monospace;
-    @apply text-2xl md:text-3xl font-bold tracking-tight;
+    @apply font-bold tracking-tight;
   }
 
-  /* Large Touch Button */
+  /* Touch Button Base */
   .touch-button {
-    @apply min-h-[60px] md:min-h-[72px] px-6 text-base md:text-lg font-semibold rounded-xl transition-all duration-200;
+    @apply min-h-[48px] px-4 text-sm font-semibold rounded-lg transition-all duration-150;
     @apply active:scale-95 active:brightness-90;
     @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
     touch-action: manipulation;
   }
 
-  /* Mode Indicator Pill */
+  .touch-button-lg {
+    @apply min-h-[56px] px-5 text-base;
+  }
+
+  /* Mode Pill */
   .mode-pill {
-    @apply px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wider transition-all duration-300;
+    @apply px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider;
   }
 
   .mode-pill-local {
-    @apply bg-[hsl(var(--mode-local))] text-[hsl(var(--mode-local-foreground))];
-    box-shadow: 0 0 20px hsl(var(--mode-local) / 0.4);
+    @apply bg-mode-local text-mode-local-foreground;
+    box-shadow: 0 0 15px hsl(var(--mode-local) / 0.4);
   }
 
   .mode-pill-remote {
-    @apply bg-[hsl(var(--mode-remote))] text-[hsl(var(--mode-remote-foreground))];
-    box-shadow: 0 0 20px hsl(var(--mode-remote) / 0.4);
+    @apply bg-mode-remote text-mode-remote-foreground;
+    box-shadow: 0 0 15px hsl(var(--mode-remote) / 0.4);
   }
 
-  /* Emergency Stop Button - Rectangular (legacy) */
+  /* E-Stop Button */
   .e-stop-button {
-    @apply relative bg-[hsl(var(--emergency))] text-[hsl(var(--emergency-foreground))];
-    @apply min-h-[80px] rounded-2xl font-bold text-xl uppercase tracking-wider;
-    @apply border-4 border-[hsl(var(--emergency))];
-    @apply shadow-[0_0_30px_hsl(var(--emergency)/0.5),inset_0_2px_0_hsl(0_0%_100%/0.2)];
-    @apply active:scale-95 active:shadow-[0_0_40px_hsl(var(--emergency)/0.7)];
-    animation: emergency-pulse 2s ease-in-out infinite;
-  }
-
-  @keyframes emergency-pulse {
-    0%, 100% { box-shadow: 0 0 20px hsl(var(--emergency) / 0.5); }
-    50% { box-shadow: 0 0 35px hsl(var(--emergency) / 0.8); }
-  }
-
-  /* Circular E-Stop Button - Like real industrial button */
-  .e-stop-circular {
     animation: e-stop-glow 2s ease-in-out infinite;
   }
 
   @keyframes e-stop-glow {
-    0%, 100% { 
-      filter: drop-shadow(0 0 15px rgba(239, 68, 68, 0.4));
+    0%, 100% {
+      filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.4));
     }
-    50% { 
-      filter: drop-shadow(0 0 30px rgba(239, 68, 68, 0.7));
+    50% {
+      filter: drop-shadow(0 0 25px rgba(239, 68, 68, 0.7));
     }
   }
 
   @keyframes e-stop-pulse {
-    0%, 100% { 
+    0%, 100% {
       box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
     }
-    50% { 
-      box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+    50% {
+      box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
     }
-  }
-
-  .animate-e-stop-pulse {
-    animation: e-stop-pulse 2s ease-in-out infinite;
   }
 
   /* Status Indicator Light */
   .status-light {
-    @apply w-3 h-3 md:w-4 md:h-4 rounded-full transition-all duration-300;
+    @apply w-2.5 h-2.5 rounded-full transition-all duration-300;
   }
 
   .status-light-active {
-    @apply bg-[hsl(var(--success))];
-    box-shadow: 0 0 12px hsl(var(--success) / 0.7);
+    @apply bg-success;
+    box-shadow: 0 0 8px hsl(var(--success) / 0.7);
   }
 
   .status-light-inactive {
@@ -285,8 +274,8 @@
   }
 
   .status-light-error {
-    @apply bg-[hsl(var(--destructive))];
-    box-shadow: 0 0 12px hsl(var(--destructive) / 0.7);
+    @apply bg-destructive;
+    box-shadow: 0 0 8px hsl(var(--destructive) / 0.7);
     animation: error-blink 1s ease-in-out infinite;
   }
 
@@ -295,37 +284,9 @@
     50% { opacity: 0.5; }
   }
 
-  /* Control Mode Selector Cards */
-  .mode-card {
-    @apply p-4 md:p-6 rounded-xl border-2 cursor-pointer transition-all duration-300;
-    @apply flex flex-col items-center justify-center gap-2 text-center;
-    @apply min-h-[120px] md:min-h-[140px];
-    touch-action: manipulation;
-  }
-
-  .mode-card-local {
-    @apply border-[hsl(var(--mode-local)/0.3)] bg-[hsl(var(--mode-local)/0.1)];
-    @apply hover:border-[hsl(var(--mode-local))] hover:bg-[hsl(var(--mode-local)/0.15)];
-  }
-
-  .mode-card-local.active {
-    @apply border-[hsl(var(--mode-local))] bg-[hsl(var(--mode-local)/0.2)];
-    box-shadow: 0 0 30px hsl(var(--mode-local) / 0.3);
-  }
-
-  .mode-card-remote {
-    @apply border-[hsl(var(--mode-remote)/0.3)] bg-[hsl(var(--mode-remote)/0.1)];
-    @apply hover:border-[hsl(var(--mode-remote))] hover:bg-[hsl(var(--mode-remote)/0.15)];
-  }
-
-  .mode-card-remote.active {
-    @apply border-[hsl(var(--mode-remote))] bg-[hsl(var(--mode-remote)/0.2)];
-    box-shadow: 0 0 30px hsl(var(--mode-remote) / 0.3);
-  }
-
-  /* Jog Button Styles */
+  /* Jog Button */
   .jog-button {
-    @apply min-h-[100px] md:min-h-[120px] text-lg md:text-xl font-bold rounded-xl;
+    @apply min-h-[80px] text-base font-bold rounded-lg;
     @apply bg-secondary hover:bg-secondary/80 text-foreground;
     @apply border-2 border-border transition-all duration-150;
     @apply active:scale-95 active:bg-primary active:text-primary-foreground active:border-primary;
@@ -334,92 +295,88 @@
 
   .jog-button:disabled {
     @apply opacity-50 cursor-not-allowed bg-muted text-muted-foreground border-muted;
-    @apply hover:bg-muted active:scale-100 active:bg-muted active:text-muted-foreground;
+    @apply hover:bg-muted active:scale-100;
   }
 
   .jog-button.active {
     @apply bg-primary text-primary-foreground border-primary;
-    box-shadow: 0 0 25px hsl(var(--primary) / 0.5);
-  }
-
-  /* Slider Touch Friendly */
-  .touch-slider {
-    @apply h-4 cursor-pointer;
-  }
-
-  .touch-slider [data-orientation="horizontal"] {
-    @apply h-4;
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.5);
   }
 
   /* Chart Container */
   .chart-container {
-    @apply industrial-card p-4;
-    min-height: 280px;
+    @apply industrial-card p-3 flex-1;
+    min-height: 0;
   }
 
-  /* Connection Status Bar */
+  /* Connection Status */
   .connection-bar {
-    @apply flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium;
+    @apply flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium;
   }
 
   .connection-bar.connected {
-    @apply bg-[hsl(var(--success)/0.2)] text-[hsl(var(--success))];
+    @apply bg-success/20 text-success;
   }
 
   .connection-bar.disconnected {
-    @apply bg-[hsl(var(--destructive)/0.2)] text-[hsl(var(--destructive))];
+    @apply bg-destructive/20 text-destructive;
   }
 
-  /* Warning Banner */
-  .warning-banner {
-    @apply flex items-center gap-3 px-4 py-3 rounded-xl;
-    @apply bg-[hsl(var(--warning)/0.15)] border border-[hsl(var(--warning)/0.3)];
-    @apply text-[hsl(var(--warning))] text-sm font-medium;
-  }
-
-  /* Safety Note */
-  .safety-note {
-    @apply flex items-center gap-2 text-xs text-muted-foreground;
-    @apply bg-muted/50 px-3 py-2 rounded-lg;
-  }
-
-  /* Navigation Styles */
-  .nav-item {
-    @apply flex items-center gap-3 px-4 py-3 rounded-xl text-muted-foreground;
-    @apply hover:bg-secondary hover:text-foreground transition-all duration-200;
-    @apply min-h-[52px];
+  /* Navigation Tab */
+  .nav-tab {
+    @apply flex items-center justify-center gap-2 px-4 py-4 rounded-lg text-sm font-medium;
+    @apply text-muted-foreground hover:text-foreground hover:bg-secondary/50;
+    @apply transition-all duration-200;
     touch-action: manipulation;
   }
 
-  .nav-item.active {
-    @apply bg-primary/10 text-primary;
+  .nav-tab.active {
+    @apply bg-primary text-primary-foreground;
   }
 
-  /* Page Header */
-  .page-header {
-    @apply flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4;
+  /* Status Card Compact */
+  .status-card-compact {
+    @apply industrial-card p-2.5 flex items-center justify-between gap-2;
   }
 
-  /* Grid Layouts */
-  .status-grid {
-    @apply grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4;
+  /* Control Button Grid */
+  .control-btn {
+    @apply flex flex-col items-center justify-center gap-1 p-3 rounded-lg;
+    @apply bg-secondary/50 border border-border;
+    @apply hover:bg-secondary active:scale-95;
+    @apply transition-all duration-150;
+    touch-action: manipulation;
   }
 
-  .control-grid {
-    @apply grid grid-cols-1 lg:grid-cols-3 gap-4;
+  .control-btn-success {
+    @apply bg-success/20 border-success/30 text-success;
+    @apply hover:bg-success/30;
   }
-}
 
-/* Custom scrollbar for touch devices */
-@layer utilities {
+  .control-btn-destructive {
+    @apply bg-destructive/20 border-destructive/30 text-destructive;
+    @apply hover:bg-destructive/30;
+  }
+
+  .control-btn-warning {
+    @apply bg-warning/20 border-warning/30 text-warning;
+    @apply hover:bg-warning/30;
+  }
+
+  .control-btn-primary {
+    @apply bg-primary/20 border-primary/30 text-primary;
+    @apply hover:bg-primary/30;
+  }
+
+  /* Scrollbar thin */
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--border)) transparent;
   }
 
   .scrollbar-thin::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 4px;
+    height: 4px;
   }
 
   .scrollbar-thin::-webkit-scrollbar-track {
@@ -428,10 +385,22 @@
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
     background: hsl(var(--border));
-    border-radius: 3px;
+    border-radius: 2px;
   }
+}
 
-  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground));
+/* Slide up animation */
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
   }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
 }

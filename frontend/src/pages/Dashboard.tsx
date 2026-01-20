@@ -1,293 +1,331 @@
-import { useState, useEffect } from 'react';
-import { StatusCard } from '@/components/dashboard/StatusCard';
-import { MachineIndicator } from '@/components/dashboard/MachineIndicator';
-import { TestStatusBadge } from '@/components/dashboard/TestStatusBadge';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ForceDeflectionChart } from '@/components/dashboard/ForceDeflectionChart';
-import { SafetyIndicators } from '@/components/dashboard/SafetyIndicators';
-import { TestProgress } from '@/components/dashboard/TestProgress';
-import { ModeSelector } from '@/components/ModeSelector';
 import { TouchButton } from '@/components/ui/TouchButton';
-import { EStopButton } from '@/components/ui/EStopButton';
-import { Progress } from '@/components/ui/progress';
-import { Gauge, Move, Target, Activity, Home, Play, Square, RotateCcw, Scale } from 'lucide-react';
-import { useLiveData } from '@/hooks/useLiveData';
-import { useCommands, useModeControl, useTareControl } from '@/hooks/useApi';
+import { NumericKeypad } from '@/components/ui/NumericKeypad';
+import { 
+  Home, Play, Square, 
+  ChevronUp, ChevronDown, Lock, Unlock, Power, PowerOff, RotateCcw
+} from 'lucide-react';
+import { useLiveData, useJogControl } from '@/hooks/useLiveData';
+import { useStepControl } from '@/hooks/useStepControl';
+import { useCommands, useServoControl, useClampControl } from '@/hooks/useApi';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { cn } from '@/lib/utils';
 
 const Dashboard = () => {
-  const { t, language } = useLanguage();
-  const { liveData, isConnected } = useLiveData();
+  const { t } = useLanguage();
+  const { liveData, setLiveData, isConnected } = useLiveData();
   const { startTest, stopTest, goHome } = useCommands();
-  const { setMode } = useModeControl();
-  const { tareLoadCell, zeroPosition } = useTareControl();
+  const { enableServo, disableServo, resetAlarm } = useServoControl();
+  const { lockUpper, lockLower, unlockAll } = useClampControl();
+  const { jogForward, jogBackward, setJogSpeed, jogSpeed } = useJogControl();
+  const { stepUp, stepDown, stepDistance, setStepDistance } = useStepControl();
 
-  // Chart data - accumulate from live data
   const [chartData, setChartData] = useState<{ deflection: number; force: number }[]>([]);
+  const [isJogging, setIsJogging] = useState<'up' | 'down' | null>(null);
+  const jogUpActive = useRef(false);
+  const jogDownActive = useRef(false);
 
-  // Get safety data (support both new and old structure)
+  // Keypad state
+  const [keypadOpen, setKeypadOpen] = useState<'speed' | 'distance' | null>(null);
+
+  const isLocalMode = !liveData.remote_mode;
+  const controlsDisabled = isLocalMode || !isConnected;
+  const isTestRunning = liveData.test_status === 2;
+  const forceN = (liveData.actual_force || 0) * 1000;
+  
   const safety = liveData.safety || {
-    e_stop: liveData.e_stop_active || false,
-    upper_limit: liveData.upper_limit || false,
-    lower_limit: liveData.lower_limit || false,
-    home: liveData.at_home || false,
     ok: true,
-    motion_allowed: true,
   };
 
-  // Get test data (support both new and old structure)
-  const testStage = liveData.test?.stage ?? 0;
-  const testProgress = liveData.test?.progress ?? liveData.test_progress ?? 0;
-
-  // Mode state
-  const isLocalMode = !liveData.remote_mode && !(liveData.mode?.remote);
-  const controlsDisabled = isLocalMode || !isConnected;
-  const isTestRunning = liveData.test_status === 2 || (testStage >= 1 && testStage <= 7);
-
-  // Get force value (support both new and old structure)
-  const forceKN = liveData.force?.kN ?? liveData.actual_force ?? 0;
-  const forceN = forceKN * 1000;
-
-  // Update chart data when testing
+  // Global jog release
   useEffect(() => {
-    if (liveData.test_status === 2 || isTestRunning) {
-      setChartData(prev => {
-        const lastPoint = prev[prev.length - 1];
-        const currentDeflection = liveData.deflection?.actual ?? liveData.actual_deflection ?? 0;
-        if (lastPoint && Math.abs(lastPoint.deflection - currentDeflection) < 0.01) {
-          return prev;
-        }
-        return [...prev, {
-          deflection: currentDeflection,
-          force: forceN,
-        }];
-      });
-    } else if (liveData.test_status === 1 || testStage === 1) {
+    const handleGlobalPointerUp = () => {
+      if (jogUpActive.current) {
+        jogUpActive.current = false;
+        setIsJogging(null);
+        jogBackward(false);
+      }
+      if (jogDownActive.current) {
+        jogDownActive.current = false;
+        setIsJogging(null);
+        jogForward(false);
+      }
+    };
+
+    window.addEventListener('pointerup', handleGlobalPointerUp);
+    window.addEventListener('pointercancel', handleGlobalPointerUp);
+    return () => {
+      window.removeEventListener('pointerup', handleGlobalPointerUp);
+      window.removeEventListener('pointercancel', handleGlobalPointerUp);
+    };
+  }, [jogForward, jogBackward]);
+
+  // Chart data update
+  useEffect(() => {
+    if (isTestRunning) {
+      setChartData(prev => [...prev, {
+        deflection: liveData.actual_deflection,
+        force: forceN,
+      }]);
+    } else if (liveData.test_status === 1) {
       setChartData([]);
     }
-  }, [liveData.actual_deflection, liveData.deflection?.actual, forceN, liveData.test_status, testStage, isTestRunning]);
-
-  // Call real API to change mode in PLC
-  const handleModeChange = (remoteMode: boolean) => {
-    setMode.mutate(remoteMode);
-  };
-
-  const handleHome = () => {
-    goHome.mutate();
-  };
+  }, [liveData.actual_deflection, forceN, isTestRunning, liveData.test_status]);
 
   const handleStartTest = () => {
     setChartData([]);
+    setLiveData(prev => ({ ...prev, test_status: 2 }));
     startTest.mutate();
   };
 
   const handleStop = () => {
+    setLiveData(prev => ({ ...prev, test_status: 0 }));
     stopTest.mutate();
   };
 
-  const handleTare = () => {
-    tareLoadCell.mutate();
-  };
+  const handleJogUpStart = useCallback((e: React.PointerEvent) => {
+    if (controlsDisabled || jogUpActive.current) return;
+    e.preventDefault();
+    jogUpActive.current = true;
+    setIsJogging('up');
+    jogBackward(true);
+  }, [jogBackward, controlsDisabled]);
 
-  const handleZeroPosition = () => {
-    zeroPosition.mutate();
-  };
+  const handleJogDownStart = useCallback((e: React.PointerEvent) => {
+    if (controlsDisabled || jogDownActive.current) return;
+    e.preventDefault();
+    jogDownActive.current = true;
+    setIsJogging('down');
+    jogForward(true);
+  }, [jogForward, controlsDisabled]);
 
-  const testStatus = liveData.test_status as 0 | 1 | 2 | 3 | 4 | 5 | -1;
-  const actualPosition = liveData.position?.actual ?? liveData.actual_position ?? 0;
-  const targetDeflection = liveData.deflection?.target ?? liveData.target_deflection ?? 0;
-  const actualDeflection = liveData.deflection?.actual ?? liveData.actual_deflection ?? 0;
+  // Button height class for consistency
+  const btnHeight = "h-12";
 
   return (
-    <div className="flex flex-col gap-4 md:gap-6 animate-slide-up">
-      {/* Header */}
-      <div className="page-header">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-xl lg:text-2xl font-bold">{t('nav.dashboard')}</h1>
-          <TestStatusBadge status={testStatus} />
-          {!isConnected && (
-            <span className="connection-bar disconnected">
-              <span className="w-2 h-2 rounded-full bg-current" />
-              {t('connection.disconnected')}
-            </span>
-          )}
-        </div>
-
-        {/* Mode Selector - Compact */}
-        <ModeSelector
-          remoteMode={liveData.remote_mode || liveData.mode?.remote || false}
-          onModeChange={handleModeChange}
-          isTestRunning={isTestRunning}
-          variant="compact"
-        />
-      </div>
-
-      {/* Safety Indicators */}
-      <SafetyIndicators
-        eStop={safety.e_stop}
-        upperLimit={safety.upper_limit}
-        lowerLimit={safety.lower_limit}
-        home={safety.home}
-        safetyOk={safety.ok}
-        motionAllowed={safety.motion_allowed}
-      />
-
-      {/* Test Progress */}
-      {(isTestRunning || testStage > 0) && (
-        <TestProgress
-          stage={testStage}
-          progress={testProgress}
-          isRunning={isTestRunning}
-        />
-      )}
-
-      {/* Status Cards with TARE/ZERO buttons */}
-      <div className="status-grid">
-        <div className="space-y-2">
-          <StatusCard
-            title={t('dashboard.force')}
-            value={forceN.toFixed(0)}
-            unit="N"
-            icon={<Gauge className="w-5 h-5" />}
-            variant="info"
-          />
+    <div className="flex flex-col h-full gap-2 animate-slide-up">
+      {/* Control Groups - Horizontal Layout - Equal Width */}
+      <div className="grid grid-cols-5 gap-2">
+        {/* Group 1: Test Control */}
+        <div className="flex flex-col gap-1.5 p-2 bg-card rounded-lg border border-border">
+          <span className="text-sm font-bold text-muted-foreground text-center uppercase tracking-wide">Test</span>
           <TouchButton
             variant="outline"
             size="sm"
-            onClick={handleTare}
-            disabled={controlsDisabled || tareLoadCell.isPending || isTestRunning}
-            className="w-full gap-2"
-          >
-            <Scale className="w-4 h-4" />
-            {t('actions.tare') || 'TARE'}
-          </TouchButton>
-        </div>
-        
-        <StatusCard
-          title={t('dashboard.deflection')}
-          value={actualDeflection.toFixed(2)}
-          unit="mm"
-          icon={<Move className="w-5 h-5" />}
-          variant="warning"
-        />
-        
-        <div className="space-y-2">
-          <StatusCard
-            title={t('dashboard.position')}
-            value={actualPosition.toFixed(2)}
-            unit="mm"
-            icon={<Target className="w-5 h-5" />}
-          />
-          <TouchButton
-            variant="outline"
-            size="sm"
-            onClick={handleZeroPosition}
-            disabled={controlsDisabled || zeroPosition.isPending || isTestRunning}
-            className="w-full gap-2"
-          >
-            <RotateCcw className="w-4 h-4" />
-            {t('actions.zero') || 'ZERO'}
-          </TouchButton>
-        </div>
-        
-        <StatusCard
-          title={t('dashboard.status')}
-          value={t(`status.${['idle', 'starting', 'testing', 'atTarget', 'returning', 'complete'][liveData.test_status] || 'error'}`)}
-          icon={<Activity className="w-5 h-5" />}
-          variant={liveData.test_status === 2 ? 'warning' : liveData.test_status === 5 ? 'success' : 'default'}
-        />
-      </div>
-
-      {/* Quick Action Buttons */}
-      <div className="flex flex-wrap items-center gap-4">
-        {/* Control Buttons */}
-        <div className="grid grid-cols-3 gap-3 flex-1 min-w-0">
-          <TouchButton
-            variant="outline"
-            onClick={handleHome}
+            onClick={() => goHome.mutate()}
             disabled={controlsDisabled || goHome.isPending}
-            className="gap-2"
+            className="flex items-center justify-center gap-1.5 w-full h-[52px]"
           >
-            <Home className="w-5 h-5" />
-            {t('actions.home') || 'HOME'}
+            <Home className="w-6 h-6" />
+            <span className="text-sm">{t('actions.home')}</span>
           </TouchButton>
           <TouchButton
             variant="success"
+            size="sm"
             onClick={handleStartTest}
-            disabled={controlsDisabled || !liveData.servo_ready || liveData.servo_error || isTestRunning || startTest.isPending || !safety.ok}
-            className="gap-2"
+            disabled={controlsDisabled || isTestRunning || !safety.ok}
+            className="flex items-center justify-center gap-1.5 w-full h-[52px]"
           >
-            <Play className="w-5 h-5" />
-            {t('actions.start') || 'START'}
+            <Play className="w-6 h-6" />
+            <span className="text-sm">{t('actions.start')}</span>
           </TouchButton>
           <TouchButton
             variant="destructive"
+            size="sm"
             onClick={handleStop}
-            disabled={controlsDisabled || stopTest.isPending}
-            className="gap-2"
+            disabled={controlsDisabled}
+            className="flex items-center justify-center gap-1.5 w-full h-[52px]"
           >
-            <Square className="w-5 h-5" />
-            {t('actions.stop') || 'STOP'}
+            <Square className="w-6 h-6" />
+            <span className="text-sm">{t('actions.stop')}</span>
           </TouchButton>
         </div>
-        
-        {/* Separator */}
-        <div className="hidden md:flex items-center h-16 px-2">
-          <div className="w-px h-full bg-border/50"></div>
+
+        {/* Group 2: Jog Control */}
+        <div className="flex flex-col gap-1.5 p-2 bg-card rounded-lg border border-border">
+          <span className="text-sm font-bold text-muted-foreground text-center uppercase tracking-wide">Jog</span>
+          <button
+            onPointerDown={handleJogUpStart}
+            disabled={controlsDisabled || !liveData.servo_ready}
+            className={cn(
+              "jog-button w-full flex items-center justify-center gap-1.5 rounded-lg",
+              btnHeight,
+              isJogging === 'up' && 'active'
+            )}
+            style={{ touchAction: 'none' }}
+          >
+            <ChevronUp className="w-6 h-6" />
+            <span className="text-sm">{t('manual.jogUp')}</span>
+          </button>
+          <button
+            onPointerDown={handleJogDownStart}
+            disabled={controlsDisabled || !liveData.servo_ready}
+            className={cn(
+              "jog-button w-full flex items-center justify-center gap-1.5 rounded-lg",
+              btnHeight,
+              isJogging === 'down' && 'active'
+            )}
+            style={{ touchAction: 'none' }}
+          >
+            <ChevronDown className="w-6 h-6" />
+            <span className="text-sm">{t('manual.jogDown')}</span>
+          </button>
+          <button
+            onClick={() => !controlsDisabled && setKeypadOpen('speed')}
+            disabled={controlsDisabled}
+            className={cn(
+              "flex items-center justify-between px-2 bg-secondary/30 rounded-lg border border-border cursor-pointer hover:bg-secondary/50 transition-colors",
+              btnHeight,
+              controlsDisabled && "opacity-50 cursor-not-allowed"
+            )}
+          >
+            <span className="text-xs text-muted-foreground">{t('manual.speed')}</span>
+            <div className="flex items-center gap-0.5">
+              <span className="text-primary font-mono text-xs font-bold">{jogSpeed}</span>
+              <span className="text-xs text-muted-foreground">mm/m</span>
+            </div>
+          </button>
         </div>
-        
-        {/* E-Stop - Isolated Emergency Control */}
-        <div className="flex-shrink-0 p-2 rounded-xl bg-destructive/5 border border-destructive/20">
-          <EStopButton
-            size="md"
-            label={t('actions.eStop')}
-            activeLabel={t('estop.active')}
-            isActive={safety.e_stop}
-            onClick={handleStop}
-          />
+
+        {/* Group 3: Step Control */}
+        <div className="flex flex-col gap-1.5 p-2 bg-card rounded-lg border border-border">
+          <span className="text-sm font-bold text-muted-foreground text-center uppercase tracking-wide">Step</span>
+          <button
+            onClick={() => !controlsDisabled && !liveData.servo_ready ? null : stepUp()}
+            disabled={controlsDisabled || !liveData.servo_ready}
+            className={cn(
+              "jog-button w-full flex items-center justify-center gap-1.5 rounded-lg",
+              btnHeight
+            )}
+          >
+            <ChevronUp className="w-6 h-6" />
+            <span className="text-sm">{t('manual.stepUp')}</span>
+          </button>
+          <button
+            onClick={() => !controlsDisabled && !liveData.servo_ready ? null : stepDown()}
+            disabled={controlsDisabled || !liveData.servo_ready}
+            className={cn(
+              "jog-button w-full flex items-center justify-center gap-1.5 rounded-lg",
+              btnHeight
+            )}
+          >
+            <ChevronDown className="w-6 h-6" />
+            <span className="text-sm">{t('manual.stepDown')}</span>
+          </button>
+          <button
+            onClick={() => !controlsDisabled && setKeypadOpen('distance')}
+            disabled={controlsDisabled}
+            className={cn(
+              "flex items-center justify-between px-2 bg-secondary/30 rounded-lg border border-border cursor-pointer hover:bg-secondary/50 transition-colors",
+              btnHeight,
+              controlsDisabled && "opacity-50 cursor-not-allowed"
+            )}
+          >
+            <span className="text-xs text-muted-foreground">Dist</span>
+            <div className="flex items-center gap-0.5">
+              <span className="text-primary font-mono text-xs font-bold">{stepDistance}</span>
+              <span className="text-xs text-muted-foreground">mm</span>
+            </div>
+          </button>
+        </div>
+
+        {/* Group 4: Jaw/Clamp Control */}
+        <div className="flex flex-col gap-1.5 p-2 bg-card rounded-lg border border-border">
+          <span className="text-sm font-bold text-muted-foreground text-center uppercase tracking-wide">Jaw</span>
+          <TouchButton
+            variant="success"
+            size="sm"
+            onClick={() => lockUpper.mutate()}
+            disabled={!isConnected}
+            className="flex items-center justify-center gap-1.5 w-full h-[52px]"
+          >
+            <Lock className="w-6 h-6" />
+            <span className="text-sm">{t('manual.lockUpper')}</span>
+          </TouchButton>
+          <TouchButton
+            variant="success"
+            size="sm"
+            onClick={() => lockLower.mutate()}
+            disabled={!isConnected}
+            className="flex items-center justify-center gap-1.5 w-full h-[52px]"
+          >
+            <Lock className="w-6 h-6" />
+            <span className="text-sm">{t('manual.lockLower')}</span>
+          </TouchButton>
+          <TouchButton
+            variant="destructive"
+            size="sm"
+            onClick={() => unlockAll.mutate()}
+            disabled={!isConnected}
+            className="flex items-center justify-center gap-1.5 w-full h-[52px]"
+          >
+            <Unlock className="w-6 h-6" />
+            <span className="text-sm">{t('manual.unlockAll')}</span>
+          </TouchButton>
+        </div>
+
+        {/* Group 5: Servo Control */}
+        <div className="flex flex-col gap-1.5 p-2 bg-card rounded-lg border border-border">
+          <span className="text-sm font-bold text-muted-foreground text-center uppercase tracking-wide">Servo</span>
+          <TouchButton
+            variant="success"
+            size="sm"
+            onClick={() => enableServo.mutate()}
+            disabled={!isConnected}
+            className="flex items-center justify-center gap-1.5 w-full h-[52px]"
+          >
+            <Power className="w-6 h-6" />
+            <span className="text-sm">{t('manual.enable')}</span>
+          </TouchButton>
+          <TouchButton
+            variant="outline"
+            size="sm"
+            onClick={() => disableServo.mutate()}
+            disabled={!isConnected}
+            className="flex items-center justify-center gap-1.5 w-full h-[52px]"
+          >
+            <PowerOff className="w-6 h-6" />
+            <span className="text-sm">{t('manual.disable')}</span>
+          </TouchButton>
+          <TouchButton
+            variant="warning"
+            size="sm"
+            onClick={() => resetAlarm.mutate()}
+            disabled={!isConnected}
+            className="flex items-center justify-center gap-1.5 w-full h-[52px]"
+          >
+            <RotateCcw className="w-6 h-6" />
+            <span className="text-sm">{t('manual.resetAlarm')}</span>
+          </TouchButton>
         </div>
       </div>
 
-      {/* Chart Section */}
-      <div className="chart-container relative">
+      {/* Chart - fills remaining space */}
+      <div className="chart-container flex-1 min-h-[140px]">
         <ForceDeflectionChart
           data={chartData}
-          targetDeflection={targetDeflection}
+          targetDeflection={liveData.target_deflection}
         />
       </div>
 
-      {/* Machine Indicators */}
-      <div className="industrial-card p-4">
-        <h3 className="text-sm lg:text-base font-semibold mb-3 text-muted-foreground">
-          {t('dashboard.machineIndicators')}
-        </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <MachineIndicator
-            label={t('dashboard.servoReady')}
-            isActive={liveData.servo_ready || liveData.servo?.ready || false}
-          />
-          <MachineIndicator
-            label={t('dashboard.servoEnabled')}
-            isActive={liveData.servo_enabled || liveData.servo?.enabled || false}
-          />
-          <MachineIndicator
-            label={t('dashboard.servoError')}
-            isActive={liveData.servo_error || liveData.servo?.error || false}
-            isError={liveData.servo_error || liveData.servo?.error || false}
-          />
-          <MachineIndicator
-            label={t('dashboard.atHome')}
-            isActive={liveData.at_home || liveData.servo?.at_home || false}
-          />
-          <MachineIndicator
-            label={t('dashboard.upperLock')}
-            isActive={liveData.lock_upper || liveData.clamps?.upper || false}
-          />
-          <MachineIndicator
-            label={t('dashboard.lowerLock')}
-            isActive={liveData.lock_lower || liveData.clamps?.lower || false}
-          />
-        </div>
-      </div>
+      {/* Numeric Keypad */}
+      <NumericKeypad
+        isOpen={keypadOpen === 'speed'}
+        onClose={() => setKeypadOpen(null)}
+        onConfirm={(value) => setJogSpeed(value)}
+        initialValue={jogSpeed}
+        label={t('manual.speed')}
+        unit="mm/m"
+      />
+      <NumericKeypad
+        isOpen={keypadOpen === 'distance'}
+        onClose={() => setKeypadOpen(null)}
+        onConfirm={(value) => setStepDistance(value)}
+        initialValue={stepDistance}
+        label="Step Distance"
+        unit="mm"
+      />
     </div>
   );
 };
