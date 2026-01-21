@@ -1,0 +1,23 @@
+# Disable screen blanking
+xset s off
+xset s noblank
+xset -dpms
+
+# Rotate display to portrait mode
+xrandr --output HDMI-1 --rotate right
+
+# Show logo on black background while loading
+feh --bg-center --image-bg black /usr/share/plymouth/themes/mnt-logo/logo-x.png &
+
+# Calibrate touch input for rotated display
+xinput set-prop 'ILITEK ILITEK-TP' 'Coordinate Transformation Matrix' 0 1 0 -1 0 1 0 0 1
+xinput set-prop 'ILITEK ILITEK-TP Mouse' 'Coordinate Transformation Matrix' 0 1 0 -1 0 1 0 0 1
+
+# Hide mouse cursor
+unclutter -idle 0.5 -root &
+
+# Wait for services to load
+sleep 3
+
+# Start Chromium in kiosk mode
+chromium-browser --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble --disable-restore-session-state --no-first-run --start-fullscreen --start-maximized --disable-translate --disable-features=TranslateUI --disable-pinch --overscroll-history-navigation=0 --check-for-update-interval=31536000 http://localhost:8000 &

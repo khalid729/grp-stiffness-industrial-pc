@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=MNT Logo
+Description=MNT Boot Splash
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/mnt-logo
+ScriptFile=/usr/share/plymouth/themes/mnt-logo/mnt-logo.script

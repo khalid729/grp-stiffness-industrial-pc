@@ -115,48 +115,27 @@ export function PortraitLayout({ children }: PortraitLayoutProps) {
     <div className="portrait-container">
       {/* Fixed Header Section */}
       <header className="flex-shrink-0 flex flex-col gap-1.5 p-2 pt-4 border-b border-border bg-background">
-        {/* Top Section: Page Info (3 rows) + Logo (center) + E-Stop Button */}
-        <div className="flex items-stretch gap-3 relative">
-          {/* Left: Page Title, PLC Status, Test Status */}
-          <div className="flex-1 flex flex-col gap-1.5">
-            {/* Row 1: Page Title */}
-            <h1 className="text-3xl font-bold">{getCurrentTabName(location.pathname, t)}</h1>
-            
-            {/* Row 2: PLC Status */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">{t('plc.status')}:</span>
-              <span className={cn(
-                "px-3 py-1 rounded text-sm font-medium",
-                liveData.plc?.connected ? "bg-success/20 text-success" : "bg-destructive/20 text-destructive"
-              )}>
-                {liveData.plc?.connected ? t('plc.run') : t('plc.stop')}
-              </span>
-            </div>
-            
-            {/* Row 3: Test Status */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">{t('test.status')}:</span>
-              <TestStatusBadge status={liveData.test_status as 0 | 1 | 2 | 3 | 4 | 5 | -1} />
-            </div>
-          </div>
-          
-          {/* Center: Logo */}
-          <img
-            src="/logo.png"
-            alt="MNT Logo"
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-24 object-contain"
-          />
-
-          {/* Right: E-Stop Button - spans all 3 rows */}
-          <EStopButton
-            isActive={safety.e_stop}
-            label={t('actions.eStop')}
-            activeLabel={t('estop.active')}
-            className="w-32 h-32 flex-shrink-0 self-center"
-          />
+        {/* Row 1: Page Title */}
+        <h1 className="text-3xl font-bold">{getCurrentTabName(location.pathname, t)}</h1>
+        
+        {/* Row 2: PLC Status */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">{t('plc.status')}:</span>
+          <span className={cn(
+            "px-3 py-1 rounded text-sm font-medium",
+            liveData.plc?.connected ? "bg-success/20 text-success" : "bg-destructive/20 text-destructive"
+          )}>
+            {liveData.plc?.connected ? t('plc.run') : t('plc.stop')}
+          </span>
+        </div>
+        
+        {/* Row 3: Test Status */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">{t('test.status')}:</span>
+          <TestStatusBadge status={liveData.test_status as 0 | 1 | 2 | 3 | 4 | 5 | -1} />
         </div>
 
-        {/* Row 4: Safety + Machine Indicators | Mode Toggle */}
+        {/* Row 2: Safety + Machine Indicators | Mode Toggle | Emergency Button */}
         <div className="flex items-center gap-2">
           {/* Indicators */}
           <div className="flex flex-col gap-1">
@@ -178,7 +157,7 @@ export function PortraitLayout({ children }: PortraitLayoutProps) {
             />
           </div>
           
-          {/* Mode Toggle - centered in remaining space */}
+          {/* Mode Toggle - centered in remaining space before E-Stop */}
           <div className="flex-1 flex items-center justify-center">
             <ModeToggle
               isRemote={liveData.remote_mode}
@@ -186,6 +165,14 @@ export function PortraitLayout({ children }: PortraitLayoutProps) {
               disabled={isTestRunning}
             />
           </div>
+          
+          {/* Emergency Stop - fixed size */}
+          <EStopButton
+            isActive={safety.e_stop}
+            label={t('actions.eStop')}
+            activeLabel={t('estop.active')}
+            className="w-20 h-20 flex-shrink-0"
+          />
         </div>
 
         {/* Row 3: Force, Weight, Position, Deflection */}
@@ -247,7 +234,7 @@ export function PortraitLayout({ children }: PortraitLayoutProps) {
       </header>
 
       {/* Main Content */}
-      <main className="main-content p-2 pb-24">
+      <main className="main-content p-2 pb-20">
         {children}
       </main>
 
