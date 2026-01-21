@@ -109,6 +109,11 @@ const translations: Translations = {
   "plc.run": { en: "RUN", ar: "تشغيل" },
   "plc.stop": { en: "STOP", ar: "توقف" },
   "plc.status": { en: "PLC Status", ar: "حالة PLC" },
+  "settings.language": { en: "Language", ar: "اللغة" },
+  "settings.theme": { en: "Theme", ar: "السمة" },
+  "settings.wifi": { en: "WiFi", ar: "الواي فاي" },
+  "settings.lan": { en: "LAN Network", ar: "شبكة LAN" },
+  "settings.plcNetwork": { en: "PLC Network", ar: "شبكة PLC" },
   "test.status": { en: "Test Status", ar: "حالة الاختبار" },
 };
 

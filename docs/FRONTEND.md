@@ -734,3 +734,99 @@ const { t, language, setLanguage } = useLanguage();
 // Change language
 setLanguage(ar);
 ```
+
+---
+
+## New UI Components (v1.1)
+
+### VirtualKeyboard
+
+Full virtual keyboard for text input (WiFi passwords, etc.):
+
+```typescript
+import { VirtualKeyboard } from "@/components/ui/VirtualKeyboard";
+
+<VirtualKeyboard
+  value={password}
+  onChange={setPassword}
+  onClose={() => setShowKeyboard(false)}
+/>
+```
+
+Features:
+- QWERTY layout with shift support
+- Numbers and symbols mode (123 button)
+- Backspace and space keys
+- Confirm button to close
+
+### IPKeypad
+
+Numeric keypad with decimal point for IP address input:
+
+```typescript
+import { IPKeypad } from "@/components/ui/IPKeypad";
+
+<IPKeypad
+  isOpen={showKeypad}
+  onClose={() => setShowKeypad(false)}
+  onConfirm={(value) => setIpAddress(value)}
+  initialValue="192.168.0.1"
+  label="Enter IP Address"
+/>
+```
+
+Features:
+- Numbers 0-9 and decimal point
+- Clear and backspace buttons
+- Modal dialog display
+
+---
+
+## Layout Updates (v1.1)
+
+### Header Layout
+
+The header now includes:
+- **MNT Logo** centered in the header
+- **E-Stop Button** repositioned to top-right corner, spanning 3 rows
+
+```
+┌──────────────────────────────────────────────────────┐
+│  Dashboard Title    [MNT LOGO]           [E-STOP]   │
+│  PLC Status: RUN                         [BUTTON]   │
+│  Test Status: Idle                       [  RED ]   │
+├──────────────────────────────────────────────────────┤
+```
+
+### StatusCard Updates
+
+Status cards (Force, Weight, Position, Deflection) now have:
+- Increased height: `min-h-[128px]`
+- Action buttons (Tare, Zero) moved to title row
+- Larger value text: `text-4xl`
+
+### Dashboard Buttons
+
+All control buttons standardized to:
+- Height: `min-h-[80px]` (matching jog buttons)
+- Input fields (Speed, Distance) same height as buttons
+
+### Settings Page
+
+- All buttons: `min-h-[52px]`
+- Titles use translations: `t("settings.language")`, `t("settings.theme")`
+- IP inputs open IPKeypad on click
+- WiFi password shows VirtualKeyboard
+
+---
+
+## Translation Keys Added (v1.1)
+
+```typescript
+// Settings translations
+"settings.language": { en: "Language", ar: "اللغة" },
+"settings.theme": { en: "Theme", ar: "السمة" },
+"settings.wifi": { en: "WiFi", ar: "الواي فاي" },
+"settings.lan": { en: "LAN Network", ar: "شبكة LAN" },
+"settings.plcNetwork": { en: "PLC Network", ar: "شبكة PLC" },
+```

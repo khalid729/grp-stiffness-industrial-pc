@@ -39,21 +39,21 @@ export function StatusCard({
   if (compact) {
     return (
       <div className={cn(
-        "industrial-card border p-2 flex flex-col gap-1",
+        "industrial-card border p-3 flex flex-col min-h-[128px]",
         variantStyles[variant]
       )}>
-        <div className="flex items-center justify-between gap-1">
-          {icon && <span className="text-muted-foreground">{icon}</span>}
-          <p className="text-sm text-muted-foreground truncate flex-1">{title}</p>
-        </div>
-        <div className="flex items-center justify-between gap-1">
-          <div className="flex items-baseline gap-1">
-            <span className={cn("status-value text-3xl font-bold", valueStyles[variant])}>
-              {value}
-            </span>
-            {unit && <span className="text-sm text-muted-foreground">{unit}</span>}
+        <div className="flex items-center justify-between gap-1 h-7 shrink-0">
+          <div className="flex items-center gap-1 flex-1">
+            {icon && <span className="text-muted-foreground">{icon}</span>}
+            <p className="text-sm text-muted-foreground truncate">{title}</p>
           </div>
           {actionButton && <div className="shrink-0">{actionButton}</div>}
+        </div>
+        <div className="flex items-center gap-1 flex-1">
+          <span className={cn("status-value text-4xl font-bold", valueStyles[variant])}>
+            {value}
+          </span>
+          {unit && <span className="text-base text-muted-foreground">{unit}</span>}
         </div>
       </div>
     );

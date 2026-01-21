@@ -101,21 +101,20 @@ const Dashboard = () => {
   }, [jogForward, controlsDisabled]);
 
   // Button height class for consistency
-  const btnHeight = "h-12";
 
   return (
     <div className="flex flex-col h-full gap-2 animate-slide-up">
       {/* Control Groups - Horizontal Layout - Equal Width */}
       <div className="grid grid-cols-5 gap-2">
         {/* Group 1: Test Control */}
-        <div className="flex flex-col gap-1.5 p-2 bg-card rounded-lg border border-border">
+        <div className="flex flex-col justify-between gap-1.5 p-2 bg-card rounded-lg border border-border">
           <span className="text-sm font-bold text-muted-foreground text-center uppercase tracking-wide">Test</span>
           <TouchButton
             variant="outline"
             size="sm"
             onClick={() => goHome.mutate()}
             disabled={controlsDisabled || goHome.isPending}
-            className="flex items-center justify-center gap-1.5 w-full h-[52px]"
+            className="flex items-center justify-center gap-1.5 w-full min-h-[80px]"
           >
             <Home className="w-6 h-6" />
             <span className="text-sm">{t('actions.home')}</span>
@@ -125,7 +124,7 @@ const Dashboard = () => {
             size="sm"
             onClick={handleStartTest}
             disabled={controlsDisabled || isTestRunning || !safety.ok}
-            className="flex items-center justify-center gap-1.5 w-full h-[52px]"
+            className="flex items-center justify-center gap-1.5 w-full min-h-[80px]"
           >
             <Play className="w-6 h-6" />
             <span className="text-sm">{t('actions.start')}</span>
@@ -135,7 +134,7 @@ const Dashboard = () => {
             size="sm"
             onClick={handleStop}
             disabled={controlsDisabled}
-            className="flex items-center justify-center gap-1.5 w-full h-[52px]"
+            className="flex items-center justify-center gap-1.5 w-full min-h-[80px]"
           >
             <Square className="w-6 h-6" />
             <span className="text-sm">{t('actions.stop')}</span>
@@ -143,14 +142,14 @@ const Dashboard = () => {
         </div>
 
         {/* Group 2: Jog Control */}
-        <div className="flex flex-col gap-1.5 p-2 bg-card rounded-lg border border-border">
+        <div className="flex flex-col justify-between gap-1.5 p-2 bg-card rounded-lg border border-border">
           <span className="text-sm font-bold text-muted-foreground text-center uppercase tracking-wide">Jog</span>
           <button
             onPointerDown={handleJogUpStart}
             disabled={controlsDisabled || !liveData.servo_ready}
             className={cn(
               "jog-button w-full flex items-center justify-center gap-1.5 rounded-lg",
-              btnHeight,
+              "min-h-[80px]",
               isJogging === 'up' && 'active'
             )}
             style={{ touchAction: 'none' }}
@@ -163,7 +162,7 @@ const Dashboard = () => {
             disabled={controlsDisabled || !liveData.servo_ready}
             className={cn(
               "jog-button w-full flex items-center justify-center gap-1.5 rounded-lg",
-              btnHeight,
+              "min-h-[80px]",
               isJogging === 'down' && 'active'
             )}
             style={{ touchAction: 'none' }}
@@ -176,27 +175,27 @@ const Dashboard = () => {
             disabled={controlsDisabled}
             className={cn(
               "flex items-center justify-between px-2 bg-secondary/30 rounded-lg border border-border cursor-pointer hover:bg-secondary/50 transition-colors",
-              btnHeight,
+              "min-h-[80px]",
               controlsDisabled && "opacity-50 cursor-not-allowed"
             )}
           >
-            <span className="text-xs text-muted-foreground">{t('manual.speed')}</span>
+            <span className="text-base text-muted-foreground">{t("manual.speed")}</span>
             <div className="flex items-center gap-0.5">
-              <span className="text-primary font-mono text-xs font-bold">{jogSpeed}</span>
-              <span className="text-xs text-muted-foreground">mm/m</span>
+              <span className="text-primary font-mono text-xl font-bold">{jogSpeed}</span>
+              <span className="text-base text-muted-foreground">mm/m</span>
             </div>
           </button>
         </div>
 
         {/* Group 3: Step Control */}
-        <div className="flex flex-col gap-1.5 p-2 bg-card rounded-lg border border-border">
+        <div className="flex flex-col justify-between gap-1.5 p-2 bg-card rounded-lg border border-border">
           <span className="text-sm font-bold text-muted-foreground text-center uppercase tracking-wide">Step</span>
           <button
             onClick={() => !controlsDisabled && !liveData.servo_ready ? null : stepUp()}
             disabled={controlsDisabled || !liveData.servo_ready}
             className={cn(
               "jog-button w-full flex items-center justify-center gap-1.5 rounded-lg",
-              btnHeight
+              "min-h-[80px]"
             )}
           >
             <ChevronUp className="w-6 h-6" />
@@ -207,7 +206,7 @@ const Dashboard = () => {
             disabled={controlsDisabled || !liveData.servo_ready}
             className={cn(
               "jog-button w-full flex items-center justify-center gap-1.5 rounded-lg",
-              btnHeight
+              "min-h-[80px]"
             )}
           >
             <ChevronDown className="w-6 h-6" />
@@ -218,27 +217,27 @@ const Dashboard = () => {
             disabled={controlsDisabled}
             className={cn(
               "flex items-center justify-between px-2 bg-secondary/30 rounded-lg border border-border cursor-pointer hover:bg-secondary/50 transition-colors",
-              btnHeight,
+              "min-h-[80px]",
               controlsDisabled && "opacity-50 cursor-not-allowed"
             )}
           >
-            <span className="text-xs text-muted-foreground">Dist</span>
+            <span className="text-base text-muted-foreground">Dist</span>
             <div className="flex items-center gap-0.5">
-              <span className="text-primary font-mono text-xs font-bold">{stepDistance}</span>
-              <span className="text-xs text-muted-foreground">mm</span>
+              <span className="text-primary font-mono text-xl font-bold">{stepDistance}</span>
+              <span className="text-base text-muted-foreground">mm</span>
             </div>
           </button>
         </div>
 
         {/* Group 4: Jaw/Clamp Control */}
-        <div className="flex flex-col gap-1.5 p-2 bg-card rounded-lg border border-border">
+        <div className="flex flex-col justify-between gap-1.5 p-2 bg-card rounded-lg border border-border">
           <span className="text-sm font-bold text-muted-foreground text-center uppercase tracking-wide">Jaw</span>
           <TouchButton
             variant="success"
             size="sm"
             onClick={() => lockUpper.mutate()}
             disabled={!isConnected}
-            className="flex items-center justify-center gap-1.5 w-full h-[52px]"
+            className="flex items-center justify-center gap-1.5 w-full min-h-[80px]"
           >
             <Lock className="w-6 h-6" />
             <span className="text-sm">{t('manual.lockUpper')}</span>
@@ -248,7 +247,7 @@ const Dashboard = () => {
             size="sm"
             onClick={() => lockLower.mutate()}
             disabled={!isConnected}
-            className="flex items-center justify-center gap-1.5 w-full h-[52px]"
+            className="flex items-center justify-center gap-1.5 w-full min-h-[80px]"
           >
             <Lock className="w-6 h-6" />
             <span className="text-sm">{t('manual.lockLower')}</span>
@@ -258,7 +257,7 @@ const Dashboard = () => {
             size="sm"
             onClick={() => unlockAll.mutate()}
             disabled={!isConnected}
-            className="flex items-center justify-center gap-1.5 w-full h-[52px]"
+            className="flex items-center justify-center gap-1.5 w-full min-h-[80px]"
           >
             <Unlock className="w-6 h-6" />
             <span className="text-sm">{t('manual.unlockAll')}</span>
@@ -266,14 +265,14 @@ const Dashboard = () => {
         </div>
 
         {/* Group 5: Servo Control */}
-        <div className="flex flex-col gap-1.5 p-2 bg-card rounded-lg border border-border">
+        <div className="flex flex-col justify-between gap-1.5 p-2 bg-card rounded-lg border border-border">
           <span className="text-sm font-bold text-muted-foreground text-center uppercase tracking-wide">Servo</span>
           <TouchButton
             variant="success"
             size="sm"
             onClick={() => enableServo.mutate()}
             disabled={!isConnected}
-            className="flex items-center justify-center gap-1.5 w-full h-[52px]"
+            className="flex items-center justify-center gap-1.5 w-full min-h-[80px]"
           >
             <Power className="w-6 h-6" />
             <span className="text-sm">{t('manual.enable')}</span>
@@ -283,7 +282,7 @@ const Dashboard = () => {
             size="sm"
             onClick={() => disableServo.mutate()}
             disabled={!isConnected}
-            className="flex items-center justify-center gap-1.5 w-full h-[52px]"
+            className="flex items-center justify-center gap-1.5 w-full min-h-[80px]"
           >
             <PowerOff className="w-6 h-6" />
             <span className="text-sm">{t('manual.disable')}</span>
@@ -293,7 +292,7 @@ const Dashboard = () => {
             size="sm"
             onClick={() => resetAlarm.mutate()}
             disabled={!isConnected}
-            className="flex items-center justify-center gap-1.5 w-full h-[52px]"
+            className="flex items-center justify-center gap-1.5 w-full min-h-[80px]"
           >
             <RotateCcw className="w-6 h-6" />
             <span className="text-sm">{t('manual.resetAlarm')}</span>
