@@ -1,9 +1,16 @@
+import math
 from typing import Dict, Any, Optional
 from snap7.util import get_real, get_int, get_bool
 from .connector import PLCConnector
 import logging
 
 logger = logging.getLogger(__name__)
+# Helper to handle NaN values
+def safe_float(val, default=0.0):
+    if val is None or math.isnan(val) or math.isinf(val):
+        return default
+    return val
+
 
 
 class DataService:
@@ -23,9 +30,9 @@ class DataService:
     DB_HMI = 4
 
     # Block sizes for reading
-    DB2_SIZE = 85
-    DB3_SIZE = 40
-    DB4_SIZE = 65
+    DB2_SIZE = 89
+    DB3_SIZE = 37
+    DB4_SIZE = 64
 
     # ═══════════════════════════════════════════════════════════════════
     # DB1 - TEST PARAMETERS OFFSETS
@@ -53,18 +60,18 @@ class DataService:
     RES_SN_CLASS = 20
     RES_TEST_STATUS = 22
     RES_TEST_PASSED = (24, 0)
-    RES_FORCE_FILTERED = 36
-    RES_FORCE_KN = 44
-    RES_LOAD_CELL_RAW = 48
-    RES_LOAD_CELL_ACTUAL = 56
-    RES_TARE_COMMAND = (60, 0)
-    RES_POSITION_RAW = 62
-    RES_POSITION_ACTUAL = 70
-    RES_TEST_STAGE = 74
-    RES_PRELOAD_REACHED = (76, 0)
-    RES_CONTACT_POSITION = 78
-    RES_DATA_POINT_COUNT = 82
-    RES_RECORDING_ACTIVE = (84, 0)
+    RES_FORCE_FILTERED = 34
+    RES_FORCE_KN = 42
+    RES_LOAD_CELL_RAW = 46
+    RES_LOAD_CELL_ACTUAL = 54
+    RES_TARE_COMMAND = (58, 0)
+    RES_POSITION_RAW = 60
+    RES_POSITION_ACTUAL = 68
+    RES_TEST_STAGE = 72
+    RES_PRELOAD_REACHED = (74, 0)
+    RES_CONTACT_POSITION = 76
+    RES_DATA_POINT_COUNT = 80
+    RES_RECORDING_ACTIVE = (82, 0)
 
     # ═══════════════════════════════════════════════════════════════════
     # DB3 - SERVO CONTROL OFFSETS
@@ -125,19 +132,19 @@ class DataService:
             # Parse data locally (no network calls!)
             return {
                 "force": {
-                    "raw": get_real(db2, self.RES_LOAD_CELL_RAW),
-                    "actual": get_real(db2, self.RES_LOAD_CELL_ACTUAL),
-                    "filtered": get_real(db2, self.RES_FORCE_FILTERED),
-                    "kN": get_real(db2, self.RES_FORCE_KN),
-                    "N": get_real(db2, self.RES_ACTUAL_FORCE),
+                    "raw": safe_float(get_real(db2, self.RES_LOAD_CELL_RAW)),
+                    "actual": safe_float(get_real(db2, self.RES_LOAD_CELL_ACTUAL)),
+                    "filtered": safe_float(get_real(db2, self.RES_FORCE_FILTERED)),
+                    "kN": safe_float(get_real(db2, self.RES_FORCE_KN)),
+                    "N": safe_float(get_real(db2, self.RES_ACTUAL_FORCE)),
                 },
                 "position": {
-                    "raw": get_real(db2, self.RES_POSITION_RAW),
-                    "actual": get_real(db3, self.VAL_ACTUAL_POSITION),
+                    "raw": safe_float(get_real(db2, self.RES_POSITION_RAW)),
+                    "actual": safe_float(get_real(db3, self.VAL_ACTUAL_POSITION)),
                 },
                 "deflection": {
-                    "percent": get_real(db2, self.RES_DEFLECTION_PERCENT),
-                    "actual": get_real(db2, self.RES_ACTUAL_DEFLECTION),
+                    "percent": 0.0,
+                    "actual": safe_float(get_real(db2, self.RES_ACTUAL_DEFLECTION)),
                     "target": self.plc.read_real(self.DB_PARAMS, self.PARAM_DEFLECTION_TARGET) or 0.0,
                 },
                 "test": {
@@ -209,9 +216,9 @@ class DataService:
                 "lock_lower": get_bool(db3, self.STATUS_LOCK_LOWER[0], self.STATUS_LOCK_LOWER[1]),
                 "remote_mode": get_bool(db3, self.STATUS_REMOTE_MODE[0], self.STATUS_REMOTE_MODE[1]),
                 "e_stop_active": get_bool(db3, self.STATUS_ESTOP_ACTIVE[0], self.STATUS_ESTOP_ACTIVE[1]),
-                "actual_position": get_real(db3, self.VAL_ACTUAL_POSITION),
-                "actual_force": get_real(db2, self.RES_FORCE_KN),
-                "actual_deflection": get_real(db2, self.RES_ACTUAL_DEFLECTION),
+                "actual_position": safe_float(get_real(db3, self.VAL_ACTUAL_POSITION)),
+                "actual_force": safe_float(get_real(db2, self.RES_FORCE_KN)),
+                "actual_deflection": safe_float(get_real(db2, self.RES_ACTUAL_DEFLECTION)),
                 "target_deflection": get_real(db2, self.RES_DEFLECTION_PERCENT),
                 "test_status": get_int(db2, self.RES_TEST_STATUS),
                 "test_progress": get_int(db4, self.HMI_TEST_PROGRESS),
@@ -225,7 +232,7 @@ class DataService:
             "force": {"raw": 0.0, "actual": 0.0, "filtered": 0.0, "kN": 0.0, "N": 0.0},
             "position": {"raw": 0.0, "actual": 0.0},
             "deflection": {
-                    "percent": get_real(db2, self.RES_DEFLECTION_PERCENT),"actual": 0.0, "target": 0.0},
+                    "percent": 0.0,"actual": 0.0, "target": 0.0},
             "test": {"status": -1, "stage": 0, "preload_reached": False, "recording": False},
             "results": {"ring_stiffness": 0.0, "force_at_target": 0.0, "sn_class": 0, "contact_position": 0.0, "data_points": 0},
             "servo": {"ready": False, "error": False, "enabled": False, "at_home": False, "mc_power": False, "mc_busy": False, "mc_error": False, "speed": 0.0, "jog_velocity": 0.0},
