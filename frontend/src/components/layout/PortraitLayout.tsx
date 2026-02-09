@@ -305,17 +305,15 @@ export function PortraitLayout({ children }: PortraitLayoutProps) {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-destructive">
               <Power className="w-5 h-5" />
-              {language === "ar" ? "إيقاف تشغيل النظام" : "Shutdown System"}
+              {t("power.shutdown")}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {language === "ar"
-                ? "هل أنت متأكد من إيقاف تشغيل النظام؟"
-                : "Are you sure you want to shutdown the system?"}
+              {t("power.shutdownConfirm")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isPowerLoading}>
-              {language === "ar" ? "إلغاء" : "Cancel"}
+              {t("power.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => { e.preventDefault(); handleShutdown(); }}
@@ -323,7 +321,7 @@ export function PortraitLayout({ children }: PortraitLayoutProps) {
               className="bg-destructive hover:bg-destructive/90"
             >
               {isPowerLoading && <RotateCcw className="w-4 h-4 mr-2 animate-spin" />}
-              {language === "ar" ? "إيقاف" : "Shutdown"}
+              {t("power.shutdownBtn")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -335,17 +333,15 @@ export function PortraitLayout({ children }: PortraitLayoutProps) {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-warning">
               <RotateCcw className="w-5 h-5" />
-              {language === "ar" ? "إعادة تشغيل النظام" : "Restart System"}
+              {t("power.restart")}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {language === "ar"
-                ? "هل أنت متأكد من إعادة تشغيل النظام؟"
-                : "Are you sure you want to restart the system?"}
+              {t("power.restartConfirm")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isPowerLoading}>
-              {language === "ar" ? "إلغاء" : "Cancel"}
+              {t("power.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => { e.preventDefault(); handleRestart(); }}
@@ -353,7 +349,7 @@ export function PortraitLayout({ children }: PortraitLayoutProps) {
               className="bg-warning hover:bg-warning/90 text-warning-foreground"
             >
               {isPowerLoading && <RotateCcw className="w-4 h-4 mr-2 animate-spin" />}
-              {language === "ar" ? "إعادة التشغيل" : "Restart"}
+              {t("power.restartBtn")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

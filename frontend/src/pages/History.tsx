@@ -23,7 +23,7 @@ const History = () => {
         </div>
         <TouchButton variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
           {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <FileText className="w-5 h-5" />}
-          {language === 'ar' ? 'تحديث' : 'Refresh'}
+          {t('history.refresh')}
         </TouchButton>
       </div>
 
@@ -37,7 +37,7 @@ const History = () => {
           <div className="industrial-card p-8 text-center">
             <FileText className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
             <p className="text-sm text-muted-foreground">
-              {language === 'ar' ? 'لا توجد اختبارات سابقة' : 'No test history'}
+              {t('history.noTests')}
             </p>
           </div>
         ) : (
@@ -61,7 +61,7 @@ const History = () => {
                   
                   <div className="grid grid-cols-3 gap-2 text-sm">
                     <div>
-                      <span className="text-muted-foreground">{language === 'ar' ? 'القطر:' : 'Dia:'} </span>
+                      <span className="text-muted-foreground">{t('history.diameter')} </span>
                       <span className="font-mono">{test.pipe_diameter}mm</span>
                     </div>
                     <div>
@@ -69,7 +69,7 @@ const History = () => {
                       <span className="font-mono font-bold">{test.sn_class || '-'}</span>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">{language === 'ar' ? 'القوة:' : 'Force:'} </span>
+                      <span className="text-muted-foreground">{t('history.force')} </span>
                       <span className="font-mono">{test.force_at_target?.toFixed(1) || '-'}kN</span>
                     </div>
                   </div>

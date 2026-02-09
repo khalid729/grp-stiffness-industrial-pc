@@ -115,6 +115,48 @@ const translations: Translations = {
   "settings.lan": { en: "LAN Network", ar: "شبكة LAN" },
   "settings.plcNetwork": { en: "PLC Network", ar: "شبكة PLC" },
   "test.status": { en: "Test Status", ar: "حالة الاختبار" },
+  // Dashboard Groups
+  "dashboard.group.test": { en: "Test", ar: "اختبار" },
+  "dashboard.group.jog": { en: "Jog", ar: "تحريك" },
+  "dashboard.group.step": { en: "Step", ar: "خطوة" },
+  "dashboard.group.jaw": { en: "Jaw", ar: "فك" },
+  "dashboard.group.servo": { en: "Servo", ar: "سيرفو" },
+  "dashboard.dist": { en: "Dist", ar: "مسافة" },
+  "dashboard.stepDistance": { en: "Step Distance", ar: "مسافة الخطوة" },
+  "dashboard.speedUnit": { en: "mm/m", ar: "مم/د" },
+
+  // History Page
+  "history.refresh": { en: "Refresh", ar: "تحديث" },
+  "history.noTests": { en: "No test history", ar: "لا توجد اختبارات سابقة" },
+  "history.diameter": { en: "Dia:", ar: "القطر:" },
+  "history.force": { en: "Force:", ar: "القوة:" },
+  "history.sn": { en: "SN:", ar: "SN:" },
+
+  // Settings Extras
+  "settings.dark": { en: "Dark", ar: "داكن" },
+  "settings.light": { en: "Light", ar: "فاتح" },
+  "settings.ipAddress": { en: "IP Address", ar: "عنوان IP" },
+  "settings.subnet": { en: "Subnet", ar: "قناع الشبكة" },
+  "settings.gateway": { en: "Gateway", ar: "البوابة" },
+  "settings.modeLabel": { en: "Mode:", ar: "الوضع:" },
+  "settings.save": { en: "Save", ar: "حفظ" },
+  "settings.cancel": { en: "Cancel", ar: "إلغاء" },
+  "settings.connect": { en: "Connect", ar: "اتصال" },
+  "settings.connectTo": { en: "Connect to", ar: "الاتصال بـ" },
+  "settings.password": { en: "Password", ar: "كلمة المرور" },
+  "settings.enterPassword": { en: "Enter password", ar: "أدخل كلمة المرور" },
+  "settings.enterAddress": { en: "Enter Address", ar: "أدخل العنوان" },
+  "settings.lanLabel": { en: "LAN", ar: "الشبكة المحلية" },
+  "settings.plcNetworkLabel": { en: "PLC Network", ar: "شبكة PLC" },
+
+  // Power Dialogs
+  "power.shutdown": { en: "Shutdown System", ar: "إيقاف تشغيل النظام" },
+  "power.shutdownConfirm": { en: "Are you sure you want to shutdown the system?", ar: "هل أنت متأكد من إيقاف تشغيل النظام؟" },
+  "power.shutdownBtn": { en: "Shutdown", ar: "إيقاف" },
+  "power.restart": { en: "Restart System", ar: "إعادة تشغيل النظام" },
+  "power.restartConfirm": { en: "Are you sure you want to restart the system?", ar: "هل أنت متأكد من إعادة تشغيل النظام؟" },
+  "power.restartBtn": { en: "Restart", ar: "إعادة التشغيل" },
+  "power.cancel": { en: "Cancel", ar: "إلغاء" },
 };
 
 interface LanguageContextType {

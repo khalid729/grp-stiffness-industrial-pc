@@ -168,7 +168,7 @@ const Settings = () => {
               className="flex-1 min-h-[52px] flex items-center justify-center gap-1"
             >
               <Moon className="w-5 h-5" />
-              {language === "ar" ? "داكن" : "Dark"}
+              {t("settings.dark")}
             </TouchButton>
             <TouchButton
               variant={theme === "light" ? "primary" : "outline"}
@@ -177,7 +177,7 @@ const Settings = () => {
               className="flex-1 min-h-[52px] flex items-center justify-center gap-1"
             >
               <Sun className="w-5 h-5" />
-              {language === "ar" ? "فاتح" : "Light"}
+              {t("settings.light")}
             </TouchButton>
           </div>
         </div>
@@ -232,7 +232,7 @@ const Settings = () => {
         <div className="industrial-card p-2 flex flex-col gap-2">
           <div className="flex items-center gap-2 text-base font-semibold">
             <Network className="w-6 h-6" />
-            {language === "ar" ? "الشبكة المحلية" : "LAN"} (enp2s0)
+            {t("settings.lanLabel")} (enp2s0)
           </div>
           <div className="flex gap-1">
             <TouchButton
@@ -257,7 +257,7 @@ const Settings = () => {
           {lanMode === "static" && (
             <div className="space-y-1.5">
               <div>
-                <Label className="text-sm">{language === "ar" ? "عنوان IP" : "IP Address"}</Label>
+                <Label className="text-sm">{t("settings.ipAddress")}</Label>
                 <Input 
                   value={lanIp} 
                   readOnly 
@@ -266,7 +266,7 @@ const Settings = () => {
                 />
               </div>
               <div>
-                <Label className="text-sm">{language === "ar" ? "قناع الشبكة" : "Subnet"}</Label>
+                <Label className="text-sm">{t("settings.subnet")}</Label>
                 <Input 
                   value={lanSubnet} 
                   readOnly 
@@ -275,7 +275,7 @@ const Settings = () => {
                 />
               </div>
               <div>
-                <Label className="text-sm">{language === "ar" ? "البوابة" : "Gateway"}</Label>
+                <Label className="text-sm">{t("settings.gateway")}</Label>
                 <Input 
                   value={lanGateway} 
                   readOnly 
@@ -287,7 +287,7 @@ const Settings = () => {
           )}
           <div className="flex items-center justify-between p-1.5 bg-secondary/50 rounded text-sm">
             <div>
-              <span className="text-muted-foreground">{language === "ar" ? "الوضع:" : "Mode:"} </span>
+              <span className="text-muted-foreground">{t("settings.modeLabel")} </span>
               <span className="font-medium">{lanMode === "static" ? "Static" : "DHCP"}</span>
               {lanStatus?.ip_address && (
                 <span className="ml-2 font-mono">{lanStatus.ip_address}</span>
@@ -296,7 +296,7 @@ const Settings = () => {
           </div>
           <TouchButton variant="success" size="sm" onClick={handleSaveLan} isLoading={configureLan.isPending} className="min-h-[52px]">
             <Check className="w-5 h-5 mr-1" />
-            {language === "ar" ? "حفظ" : "Save"}
+            {t("settings.save")}
           </TouchButton>
         </div>
 
@@ -304,7 +304,7 @@ const Settings = () => {
         <div className="industrial-card p-2 flex flex-col gap-2">
           <div className="flex items-center gap-2 text-base font-semibold">
             <Cpu className="w-6 h-6 text-warning" />
-            {language === "ar" ? "شبكة PLC" : "PLC Network"} (enp1s0)
+            {t("settings.plcNetworkLabel")} (enp1s0)
           </div>
           <div className="flex gap-1">
             <TouchButton
@@ -327,7 +327,7 @@ const Settings = () => {
           {lan2Mode === "static" && (
             <div className="space-y-1.5">
               <div>
-                <Label className="text-sm">{language === "ar" ? "عنوان IP" : "IP Address"}</Label>
+                <Label className="text-sm">{t("settings.ipAddress")}</Label>
                 <Input 
                   value={lan2Ip} 
                   readOnly 
@@ -336,7 +336,7 @@ const Settings = () => {
                 />
               </div>
               <div>
-                <Label className="text-sm">{language === "ar" ? "قناع الشبكة" : "Subnet"}</Label>
+                <Label className="text-sm">{t("settings.subnet")}</Label>
                 <Input 
                   value={lan2Subnet} 
                   readOnly 
@@ -345,7 +345,7 @@ const Settings = () => {
                 />
               </div>
               <div>
-                <Label className="text-sm">{language === "ar" ? "البوابة" : "Gateway"}</Label>
+                <Label className="text-sm">{t("settings.gateway")}</Label>
                 <Input 
                   value={lan2Gateway} 
                   readOnly 
@@ -357,7 +357,7 @@ const Settings = () => {
           )}
           <div className="flex items-center justify-between p-1.5 bg-warning/10 border border-warning/20 rounded text-sm">
             <div>
-              <span className="text-muted-foreground">{language === "ar" ? "الوضع:" : "Mode:"} </span>
+              <span className="text-muted-foreground">{t("settings.modeLabel")} </span>
               <span className="font-medium">{lan2Mode === "static" ? "Static" : "DHCP"}</span>
               {lan2Status?.ip_address && (
                 <span className="ml-2 font-mono">{lan2Status.ip_address}</span>
@@ -366,7 +366,7 @@ const Settings = () => {
           </div>
           <TouchButton variant="success" size="sm" onClick={handleSaveLan2} isLoading={configureLan2.isPending} className="min-h-[52px]">
             <Check className="w-5 h-5 mr-1" />
-            {language === "ar" ? "حفظ" : "Save"}
+            {t("settings.save")}
           </TouchButton>
         </div>
       </div>
@@ -403,13 +403,13 @@ const Settings = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Wifi className="w-5 h-5" />
-              {language === "ar" ? "الاتصال بـ" : "Connect to"} {selectedNetwork?.ssid}
+              {t("settings.connectTo")} {selectedNetwork?.ssid}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label htmlFor="wifi-password">
-                {language === "ar" ? "كلمة المرور" : "Password"}
+                {t("settings.password")}
               </Label>
               <Input
                 id="wifi-password"
@@ -417,7 +417,7 @@ const Settings = () => {
                 value={wifiPassword}
                 readOnly
                 className="h-14 text-xl font-mono"
-                placeholder={language === "ar" ? "أدخل كلمة المرور" : "Enter password"}
+                placeholder={t("settings.enterPassword")}
               />
             </div>
             {showKeyboard && (
@@ -434,7 +434,7 @@ const Settings = () => {
               onClick={() => { setShowPasswordDialog(false); setShowKeyboard(false); }}
               className="min-h-[48px]"
             >
-              {language === "ar" ? "إلغاء" : "Cancel"}
+              {t("settings.cancel")}
             </TouchButton>
             <TouchButton
               variant="primary"
@@ -447,7 +447,7 @@ const Settings = () => {
               ) : (
                 <Wifi className="w-6 h-6 mr-2" />
               )}
-              {language === "ar" ? "اتصال" : "Connect"}
+              {t("settings.connect")}
             </TouchButton>
           </DialogFooter>
         </DialogContent>
@@ -459,7 +459,7 @@ const Settings = () => {
         onClose={() => setIpKeypadOpen(null)}
         onConfirm={handleIpConfirm}
         initialValue={getIpValue()}
-        label={language === "ar" ? "أدخل العنوان" : "Enter Address"}
+        label={t("settings.enterAddress")}
       />
     </div>
   );

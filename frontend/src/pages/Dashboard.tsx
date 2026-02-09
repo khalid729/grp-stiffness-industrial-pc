@@ -108,7 +108,7 @@ const Dashboard = () => {
       <div className="grid grid-cols-5 gap-2">
         {/* Group 1: Test Control */}
         <div className="flex flex-col justify-between gap-1.5 p-2 bg-card rounded-lg border border-border">
-          <span className="text-sm font-bold text-muted-foreground text-center uppercase tracking-wide">Test</span>
+          <span className="text-sm font-bold text-muted-foreground text-center uppercase tracking-wide">{t('dashboard.group.test')}</span>
           <TouchButton
             variant="outline"
             size="sm"
@@ -143,7 +143,7 @@ const Dashboard = () => {
 
         {/* Group 2: Jog Control */}
         <div className="flex flex-col justify-between gap-1.5 p-2 bg-card rounded-lg border border-border">
-          <span className="text-sm font-bold text-muted-foreground text-center uppercase tracking-wide">Jog</span>
+          <span className="text-sm font-bold text-muted-foreground text-center uppercase tracking-wide">{t('dashboard.group.jog')}</span>
           <button
             onPointerDown={handleJogUpStart}
             disabled={controlsDisabled || !liveData.servo_ready}
@@ -179,17 +179,17 @@ const Dashboard = () => {
               controlsDisabled && "opacity-50 cursor-not-allowed"
             )}
           >
-            <span className="text-base text-muted-foreground">{t("manual.speed")}</span>
+            <span className="text-base text-muted-foreground">{t(manual.speed)}</span>
             <div className="flex items-center gap-0.5">
               <span className="text-primary font-mono text-xl font-bold">{jogSpeed}</span>
-              <span className="text-base text-muted-foreground">mm/m</span>
+              <span className="text-base text-muted-foreground">{t('dashboard.speedUnit')}</span>
             </div>
           </button>
         </div>
 
         {/* Group 3: Step Control */}
         <div className="flex flex-col justify-between gap-1.5 p-2 bg-card rounded-lg border border-border">
-          <span className="text-sm font-bold text-muted-foreground text-center uppercase tracking-wide">Step</span>
+          <span className="text-sm font-bold text-muted-foreground text-center uppercase tracking-wide">{t('dashboard.group.step')}</span>
           <button
             onClick={() => !controlsDisabled && !liveData.servo_ready ? null : stepUp()}
             disabled={controlsDisabled || !liveData.servo_ready}
@@ -221,7 +221,7 @@ const Dashboard = () => {
               controlsDisabled && "opacity-50 cursor-not-allowed"
             )}
           >
-            <span className="text-base text-muted-foreground">Dist</span>
+            <span className="text-base text-muted-foreground">{t('dashboard.dist')}</span>
             <div className="flex items-center gap-0.5">
               <span className="text-primary font-mono text-xl font-bold">{stepDistance}</span>
               <span className="text-base text-muted-foreground">mm</span>
@@ -231,7 +231,7 @@ const Dashboard = () => {
 
         {/* Group 4: Jaw/Clamp Control */}
         <div className="flex flex-col justify-between gap-1.5 p-2 bg-card rounded-lg border border-border">
-          <span className="text-sm font-bold text-muted-foreground text-center uppercase tracking-wide">Jaw</span>
+          <span className="text-sm font-bold text-muted-foreground text-center uppercase tracking-wide">{t('dashboard.group.jaw')}</span>
           <TouchButton
             variant="success"
             size="sm"
@@ -266,7 +266,7 @@ const Dashboard = () => {
 
         {/* Group 5: Servo Control */}
         <div className="flex flex-col justify-between gap-1.5 p-2 bg-card rounded-lg border border-border">
-          <span className="text-sm font-bold text-muted-foreground text-center uppercase tracking-wide">Servo</span>
+          <span className="text-sm font-bold text-muted-foreground text-center uppercase tracking-wide">{t('dashboard.group.servo')}</span>
           <TouchButton
             variant="success"
             size="sm"
@@ -315,14 +315,14 @@ const Dashboard = () => {
         onConfirm={(value) => setJogSpeed(value)}
         initialValue={jogSpeed}
         label={t('manual.speed')}
-        unit="mm/m"
+        unit={t('dashboard.speedUnit')}
       />
       <NumericKeypad
         isOpen={keypadOpen === 'distance'}
         onClose={() => setKeypadOpen(null)}
         onConfirm={(value) => setStepDistance(value)}
         initialValue={stepDistance}
-        label="Step Distance"
+        label={t('dashboard.stepDistance')}
         unit="mm"
       />
     </div>

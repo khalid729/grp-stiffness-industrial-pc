@@ -56,7 +56,7 @@ const Alarms = () => {
             disabled={activeCount === 0 || acknowledgeAll.isPending}
           >
             {acknowledgeAll.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
-            {language === 'ar' ? 'تأكيد الكل' : 'Ack All'}
+            {t('alarms.ackAll')}
           </TouchButton>
         </div>
       </div>
@@ -72,10 +72,7 @@ const Alarms = () => {
               filter === f ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'
             )}
           >
-            {language === 'ar' 
-              ? (f === 'all' ? 'الكل' : f === 'active' ? 'نشط' : 'مؤكد')
-              : (f === 'all' ? 'All' : f === 'active' ? 'Active' : 'Acknowledged')
-            }
+            {f === 'all' ? t('alarms.filter.all') : f === 'active' ? t('alarms.filter.active') : t('alarms.filter.acknowledged')}
           </button>
         ))}
       </div>
@@ -89,7 +86,7 @@ const Alarms = () => {
         ) : filteredAlarms.length === 0 ? (
           <div className="industrial-card p-8 text-center">
             <BellOff className="w-10 h-10 mx-auto text-muted-foreground/50 mb-3" />
-            <p className="text-base text-muted-foreground">{language === 'ar' ? 'لا توجد إنذارات' : 'No alarms'}</p>
+            <p className="text-base text-muted-foreground">{t('alarms.noAlarms')}</p>
           </div>
         ) : (
           filteredAlarms.map(alarm => (
