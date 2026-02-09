@@ -16,7 +16,7 @@ export function ModeToggle({ isRemote, onChange, disabled = false }: ModeToggleP
       disabled && "opacity-50 pointer-events-none"
     )}>
       <button
-        onClick={() => !isRemote && onChange()}
+        onClick={onChange}
         disabled={disabled || !isRemote}
         className={cn(
           "px-6 py-3 text-sm font-bold uppercase tracking-wide transition-all min-w-[90px]",
@@ -28,7 +28,7 @@ export function ModeToggle({ isRemote, onChange, disabled = false }: ModeToggleP
         {t('mode.local')}
       </button>
       <button
-        onClick={() => isRemote && onChange()}
+        onClick={onChange}
         disabled={disabled || isRemote}
         className={cn(
           "px-6 py-3 text-sm font-bold uppercase tracking-wide transition-all min-w-[90px]",

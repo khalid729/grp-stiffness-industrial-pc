@@ -183,7 +183,7 @@ export function PortraitLayout({ children }: PortraitLayoutProps) {
             <ModeToggle
               isRemote={liveData.remote_mode}
               onChange={handleModeChange}
-              disabled={isTestRunning}
+              disabled={isTestRunning || !(liveData.mode?.can_change ?? true)}
             />
           </div>
         </div>
