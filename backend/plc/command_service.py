@@ -67,10 +67,11 @@ class CommandService:
     # ═══════════════════════════════════════════════════════════════════
     # DB4 - HMI COMMANDS (tare/zero only)
     # ═══════════════════════════════════════════════════════════════════
-    HMI_TARE_LOADCELL = (59, 6)    # DB4.DBX59.6 - Tare command
+    TARE_LOADCELL = (58, 0)        # DB2.DBX58.0 - Tare_Command
     HMI_TARE_POSITION = (59, 7)    # DB4.DBX59.7 - Zero position
 
     def __init__(self, plc: PLCConnector):
+        self.force_tare_offset = 0.0
         self.plc = plc
 
     def _check_connection(self) -> bool:
@@ -94,16 +95,19 @@ class CommandService:
 
     # ========== TARE / ZERO Commands (DB4) ==========
 
+    RES_FORCE_FILTERED = 34  # DB2.DBD34 - Force_Filtered (Real)
+
     def tare_loadcell(self) -> dict:
-        """Tare the load cell - DB4.DBX59.6"""
+        """Software tare - store current force as zero offset"""
         if not self._check_connection():
             return {"success": False, "message": "PLC not connected"}
         try:
-            self.plc.write_bool(self.DB_HMI, *self.HMI_TARE_LOADCELL, True)
-            time.sleep(0.1)
-            self.plc.write_bool(self.DB_HMI, *self.HMI_TARE_LOADCELL, False)
-            logger.info("Tare command sent (DB4.DBX59.6)")
-            return {"success": True, "message": "Tare command sent"}
+            current_force = self.plc.read_real(self.DB_RESULTS, self.RES_FORCE_FILTERED)
+            if current_force is not None:
+                self.force_tare_offset = current_force
+                logger.info(f"Software tare: offset={current_force:.1f} N")
+                return {"success": True, "message": f"Tared at {current_force:.1f} N"}
+            return {"success": False, "message": "Failed to read force"}
         except Exception as e:
             logger.error(f"Tare error: {e}")
             return {"success": False, "message": str(e)}

@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 plc = PLCConnector(settings.PLC_IP, settings.PLC_RACK, settings.PLC_SLOT)
 data_service = DataService(plc)
 command_service = CommandService(plc)
+data_service.command_service = command_service  # Share tare offset
 pdf_generator = PDFGenerator()
 excel_exporter = ExcelExporter()
 test_service = TestService(data_service, command_service)

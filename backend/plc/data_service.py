@@ -114,6 +114,7 @@ class DataService:
 
     def __init__(self, plc: PLCConnector):
         self.plc = plc
+        self.command_service = None  # Set from main.py for tare offset
 
     def get_live_data(self) -> Dict[str, Any]:
         """OPTIMIZED: Read all real-time values using block reads (3 reads instead of 82!)"""
@@ -129,14 +130,17 @@ class DataService:
             if db2 is None or db3 is None or db4 is None:
                 return self._get_disconnected_data()
 
+            # Software tare offset from command_service
+            tare = self.command_service.force_tare_offset if self.command_service else 0.0
+
             # Parse data locally (no network calls!)
             return {
                 "force": {
-                    "raw": safe_float(get_real(db2, self.RES_LOAD_CELL_RAW)),
-                    "actual": safe_float(get_real(db2, self.RES_LOAD_CELL_ACTUAL)),
-                    "filtered": safe_float(get_real(db2, self.RES_FORCE_FILTERED)),
-                    "kN": safe_float(get_real(db2, self.RES_FORCE_KN)),
-                    "N": safe_float(get_real(db2, self.RES_ACTUAL_FORCE)),
+                    "raw": safe_float(get_real(db2, self.RES_LOAD_CELL_RAW)) - tare,
+                    "actual": safe_float(get_real(db2, self.RES_LOAD_CELL_ACTUAL)) - tare,
+                    "filtered": safe_float(get_real(db2, self.RES_FORCE_FILTERED)) - tare,
+                    "kN": (safe_float(get_real(db2, self.RES_FORCE_KN)) * 1000 - tare) / 1000,
+                    "N": safe_float(get_real(db2, self.RES_ACTUAL_FORCE)) - tare,
                 },
                 "position": {
                     "raw": safe_float(get_real(db2, self.RES_POSITION_RAW)),
@@ -217,7 +221,7 @@ class DataService:
                 "remote_mode": get_bool(db3, self.STATUS_REMOTE_MODE[0], self.STATUS_REMOTE_MODE[1]),
                 "e_stop_active": get_bool(db3, self.STATUS_ESTOP_ACTIVE[0], self.STATUS_ESTOP_ACTIVE[1]),
                 "actual_position": safe_float(get_real(db2, self.RES_POSITION_ACTUAL)),
-                "actual_force": safe_float(get_real(db2, self.RES_FORCE_KN)),
+                "actual_force": (safe_float(get_real(db2, self.RES_FORCE_KN)) * 1000 - tare) / 1000,
                 "actual_deflection": safe_float(get_real(db2, self.RES_ACTUAL_DEFLECTION)),
                 "target_deflection": get_real(db2, self.RES_DEFLECTION_PERCENT),
                 "test_status": get_int(db2, self.RES_TEST_STATUS),
