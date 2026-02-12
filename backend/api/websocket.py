@@ -3,6 +3,8 @@ import asyncio
 import logging
 from typing import Optional
 from config import settings
+from datetime import datetime, timezone, timedelta
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +23,29 @@ plc_connector = None  # PLC connector for reconnection
 
 # Background task handle
 broadcast_task: Optional[asyncio.Task] = None
+
+# Calculated deflection state
+_test_start_time: Optional[float] = None
+_test_speed: float = 0.0
+_test_data_points: list = []
+
+# Pending test metadata
+_pending_metadata: dict = {}
+
+SAUDI_TZ = timezone(timedelta(hours=3))
+
+
+def set_pending_metadata(data: dict):
+    global _pending_metadata
+    _pending_metadata = {
+        'sample_id': data.get('sample_id', ''),
+        'operator': data.get('operator', ''),
+        'notes': data.get('notes', ''),
+    }
+
+
+def get_pending_metadata() -> dict:
+    return dict(_pending_metadata)
 
 
 def set_services(data_svc, cmd_svc, plc=None):
@@ -120,8 +145,9 @@ async def set_jog_speed(sid, data):
 
 async def _save_test_result(data: dict):
     """Save completed test result to database"""
+    global _pending_metadata, _test_data_points
     from db.database import AsyncSessionLocal
-    from db.models import Test
+    from db.models import Test, TestDataPoint
 
     try:
         params = data_service.get_parameters() if data_service else {}
@@ -140,29 +166,56 @@ async def _save_test_result(data: dict):
             max_force=results.get('force_at_target', 0),
         )
 
+        # Apply pending metadata
+        if _pending_metadata.get('sample_id'):
+            test_record.sample_id = _pending_metadata.get('sample_id')
+        if _pending_metadata.get('operator'):
+            test_record.operator = _pending_metadata.get('operator')
+        if _pending_metadata.get('notes'):
+            test_record.notes = _pending_metadata.get('notes')
+        test_record.test_date = datetime.now(SAUDI_TZ)
+
         async with AsyncSessionLocal() as session:
             session.add(test_record)
+            await session.flush()  # Get the test ID
+            
+            # Save data points
+            if _test_data_points:
+                for dp in _test_data_points:
+                    point = TestDataPoint(
+                        test_id=test_record.id,
+                        timestamp=dp['timestamp'],
+                        force=dp['force'],
+                        deflection=dp['deflection'],
+                        position=dp.get('position', 0),
+                    )
+                    session.add(point)
+                logger.info(f"Saving {len(_test_data_points)} data points")
+            
             await session.commit()
             logger.info(f"Test result saved: Ø{test_record.pipe_diameter}mm, "
                         f"RS={test_record.ring_stiffness:.1f} kN/m², "
                         f"SN{test_record.sn_class}, {'PASS' if test_record.passed else 'FAIL'}")
+            _pending_metadata = {}
     except Exception as e:
         logger.error(f"Failed to save test result: {e}")
 
 
 async def broadcast_live_data():
     """Background task to broadcast live data every 100ms"""
+    global _test_start_time, _test_speed, _test_data_points
+    
     logger.info("Starting live data broadcast task")
-    reconnect_interval = 0  # Counter for reconnection attempts
+    reconnect_interval = 0
     last_connected = False
-    last_test_status = 0  # Track test status changes
+    last_test_status = 0
 
     while True:
         try:
             # Try to reconnect if disconnected (every 5 seconds)
             if plc_connector and not plc_connector.connected:
                 reconnect_interval += 1
-                if reconnect_interval >= 50:  # 50 * 100ms = 5 seconds
+                if reconnect_interval >= 50:
                     reconnect_interval = 0
                     logger.info("Attempting to reconnect to PLC...")
                     if plc_connector.connect():
@@ -181,17 +234,50 @@ async def broadcast_live_data():
 
             if data_service:
                 data = data_service.get_live_data()
-                await sio.emit('live_data', data, room='live_data')
-
-                # Auto-save on test completion (status transitions to 5)
+                
                 current_test_status = data.get('test_status', 0)
-                if current_test_status == 5 and last_test_status != 5:
-                    logger.info("Test completed - saving results automatically")
-                    await _save_test_result(data)
-                    await emit_test_complete({
-                        'results': data.get('results', {}),
-                        'test': data.get('test', {}),
+                
+                # Detect test start: transition into active testing (status >= 2)
+                if current_test_status >= 2 and last_test_status < 2:
+                    _test_start_time = time.monotonic()
+                    params = data_service.get_parameters()
+                    _test_speed = params.get('test_speed', 12.0) or 12.0
+                    _test_data_points = []
+                    logger.info(f"Calculated deflection started: speed={_test_speed} mm/min")
+                
+                # Calculate deflection during active test (status 2-5)
+                calculated_deflection = 0.0
+                if _test_start_time is not None and 2 <= current_test_status <= 5:
+                    elapsed = time.monotonic() - _test_start_time
+                    calculated_deflection = (_test_speed / 60.0) * elapsed
+                    
+                    # Accumulate data points
+                    force_kn = data.get('actual_force', 0) or 0.0
+                    _test_data_points.append({
+                        'timestamp': elapsed,
+                        'force': force_kn,
+                        'deflection': calculated_deflection,
+                        'position': data.get('actual_position', 0) or 0.0,
                     })
+                
+                # Inject calculated_deflection into broadcast
+                data['calculated_deflection'] = calculated_deflection
+                
+                await sio.emit('live_data', data, room='live_data')
+                
+                # Detect test completion: active -> complete/idle
+                if last_test_status >= 2 and last_test_status <= 5 and (current_test_status == 0 or current_test_status >= 5):
+                    if last_test_status != current_test_status:
+                        logger.info(f"Test completed (status {last_test_status} -> {current_test_status}) - saving results")
+                        await _save_test_result(data)
+                        await emit_test_complete({
+                            'results': data.get('results', {}),
+                            'test': data.get('test', {}),
+                        })
+                        # Reset calculated deflection state
+                        _test_start_time = None
+                        _test_data_points = []
+                
                 last_test_status = current_test_status
 
         except Exception as e:

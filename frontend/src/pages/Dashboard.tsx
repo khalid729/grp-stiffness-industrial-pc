@@ -31,7 +31,7 @@ const Dashboard = () => {
 
   const isLocalMode = !liveData.remote_mode;
   const controlsDisabled = isLocalMode || !isConnected;
-  const isTestRunning = liveData.test_status === 2;
+  const isTestRunning = liveData.test_status >= 2 && liveData.test_status <= 5;
   const forceN = (liveData.actual_force || 0) * 1000;
   
   const safety = liveData.safety || {
@@ -64,14 +64,15 @@ const Dashboard = () => {
   // Chart data update
   useEffect(() => {
     if (isTestRunning) {
+      const deflection = (liveData as any).calculated_deflection || liveData.actual_deflection || 0;
       setChartData(prev => [...prev, {
-        deflection: liveData.actual_deflection,
+        deflection: deflection,
         force: forceN,
       }]);
     } else if (liveData.test_status === 1) {
       setChartData([]);
     }
-  }, [liveData.actual_deflection, forceN, isTestRunning, liveData.test_status]);
+  }, [(liveData as any).calculated_deflection, liveData.actual_deflection, forceN, isTestRunning, liveData.test_status]);
 
   const handleStartTest = () => {
     setChartData([]);

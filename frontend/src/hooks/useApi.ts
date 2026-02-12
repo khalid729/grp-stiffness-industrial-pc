@@ -378,6 +378,48 @@ export function useLanControl() {
   };
 }
 
+// ========== Test Metadata ==========
+
+export interface TestMetadata {
+  sample_id: string;
+  operator: string;
+  notes: string;
+}
+
+export function useTestMetadata() {
+  const queryClient = useQueryClient();
+
+  const metadataQuery = useQuery<TestMetadata>({
+    queryKey: ['test-metadata'],
+    queryFn: async () => {
+      const response = await fetch(`${API_URL}/api/test-metadata`);
+      if (!response.ok) throw new Error('Failed to fetch test metadata');
+      return response.json();
+    },
+  });
+
+  const saveMetadata = useMutation({
+    mutationFn: async (data: TestMetadata) => {
+      const response = await fetch(`${API_URL}/api/test-metadata`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error('Failed to save test metadata');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['test-metadata'] });
+    },
+  });
+
+  return {
+    metadata: metadataQuery.data,
+    isLoading: metadataQuery.isLoading,
+    saveMetadata,
+  };
+}
+
 // ========== Step Movement Control ==========
 
 export function useStepControl() {

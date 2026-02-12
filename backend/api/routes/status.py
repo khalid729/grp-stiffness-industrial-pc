@@ -24,6 +24,12 @@ class ParametersRequest(BaseModel):
     max_force: Optional[float] = None
 
 
+class TestMetadataRequest(BaseModel):
+    sample_id: Optional[str] = ''
+    operator: Optional[str] = ''
+    notes: Optional[str] = ''
+
+
 class ConnectionResponse(BaseModel):
     connected: bool
     ip: str
@@ -95,3 +101,16 @@ async def set_parameters(params: ParametersRequest):
         raise HTTPException(status_code=500, detail="Failed to write parameters to PLC")
 
     return {"success": True, "message": "Parameters updated successfully"}
+
+
+@router.get("/test-metadata")
+async def get_test_metadata():
+    from api.websocket import get_pending_metadata
+    return get_pending_metadata()
+
+
+@router.post("/test-metadata")
+async def set_test_metadata(meta: TestMetadataRequest):
+    from api.websocket import set_pending_metadata
+    set_pending_metadata(meta.model_dump())
+    return {"success": True, "message": "Test metadata saved"}

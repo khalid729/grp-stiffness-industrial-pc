@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { TouchButton } from '@/components/ui/TouchButton';
 import { Slider } from '@/components/ui/slider';
-import { Settings2, Save, RotateCcw, CircleDot, Gauge, Target, Loader2 } from 'lucide-react';
+import { Settings2, Save, RotateCcw, CircleDot, Gauge, Target, Loader2, FileText } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useParametersControl, TestParameters } from '@/hooks/useApi';
+import { useParametersControl, TestParameters, useTestMetadata } from '@/hooks/useApi';
 import { toast } from 'sonner';
+import { Textarea } from '@/components/ui/textarea';
 
 const defaultParameters: TestParameters = {
   pipe_diameter: 300,
@@ -20,6 +21,9 @@ const TestSetup = () => {
   const { parameters: savedParams, isLoading, setParameters } = useParametersControl();
   const [parameters, setLocalParameters] = useState<TestParameters>(defaultParameters);
 
+  const { metadata, saveMetadata } = useTestMetadata();
+  const [meta, setMeta] = useState({ sample_id: '', operator: '', notes: '' });
+
   // Load saved parameters
   useEffect(() => {
     if (savedParams) {
@@ -30,12 +34,23 @@ const TestSetup = () => {
     }
   }, [savedParams]);
 
+  useEffect(() => {
+    if (metadata) {
+      setMeta({
+        sample_id: metadata.sample_id || '',
+        operator: metadata.operator || '',
+        notes: metadata.notes || '',
+      });
+    }
+  }, [metadata]);
+
   const handleSliderChange = (field: keyof TestParameters, values: number[]) => {
     setLocalParameters(prev => ({ ...prev, [field]: values[0] }));
   };
 
   const handleSave = () => {
     setParameters.mutate(parameters);
+    saveMetadata.mutate(meta);
   };
 
   const handleReset = () => {
@@ -174,6 +189,43 @@ const TestSetup = () => {
               />
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Test Information */}
+      <div className="industrial-card p-3 flex flex-col gap-3">
+        <div className="flex items-center gap-2 text-lg font-semibold">
+          <FileText className="w-6 h-6 text-primary" />
+          {t('testSetup.testInfo')}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label className="text-sm text-muted-foreground">{t('testSetup.sampleId')}</label>
+            <input
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={meta.sample_id}
+              onChange={(e) => setMeta(prev => ({ ...prev, sample_id: e.target.value }))}
+              placeholder={t('testSetup.sampleId')}
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-sm text-muted-foreground">{t('testSetup.operator')}</label>
+            <input
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={meta.operator}
+              onChange={(e) => setMeta(prev => ({ ...prev, operator: e.target.value }))}
+              placeholder={t('testSetup.operator')}
+            />
+          </div>
+        </div>
+        <div className="space-y-1">
+          <label className="text-sm text-muted-foreground">{t('testSetup.notes')}</label>
+          <Textarea
+            value={meta.notes}
+            onChange={(e) => setMeta(prev => ({ ...prev, notes: e.target.value }))}
+            placeholder={t('testSetup.notes')}
+            rows={2}
+          />
         </div>
       </div>
 
