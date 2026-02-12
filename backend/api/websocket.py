@@ -118,11 +118,44 @@ async def set_jog_speed(sid, data):
         }, room=sid)
 
 
+async def _save_test_result(data: dict):
+    """Save completed test result to database"""
+    from db.database import AsyncSessionLocal
+    from db.models import Test
+
+    try:
+        params = data_service.get_parameters() if data_service else {}
+        results = data.get('results', {})
+        test_info = data.get('test', {})
+
+        test_record = Test(
+            pipe_diameter=params.get('pipe_diameter', 0),
+            pipe_length=params.get('pipe_length', 300),
+            deflection_percent=params.get('deflection_percent', 3),
+            force_at_target=results.get('force_at_target', 0),
+            ring_stiffness=results.get('ring_stiffness', 0),
+            sn_class=results.get('sn_class', 0),
+            passed=test_info.get('passed', False),
+            test_speed=params.get('test_speed', 12),
+            max_force=results.get('force_at_target', 0),
+        )
+
+        async with AsyncSessionLocal() as session:
+            session.add(test_record)
+            await session.commit()
+            logger.info(f"Test result saved: Ø{test_record.pipe_diameter}mm, "
+                        f"RS={test_record.ring_stiffness:.1f} kN/m², "
+                        f"SN{test_record.sn_class}, {'PASS' if test_record.passed else 'FAIL'}")
+    except Exception as e:
+        logger.error(f"Failed to save test result: {e}")
+
+
 async def broadcast_live_data():
     """Background task to broadcast live data every 100ms"""
     logger.info("Starting live data broadcast task")
     reconnect_interval = 0  # Counter for reconnection attempts
     last_connected = False
+    last_test_status = 0  # Track test status changes
 
     while True:
         try:
@@ -149,6 +182,18 @@ async def broadcast_live_data():
             if data_service:
                 data = data_service.get_live_data()
                 await sio.emit('live_data', data, room='live_data')
+
+                # Auto-save on test completion (status transitions to 5)
+                current_test_status = data.get('test_status', 0)
+                if current_test_status == 5 and last_test_status != 5:
+                    logger.info("Test completed - saving results automatically")
+                    await _save_test_result(data)
+                    await emit_test_complete({
+                        'results': data.get('results', {}),
+                        'test': data.get('test', {}),
+                    })
+                last_test_status = current_test_status
+
         except Exception as e:
             logger.error(f"Error broadcasting live data: {e}")
 

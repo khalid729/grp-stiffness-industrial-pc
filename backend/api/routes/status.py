@@ -83,9 +83,9 @@ async def set_parameters(params: ParametersRequest):
         raise HTTPException(status_code=503, detail="Service not initialized")
 
     success = data_service.set_parameters(
-        diameter=params.pipe_diameter,
-        length=params.pipe_length,
-        deflection_pct=params.deflection_percent,
+        pipe_diameter=params.pipe_diameter,
+        pipe_length=params.pipe_length,
+        deflection_percent=params.deflection_percent,
         test_speed=params.test_speed,
         max_stroke=params.max_stroke,
         max_force=params.max_force,

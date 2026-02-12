@@ -293,6 +293,8 @@ class DataService:
                 self.plc.write_real(self.DB_PARAMS, self.PARAM_DEFLECTION_PERCENT, float(kwargs["deflection_percent"]))
             if "test_speed" in kwargs:
                 self.plc.write_real(self.DB_PARAMS, self.PARAM_TEST_SPEED, float(kwargs["test_speed"]))
+            if "max_stroke" in kwargs:
+                self.plc.write_real(self.DB_PARAMS, self.PARAM_MAX_STROKE, float(kwargs["max_stroke"]))
             if "max_force" in kwargs:
                 self.plc.write_real(self.DB_PARAMS, self.PARAM_MAX_FORCE, float(kwargs["max_force"]))
             if "preload_force" in kwargs:
