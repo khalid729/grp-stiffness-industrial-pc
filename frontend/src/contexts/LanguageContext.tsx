@@ -13,7 +13,7 @@ const translations: Translations = {
   "nav.alarms": { en: "Alarms", ar: "التنبيهات" },
   "nav.history": { en: "History", ar: "السجل" },
   "nav.settings": { en: "Settings", ar: "الإعدادات" },
-  
+
   // Dashboard
   "dashboard.force": { en: "Force", ar: "القوة" },
   "dashboard.weight": { en: "Weight", ar: "الوزن" },
@@ -27,11 +27,11 @@ const translations: Translations = {
   "dashboard.atHome": { en: "Home", ar: "الموضع" },
   "dashboard.upperLock": { en: "Upper", ar: "علوي" },
   "dashboard.lowerLock": { en: "Lower", ar: "سفلي" },
-  
+
   // Indicators
   "indicators.safety": { en: "Safety Status", ar: "حالة السلامة" },
   "indicators.machine": { en: "Machine Status", ar: "حالة الآلة" },
-  
+
   // Actions
   "actions.home": { en: "HOME", ar: "الرجوع" },
   "actions.start": { en: "START", ar: "بدء" },
@@ -39,7 +39,7 @@ const translations: Translations = {
   "actions.tare": { en: "TARE", ar: "تصفير" },
   "actions.zero": { en: "ZERO", ar: "صفر" },
   "actions.eStop": { en: "E-STOP", ar: "طوارئ" },
-  
+
   // Manual Control
   "manual.jogUp": { en: "JOG UP", ar: "تحريك لأعلى" },
   "manual.jogDown": { en: "JOG DOWN", ar: "تحريك لأسفل" },
@@ -53,11 +53,11 @@ const translations: Translations = {
   "manual.lockUpper": { en: "LOCK UP", ar: "قفل علوي" },
   "manual.lockLower": { en: "LOCK DN", ar: "قفل سفلي" },
   "manual.unlockAll": { en: "UNLOCK", ar: "فتح الكل" },
-  
+
   // Mode
   "mode.local": { en: "LOCAL", ar: "محلي" },
   "mode.remote": { en: "REMOTE", ar: "بعيد" },
-  
+
   // Status
   "status.idle": { en: "Idle", ar: "جاهز" },
   "status.starting": { en: "Starting", ar: "بدء التشغيل" },
@@ -66,11 +66,11 @@ const translations: Translations = {
   "status.returning": { en: "Returning", ar: "عودة" },
   "status.complete": { en: "Complete", ar: "مكتمل" },
   "status.error": { en: "Error", ar: "خطأ" },
-  
+
   // Connection
   "connection.connected": { en: "Connected", ar: "متصل" },
   "connection.disconnected": { en: "Disconnected", ar: "غير متصل" },
-  
+
   // Test Setup
   "testSetup.saved": { en: "Settings saved", ar: "تم الحفظ" },
   "testSetup.reset": { en: "Settings reset", ar: "تم إعادة الضبط" },
@@ -86,7 +86,7 @@ const translations: Translations = {
   "testSetup.maxStroke": { en: "Max Stroke", ar: "أقصى شوط" },
   "testSetup.maxForce": { en: "Max Force", ar: "أقصى قوة" },
   "testSetup.isoNote": { en: "Parameters according to ISO 9969 standard", ar: "المعاملات وفقاً لمعيار ISO 9969" },
-  
+
   // Alarms
   "alarms.active": { en: "Active", ar: "نشطة" },
   "alarms.acknowledged": { en: "Acknowledged", ar: "تم الإقرار" },
@@ -97,12 +97,12 @@ const translations: Translations = {
   "alarms.filter.all": { en: "All", ar: "الكل" },
   "alarms.filter.active": { en: "Active", ar: "نشطة" },
   "alarms.filter.acknowledged": { en: "Acknowledged", ar: "مقرة" },
-  
+
   // E-Stop
   "estop.active": { en: "ACTIVE", ar: "نشط" },
   "estop.activeTitle": { en: "Emergency Stop Active", ar: "إيقاف الطوارئ نشط" },
   "estop.activeDescription": { en: "Release the emergency stop button to continue", ar: "حرر زر الطوارئ للمتابعة" },
-  
+
   // PLC
   "plc.connected": { en: "PLC Connected", ar: "PLC متصل" },
   "plc.disconnected": { en: "PLC Disconnected", ar: "PLC غير متصل" },
@@ -148,6 +148,12 @@ const translations: Translations = {
   "settings.enterAddress": { en: "Enter Address", ar: "أدخل العنوان" },
   "settings.lanLabel": { en: "LAN", ar: "الشبكة المحلية" },
   "settings.plcNetworkLabel": { en: "PLC Network", ar: "شبكة PLC" },
+  "settings.generalNetworkLabel": { en: "General Network", ar: "الشبكة العامة" },
+
+  // Cursor
+  "settings.mouseCursor": { en: "Mouse Cursor", ar: "مؤشر الفأرة" },
+  "settings.cursorVisible": { en: "Visible", ar: "ظاهر" },
+  "settings.cursorHidden": { en: "Hidden", ar: "مخفي" },
 
   // Power Dialogs
   "power.shutdown": { en: "Shutdown System", ar: "إيقاف تشغيل النظام" },

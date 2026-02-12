@@ -179,7 +179,7 @@ const Dashboard = () => {
               controlsDisabled && "opacity-50 cursor-not-allowed"
             )}
           >
-            <span className="text-base text-muted-foreground">{t(manual.speed)}</span>
+            <span className="text-base text-muted-foreground">{t('manual.speed')}</span>
             <div className="flex items-center gap-0.5">
               <span className="text-primary font-mono text-xl font-bold">{jogSpeed}</span>
               <span className="text-base text-muted-foreground">{t('dashboard.speedUnit')}</span>

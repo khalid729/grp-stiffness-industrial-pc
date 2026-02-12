@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     DEBUG: bool = True
 
     # WebSocket
-    WS_UPDATE_INTERVAL: float = 0.02  # 100ms
+    WS_UPDATE_INTERVAL: float = 0.02  # 20ms (50Hz)
 
     # Safety Limits
     MAX_FORCE: float = 200.0  # kN

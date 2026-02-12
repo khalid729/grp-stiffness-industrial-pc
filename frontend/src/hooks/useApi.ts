@@ -426,7 +426,7 @@ export function useStepControl() {
   return { setStepDistance, stepForward, stepBackward };
 }
 
-// ========== LAN2 (PLC Network) Control ==========
+// ========== LAN2 (General Network) Control ==========
 
 export function useLan2Control() {
   const queryClient = useQueryClient();
@@ -506,6 +506,49 @@ export function usePowerControl() {
   });
 
   return { shutdown, restart };
+}
+
+// ========== Cursor Control ==========
+
+interface CursorStatus {
+  hidden: boolean;
+}
+
+export function useCursorControl() {
+  const queryClient = useQueryClient();
+
+  const cursorStatus = useQuery<CursorStatus>({
+    queryKey: ['cursor-status'],
+    queryFn: async () => {
+      const response = await fetch(`${API_URL}/api/network/cursor/status`);
+      if (!response.ok) throw new Error('Failed to fetch cursor status');
+      return response.json();
+    },
+    refetchInterval: 5000,
+  });
+
+  const toggleCursor = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`${API_URL}/api/network/cursor/toggle`, {
+        method: 'POST',
+      });
+      if (!response.ok) throw new Error('Failed to toggle cursor');
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast.success(data.message);
+      queryClient.invalidateQueries({ queryKey: ['cursor-status'] });
+    },
+    onError: (error) => {
+      toast.error(`Cursor toggle failed: ${error.message}`);
+    },
+  });
+
+  return {
+    cursorHidden: cursorStatus.data?.hidden ?? true,
+    isLoading: cursorStatus.isLoading,
+    toggleCursor,
+  };
 }
 
 // ========== Parameters Control ==========

@@ -8,10 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { IPKeypad } from "@/components/ui/IPKeypad";
 import { VirtualKeyboard } from "@/components/ui/VirtualKeyboard";
-import { useWifiControl, useLanControl, useLan2Control } from "@/hooks/useApi";
+import { useWifiControl, useLanControl, useLan2Control, useCursorControl } from "@/hooks/useApi";
 import {
   Languages, Moon, Sun, Wifi, WifiOff, Network,
-  RefreshCw, Lock, Globe, Check, Loader2, Cpu, Settings as SettingsIcon, Signal
+  RefreshCw, Lock, Globe, Check, Loader2, Cpu, Settings as SettingsIcon, Signal,
+  MousePointer, EyeOff
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -32,19 +33,22 @@ const Settings = () => {
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [showKeyboard, setShowKeyboard] = useState(false);
 
-  // LAN
+  // LAN (enp2s0 = PLC Network)
   const { lanStatus, configureLan } = useLanControl();
   const [lanMode, setLanMode] = useState<"static" | "dhcp">(lanStatus?.mode || "dhcp");
   const [lanIp, setLanIp] = useState(lanStatus?.ip_address || "192.168.0.5");
   const [lanSubnet, setLanSubnet] = useState(lanStatus?.subnet_mask || "255.255.255.0");
   const [lanGateway, setLanGateway] = useState(lanStatus?.gateway || "");
 
-  // LAN2 (PLC)
+  // LAN2 (enp1s0 = General Network)
   const { lan2Status, configureLan2 } = useLan2Control();
   const [lan2Mode, setLan2Mode] = useState<"static" | "dhcp">(lan2Status?.mode || "static");
   const [lan2Ip, setLan2Ip] = useState(lan2Status?.ip_address || "192.168.0.100");
   const [lan2Subnet, setLan2Subnet] = useState(lan2Status?.subnet_mask || "255.255.255.0");
   const [lan2Gateway, setLan2Gateway] = useState(lan2Status?.gateway || "");
+
+  // Cursor
+  const { cursorHidden, toggleCursor } = useCursorControl();
 
   // IP Keypad state
   const [ipKeypadOpen, setIpKeypadOpen] = useState<string | null>(null);
@@ -191,9 +195,16 @@ const Settings = () => {
             </div>
             <div className="flex items-center gap-2">
               {wifiStatus?.connected && (
-                <Badge variant="outline" className="bg-success/10 text-success border-success/30">
-                  {wifiStatus.ssid}
-                </Badge>
+                <>
+                  <Badge variant="outline" className="bg-success/10 text-success border-success/30">
+                    {wifiStatus.ssid}
+                  </Badge>
+                  {wifiStatus.ip_address && (
+                    <Badge variant="outline" className="bg-success/10 text-success border-success/30 font-mono">
+                      {wifiStatus.ip_address}
+                    </Badge>
+                  )}
+                </>
               )}
               <TouchButton
                 variant="outline"
@@ -228,11 +239,11 @@ const Settings = () => {
           )}
         </div>
 
-        {/* LAN */}
+        {/* PLC Network (enp2s0) */}
         <div className="industrial-card p-2 flex flex-col gap-2">
           <div className="flex items-center gap-2 text-base font-semibold">
-            <Network className="w-6 h-6" />
-            {t("settings.lanLabel")} (enp2s0)
+            <Cpu className="w-6 h-6 text-warning" />
+            {t("settings.plcNetworkLabel")} (enp2s0)
           </div>
           <div className="flex gap-1">
             <TouchButton
@@ -258,39 +269,42 @@ const Settings = () => {
             <div className="space-y-1.5">
               <div>
                 <Label className="text-sm">{t("settings.ipAddress")}</Label>
-                <Input 
-                  value={lanIp} 
-                  readOnly 
+                <Input
+                  value={lanIp}
+                  readOnly
                   onClick={() => setIpKeypadOpen("lanIp")}
-                  className="h-12 text-lg font-mono cursor-pointer" 
+                  className="h-12 text-lg font-mono cursor-pointer"
                 />
               </div>
               <div>
                 <Label className="text-sm">{t("settings.subnet")}</Label>
-                <Input 
-                  value={lanSubnet} 
-                  readOnly 
+                <Input
+                  value={lanSubnet}
+                  readOnly
                   onClick={() => setIpKeypadOpen("lanSubnet")}
-                  className="h-12 text-lg font-mono cursor-pointer" 
+                  className="h-12 text-lg font-mono cursor-pointer"
                 />
               </div>
               <div>
                 <Label className="text-sm">{t("settings.gateway")}</Label>
-                <Input 
-                  value={lanGateway} 
-                  readOnly 
+                <Input
+                  value={lanGateway}
+                  readOnly
                   onClick={() => setIpKeypadOpen("lanGateway")}
-                  className="h-12 text-lg font-mono cursor-pointer" 
+                  className="h-12 text-lg font-mono cursor-pointer"
                 />
               </div>
             </div>
           )}
-          <div className="flex items-center justify-between p-1.5 bg-secondary/50 rounded text-sm">
+          <div className="flex items-center justify-between p-1.5 bg-warning/10 border border-warning/20 rounded text-sm">
             <div>
               <span className="text-muted-foreground">{t("settings.modeLabel")} </span>
               <span className="font-medium">{lanMode === "static" ? "Static" : "DHCP"}</span>
               {lanStatus?.ip_address && (
                 <span className="ml-2 font-mono">{lanStatus.ip_address}</span>
+              )}
+              {lanStatus?.connected && (
+                <Badge variant="outline" className="ml-2 bg-success/10 text-success border-success/30 text-xs px-1 py-0">UP</Badge>
               )}
             </div>
           </div>
@@ -300,11 +314,11 @@ const Settings = () => {
           </TouchButton>
         </div>
 
-        {/* PLC Network */}
+        {/* General Network (enp1s0) */}
         <div className="industrial-card p-2 flex flex-col gap-2">
           <div className="flex items-center gap-2 text-base font-semibold">
-            <Cpu className="w-6 h-6 text-warning" />
-            {t("settings.plcNetworkLabel")} (enp1s0)
+            <Network className="w-6 h-6" />
+            {t("settings.generalNetworkLabel")} (enp1s0)
           </div>
           <div className="flex gap-1">
             <TouchButton
@@ -328,39 +342,42 @@ const Settings = () => {
             <div className="space-y-1.5">
               <div>
                 <Label className="text-sm">{t("settings.ipAddress")}</Label>
-                <Input 
-                  value={lan2Ip} 
-                  readOnly 
+                <Input
+                  value={lan2Ip}
+                  readOnly
                   onClick={() => setIpKeypadOpen("lan2Ip")}
-                  className="h-12 text-lg font-mono cursor-pointer" 
+                  className="h-12 text-lg font-mono cursor-pointer"
                 />
               </div>
               <div>
                 <Label className="text-sm">{t("settings.subnet")}</Label>
-                <Input 
-                  value={lan2Subnet} 
-                  readOnly 
+                <Input
+                  value={lan2Subnet}
+                  readOnly
                   onClick={() => setIpKeypadOpen("lan2Subnet")}
-                  className="h-12 text-lg font-mono cursor-pointer" 
+                  className="h-12 text-lg font-mono cursor-pointer"
                 />
               </div>
               <div>
                 <Label className="text-sm">{t("settings.gateway")}</Label>
-                <Input 
-                  value={lan2Gateway} 
-                  readOnly 
+                <Input
+                  value={lan2Gateway}
+                  readOnly
                   onClick={() => setIpKeypadOpen("lan2Gateway")}
-                  className="h-12 text-lg font-mono cursor-pointer" 
+                  className="h-12 text-lg font-mono cursor-pointer"
                 />
               </div>
             </div>
           )}
-          <div className="flex items-center justify-between p-1.5 bg-warning/10 border border-warning/20 rounded text-sm">
+          <div className="flex items-center justify-between p-1.5 bg-secondary/50 rounded text-sm">
             <div>
               <span className="text-muted-foreground">{t("settings.modeLabel")} </span>
               <span className="font-medium">{lan2Mode === "static" ? "Static" : "DHCP"}</span>
               {lan2Status?.ip_address && (
                 <span className="ml-2 font-mono">{lan2Status.ip_address}</span>
+              )}
+              {lan2Status?.connected && (
+                <Badge variant="outline" className="ml-2 bg-success/10 text-success border-success/30 text-xs px-1 py-0">UP</Badge>
               )}
             </div>
           </div>
@@ -390,10 +407,23 @@ const Settings = () => {
             <span className="text-muted-foreground">Standard</span>
             <span className="font-mono">ISO 9969</span>
           </div>
-          <div className="flex justify-between p-1.5 bg-secondary/30 rounded col-span-2">
+          <div className="flex justify-between p-1.5 bg-secondary/30 rounded">
             <span className="text-muted-foreground">Machine</span>
-            <span className="font-mono">GRP Ring Stiffness Test Machine</span>
+            <span className="font-mono">GRP Ring Stiffness</span>
           </div>
+          <TouchButton
+            variant={cursorHidden ? "outline" : "primary"}
+            size="sm"
+            onClick={() => toggleCursor.mutate()}
+            disabled={toggleCursor.isPending}
+            className="flex items-center justify-center gap-1.5 min-h-0 h-auto p-1.5"
+          >
+            {cursorHidden ? (
+              <><EyeOff className="w-4 h-4" /> {t("settings.mouseCursor")}: {t("settings.cursorHidden")}</>
+            ) : (
+              <><MousePointer className="w-4 h-4" /> {t("settings.mouseCursor")}: {t("settings.cursorVisible")}</>
+            )}
+          </TouchButton>
         </div>
       </div>
 
@@ -415,7 +445,7 @@ const Settings = () => {
                 id="wifi-password"
                 type="text"
                 value={wifiPassword}
-                readOnly
+                onChange={(e) => setWifiPassword(e.target.value)}
                 className="h-14 text-xl font-mono"
                 placeholder={t("settings.enterPassword")}
               />

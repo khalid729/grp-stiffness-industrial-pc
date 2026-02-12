@@ -21,7 +21,7 @@ class CommandService:
     # ═══════════════════════════════════════════════════════════════════
     # DB2 - TARE COMMANDS
     # ═══════════════════════════════════════════════════════════════════
-    CMD_TARE_LOADCELL = (60, 0)    # DB2.DBX60.0 - Tare load cell
+    CMD_TARE_LOADCELL = (59, 6)    # DB4.DBX59.6 - Tare load cell (HMI_TARE_LOADCELL)
 
     # ═══════════════════════════════════════════════════════════════════
     # DB3 - SERVO COMMANDS (Byte 0) - Main control bits
@@ -107,16 +107,16 @@ class CommandService:
     # ========== TARE / ZERO Commands ==========
 
     def tare_loadcell(self) -> dict:
-        """Zero/Tare the load cell - DB2.DBX60.0"""
+        """Tare the load cell via HMI - DB4.DBX59.6"""
         if not self._check_connection():
             return {"success": False, "message": "PLC not connected"}
         
         try:
             # Send tare pulse to DB2
-            self.plc.write_bool(self.DB_RESULTS, *self.CMD_TARE_LOADCELL, True)
+            self.plc.write_bool(self.DB_HMI, *self.CMD_TARE_LOADCELL, True)
             time.sleep(0.1)
-            self.plc.write_bool(self.DB_RESULTS, *self.CMD_TARE_LOADCELL, False)
-            logger.info("Load cell tare command sent (DB2.DBX60.0)")
+            self.plc.write_bool(self.DB_HMI, *self.CMD_TARE_LOADCELL, False)
+            logger.info("Load cell tare command sent (DB4.DBX59.6)")
             return {"success": True, "message": "Tare command sent"}
         except Exception as e:
             logger.error(f"Tare error: {e}")
@@ -204,12 +204,12 @@ class CommandService:
         return {"success": result}
 
     def set_jog_velocity(self, velocity: float) -> bool:
-        """Set jog speed - DB3.DBD16 (mm/min)"""
+        """Set jog speed setpoint - DB3.DBD26 (mm/min)"""
         if not self._check_connection():
             return False
         velocity = max(1.2, min(6000.0, velocity))
         result = self.plc.write_real(self.DB_SERVO, self.CMD_JOG_VELOCITY_SETPOINT, velocity)
-        logger.info(f"Jog velocity: {velocity} mm/min (DB3.DBD16)")
+        logger.info(f"Jog velocity setpoint: {velocity} mm/min (DB3.DBD26)")
         return result
 
     def stop_all_jog(self) -> bool:

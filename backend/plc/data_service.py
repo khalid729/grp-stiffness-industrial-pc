@@ -140,7 +140,7 @@ class DataService:
                 },
                 "position": {
                     "raw": safe_float(get_real(db2, self.RES_POSITION_RAW)),
-                    "actual": safe_float(get_real(db3, self.VAL_ACTUAL_POSITION)),
+                    "actual": safe_float(get_real(db2, self.RES_POSITION_ACTUAL)),
                 },
                 "deflection": {
                     "percent": 0.0,
@@ -216,7 +216,7 @@ class DataService:
                 "lock_lower": get_bool(db3, self.STATUS_LOCK_LOWER[0], self.STATUS_LOCK_LOWER[1]),
                 "remote_mode": get_bool(db3, self.STATUS_REMOTE_MODE[0], self.STATUS_REMOTE_MODE[1]),
                 "e_stop_active": get_bool(db3, self.STATUS_ESTOP_ACTIVE[0], self.STATUS_ESTOP_ACTIVE[1]),
-                "actual_position": safe_float(get_real(db3, self.VAL_ACTUAL_POSITION)),
+                "actual_position": safe_float(get_real(db2, self.RES_POSITION_ACTUAL)),
                 "actual_force": safe_float(get_real(db2, self.RES_FORCE_KN)),
                 "actual_deflection": safe_float(get_real(db2, self.RES_ACTUAL_DEFLECTION)),
                 "target_deflection": get_real(db2, self.RES_DEFLECTION_PERCENT),

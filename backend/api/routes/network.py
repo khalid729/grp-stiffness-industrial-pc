@@ -37,6 +37,8 @@ def run_command(cmd: list[str], timeout: int = 30) -> tuple[bool, str]:
         "cp": "/bin/cp",
         "cat": "/bin/cat",
         "netplan": "/usr/sbin/netplan",
+        "pgrep": "/usr/bin/pgrep",
+        "pkill": "/usr/bin/pkill",
     }
     # Handle sudo specially - need to replace both sudo and the command after it
     if cmd and cmd[0] == "sudo":
@@ -60,6 +62,17 @@ def run_command(cmd: list[str], timeout: int = 30) -> tuple[bool, str]:
         return False, "Command timed out"
     except Exception as e:
         return False, str(e)
+
+
+def get_wifi_interface() -> Optional[str]:
+    """Auto-detect the WiFi interface name using nmcli"""
+    success, output = run_command(["nmcli", "-t", "-f", "DEVICE,TYPE", "dev"])
+    if success:
+        for line in output.split("\n"):
+            parts = line.strip().split(":")
+            if len(parts) >= 2 and parts[1] == "wifi":
+                return parts[0]
+    return None
 
 
 @router.get("/wifi/scan")
@@ -91,20 +104,26 @@ async def get_wifi_status():
     """Get current WiFi connection status"""
     success, output = run_command(["nmcli", "-t", "-f", "NAME,TYPE,DEVICE", "con", "show", "--active"])
     wifi_connection = None
+    wifi_device = None
     for line in output.split("\n"):
         parts = line.split(":")
         if len(parts) >= 3 and parts[1] == "802-11-wireless":
             wifi_connection = parts[0]
+            wifi_device = parts[2]
             break
+
+    # Use the device from the active connection, fall back to auto-detect
+    iface = wifi_device or get_wifi_interface() or "wlan0"
+
     ip_address = None
-    success2, ip_output = run_command(["ip", "-4", "addr", "show", "wlan0"])
+    success2, ip_output = run_command(["ip", "-4", "addr", "show", iface])
     if success2:
         for line in ip_output.split("\n"):
             if "inet " in line:
                 ip_address = line.split()[1].split("/")[0]
                 break
     return {
-        "connected": ip_address is not None,
+        "connected": wifi_connection is not None and ip_address is not None,
         "ssid": wifi_connection,
         "ip_address": ip_address
     }
@@ -128,7 +147,8 @@ async def connect_wifi(request: WifiConnectRequest):
 @router.post("/wifi/disconnect")
 async def disconnect_wifi():
     """Disconnect from current WiFi network"""
-    success, output = run_command(["sudo", "nmcli", "dev", "disconnect", "wlan0"])
+    iface = get_wifi_interface() or "wlan0"
+    success, output = run_command(["sudo", "nmcli", "dev", "disconnect", iface])
     if not success:
         raise HTTPException(status_code=500, detail=f"Failed to disconnect: {output}")
     return {"success": True, "message": "Disconnected from WiFi"}
@@ -152,8 +172,13 @@ async def get_lan_status():
                 if len(parts) >= 2:
                     ip_with_prefix = parts[1]
                     config["ip_address"] = ip_with_prefix.split("/")[0]
-                    config["connected"] = True
                 break
+
+    # Check link state
+    success2, link_output = run_command(["ip", "link", "show", "enp2s0"])
+    if success2 and "state UP" in link_output:
+        config["connected"] = True
+
     return config
 
 
@@ -161,9 +186,9 @@ async def get_lan_status():
 async def configure_lan(request: LanConfigRequest):
     """Configure LAN (enp2s0) via netplan"""
     logger.info(f"Configuring LAN (enp2s0): mode={request.mode}")
-    
+
     try:
-        # Read current LAN2 (enp1s0) config to preserve it
+        # Read current enp1s0 config to preserve it
         lan2_config = ""
         try:
             success, netplan_out = run_command(["sudo", "cat", "/etc/netplan/00-installer-config.yaml"])
@@ -174,12 +199,11 @@ async def configure_lan(request: LanConfigRequest):
                     lan2_config = match.group(0).rstrip()
         except:
             pass
-        
+
         if not lan2_config:
             lan2_config = """enp1s0:
-      addresses:
-        - 192.168.0.5/24"""
-        
+      dhcp4: true"""
+
         if request.mode == "static":
             if not request.ip_address:
                 raise HTTPException(status_code=400, detail="IP address required for static mode")
@@ -188,7 +212,7 @@ async def configure_lan(request: LanConfigRequest):
                 octets = request.subnet_mask.split(".")
                 binary = "".join(format(int(o), "08b") for o in octets)
                 prefix = binary.count("1")
-            
+
             lan1_config = f"""enp2s0:
       addresses:
         - {request.ip_address}/{prefix}"""
@@ -201,7 +225,7 @@ async def configure_lan(request: LanConfigRequest):
             lan1_config = """enp2s0:
       dhcp4: true
       dhcp6: true"""
-        
+
         netplan_config = f"""network:
   version: 2
   renderer: networkd
@@ -209,23 +233,23 @@ async def configure_lan(request: LanConfigRequest):
     {lan2_config}
     {lan1_config}
 """
-        
+
         with open("/tmp/netplan-config.yaml", "w") as f:
             f.write(netplan_config)
-        
+
         success, output = run_command(["sudo", "cp", "/tmp/netplan-config.yaml", "/etc/netplan/00-installer-config.yaml"])
         if not success:
             raise HTTPException(status_code=500, detail=f"Failed to write config: {output}")
-        
+
         success, output = run_command(["sudo", "netplan", "apply"])
         if not success:
             raise HTTPException(status_code=500, detail=f"Failed to apply netplan: {output}")
-            
+
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to apply: {str(e)}")
-    
+
     logger.info(f"LAN (enp2s0) configured successfully: {request.mode}")
     return {"success": True, "message": f"LAN configured as {request.mode}"}
 
@@ -255,7 +279,7 @@ async def restart_system():
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# LAN2 (enp1s0 - PLC Network) APIs
+# LAN2 (enp1s0 - General Network) APIs
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class Lan2ConfigRequest(BaseModel):
@@ -267,7 +291,7 @@ class Lan2ConfigRequest(BaseModel):
 
 @router.get("/lan2/status")
 async def get_lan2_status():
-    """Get LAN2 (enp1s0 - PLC) configuration status"""
+    """Get LAN2 (enp1s0 - General) configuration status"""
     config = {
         "interface": "enp1s0",
         "mode": "static",
@@ -276,7 +300,7 @@ async def get_lan2_status():
         "gateway": None,
         "connected": False
     }
-    
+
     # Try to read configured IP from netplan
     try:
         success, netplan_output = run_command(["sudo", "cat", "/etc/netplan/00-installer-config.yaml"])
@@ -297,7 +321,7 @@ async def get_lan2_status():
                         config["subnet_mask"] = f"{(mask >> 24) & 0xff}.{(mask >> 16) & 0xff}.{(mask >> 8) & 0xff}.{mask & 0xff}"
     except Exception as e:
         logger.error(f"Error reading netplan: {e}")
-    
+
     # Get actual IP if interface is up
     success, ip_output = run_command(["ip", "-4", "addr", "show", "enp1s0"])
     if success:
@@ -307,20 +331,36 @@ async def get_lan2_status():
                 if len(parts) >= 2:
                     config["ip_address"] = parts[1].split("/")[0]
                 break
-    
+
     # Check if link is up
     success2, link_output = run_command(["ip", "link", "show", "enp1s0"])
     if success2 and "state UP" in link_output:
         config["connected"] = True
-    
+
     return config
 
 
 @router.post("/lan2/configure")
 async def configure_lan2(request: Lan2ConfigRequest):
-    """Configure LAN2 (enp1s0) via netplan"""
+    """Configure LAN2 (enp1s0) via netplan, preserving enp2s0 config"""
     logger.info(f"Configuring LAN2 (enp1s0): mode={request.mode}")
-    
+
+    # Read current enp2s0 (PLC) config to preserve it
+    enp2s0_config = ""
+    try:
+        success, netplan_out = run_command(["sudo", "cat", "/etc/netplan/00-installer-config.yaml"])
+        if success and "enp2s0" in netplan_out:
+            match = regex.search(r'(enp2s0:[^e]*?)(?=enp1s0|$)', netplan_out, regex.DOTALL)
+            if match:
+                enp2s0_config = match.group(1).rstrip()
+    except Exception:
+        pass
+
+    if not enp2s0_config:
+        # Safe fallback: read live config from ip addr
+        enp2s0_config = "enp2s0:\n      dhcp4: true"
+        logger.warning("Could not read enp2s0 config from netplan, using dhcp fallback")
+
     if request.mode == "static":
         if not request.ip_address:
             raise HTTPException(status_code=400, detail="IP address required for static mode")
@@ -329,29 +369,26 @@ async def configure_lan2(request: Lan2ConfigRequest):
             octets = request.subnet_mask.split(".")
             binary = "".join(format(int(o), "08b") for o in octets)
             prefix = binary.count("1")
-        netplan_config = f"""network:
-  version: 2
-  renderer: networkd
-  ethernets:
-    enp1s0:
+        enp1s0_config = f"""enp1s0:
       addresses:
-        - {request.ip_address}/{prefix}
-    enp2s0:
-      dhcp4: true
-      dhcp6: true
-"""
+        - {request.ip_address}/{prefix}"""
+        if request.gateway:
+            enp1s0_config += f"""
+      routes:
+        - to: default
+          via: {request.gateway}"""
     else:
-        netplan_config = """network:
+        enp1s0_config = """enp1s0:
+      dhcp4: true"""
+
+    netplan_config = f"""network:
   version: 2
   renderer: networkd
   ethernets:
-    enp1s0:
-      dhcp4: true
-    enp2s0:
-      dhcp4: true
-      dhcp6: true
+    {enp1s0_config}
+    {enp2s0_config}
 """
-    
+
     try:
         with open("/tmp/netplan-config.yaml", "w") as f:
             f.write(netplan_config)
@@ -361,8 +398,47 @@ async def configure_lan2(request: Lan2ConfigRequest):
         success, output = run_command(["sudo", "netplan", "apply"])
         if not success:
             raise HTTPException(status_code=500, detail=f"Failed to apply netplan: {output}")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
+
     logger.info(f"LAN2 configured successfully: {request.mode}")
     return {"success": True, "message": f"LAN2 configured as {request.mode}"}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CURSOR CONTROL APIs
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@router.get("/cursor/status")
+async def get_cursor_status():
+    """Check if mouse cursor is hidden (unclutter running)"""
+    success, output = run_command(["pgrep", "-x", "unclutter"])
+    return {
+        "hidden": success,  # If pgrep succeeds, unclutter is running = cursor hidden
+    }
+
+
+@router.post("/cursor/toggle")
+async def toggle_cursor():
+    """Toggle mouse cursor visibility by starting/stopping unclutter"""
+    success, _ = run_command(["pgrep", "-x", "unclutter"])
+    if success:
+        # Unclutter is running - kill it to show cursor
+        run_command(["pkill", "-x", "unclutter"])
+        logger.info("Cursor shown (unclutter killed)")
+        return {"success": True, "hidden": False, "message": "Cursor is now visible"}
+    else:
+        # Unclutter is not running - start it to hide cursor
+        try:
+            subprocess.Popen(
+                ["/usr/bin/unclutter", "-idle", "0.5", "-root"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                env={**os.environ, "DISPLAY": ":0"}
+            )
+            logger.info("Cursor hidden (unclutter started)")
+            return {"success": True, "hidden": True, "message": "Cursor is now hidden"}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to start unclutter: {str(e)}")
