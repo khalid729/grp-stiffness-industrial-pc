@@ -1,12 +1,15 @@
+import { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTestHistory } from '@/hooks/useApi';
 import { TouchButton } from '@/components/ui/TouchButton';
 import { History as HistoryIcon, FileText, Trash2, Download, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { TestReportDialog } from '@/components/reports/TestReportDialog';
 
 const History = () => {
   const { t, language } = useLanguage();
   const { tests, total, isLoading, refetch, deleteTest, downloadPdf } = useTestHistory();
+  const [selectedTestId, setSelectedTestId] = useState<number | null>(null);
 
   return (
     <div className="flex flex-col h-full gap-3 animate-slide-up">
@@ -42,7 +45,15 @@ const History = () => {
           </div>
         ) : (
           tests.map(test => (
-            <div key={test.id} className="industrial-card p-3">
+            <div
+              key={test.id}
+              className="industrial-card p-3 cursor-pointer hover:ring-2 hover:ring-primary/50 active:ring-2 active:ring-primary transition-all"
+              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+              role='button'
+              tabIndex={0}
+              onClick={() => setSelectedTestId(test.id)}
+              onTouchEnd={(e) => { if (!(e.target as HTMLElement).closest('button')) { e.preventDefault(); setSelectedTestId(test.id); } }}
+            >
               <div className="flex items-start gap-3">
                 <div className={cn(
                   'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center',
@@ -83,7 +94,7 @@ const History = () => {
                   <TouchButton 
                     variant="outline" 
                     size="sm"
-                    onClick={() => downloadPdf(test.id)}
+                    onClick={(e) => { e.stopPropagation(); downloadPdf(test.id); }}
                     className="px-2"
                   >
                     <Download className="w-4 h-4" />
@@ -91,7 +102,7 @@ const History = () => {
                   <TouchButton 
                     variant="outline" 
                     size="sm"
-                    onClick={() => deleteTest.mutate(test.id)}
+                    onClick={(e) => { e.stopPropagation(); deleteTest.mutate(test.id); }}
                     disabled={deleteTest.isPending}
                     className="px-2 text-destructive hover:text-destructive"
                   >
@@ -103,6 +114,12 @@ const History = () => {
           ))
         )}
       </div>
+      {/* Test Report Dialog */}
+      <TestReportDialog
+        testId={selectedTestId}
+        open={selectedTestId !== null}
+        onOpenChange={(open) => { if (!open) setSelectedTestId(null); }}
+      />
     </div>
   );
 };

@@ -793,3 +793,17 @@ export function useTestHistory() {
     downloadPdf,
   };
 }
+
+// ========== Test Detail ==========
+
+export function useTestDetail(testId: number | null) {
+  return useQuery({
+    queryKey: ['test-detail', testId],
+    queryFn: async () => {
+      const response = await fetch(`${API_URL}/api/tests/${testId}`);
+      if (!response.ok) throw new Error('Failed to fetch test');
+      return response.json();
+    },
+    enabled: !!testId,
+  });
+}

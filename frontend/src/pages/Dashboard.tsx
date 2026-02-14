@@ -32,6 +32,7 @@ const Dashboard = () => {
   const isLocalMode = !liveData.remote_mode;
   const controlsDisabled = isLocalMode || !isConnected;
   const isTestRunning = liveData.test_status >= 2 && liveData.test_status <= 5;
+  const isRecording = liveData.test?.recording === true;
   const forceN = (liveData.actual_force || 0) * 1000;
   
   const safety = liveData.safety || {
@@ -61,18 +62,26 @@ const Dashboard = () => {
     };
   }, [jogForward, jogBackward]);
 
-  // Chart data update
+  // Track previous recording state to detect transitions
+  const wasRecording = useRef(false);
+
+  // Chart data update - ONLY when PLC recording flag is active
   useEffect(() => {
-    if (isTestRunning) {
-      const deflection = (liveData as any).calculated_deflection || liveData.actual_deflection || 0;
-      setChartData(prev => [...prev, {
-        deflection: deflection,
-        force: forceN,
-      }]);
-    } else if (liveData.test_status === 1) {
+    // Detect recording start -> clear old data
+    if (isRecording && !wasRecording.current) {
       setChartData([]);
     }
-  }, [(liveData as any).calculated_deflection, liveData.actual_deflection, forceN, isTestRunning, liveData.test_status]);
+    wasRecording.current = isRecording;
+
+    // Only add data points while actively recording
+    if (!isRecording) return;
+    
+    const deflection = liveData.deflection?.actual ?? liveData.actual_deflection ?? 0;
+    const force = forceN;
+    if (deflection === 0 && force === 0) return;
+    
+    setChartData(prev => [...prev, { deflection, force }]);
+  }, [isRecording, liveData.actual_deflection, liveData.deflection?.actual, forceN]);
 
   const handleStartTest = () => {
     setChartData([]);
