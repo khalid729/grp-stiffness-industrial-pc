@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { TestReportDialog } from '@/components/reports/TestReportDialog';
+import { socketClient } from '@/api/socket';
 import { ForceDeflectionChart } from '@/components/dashboard/ForceDeflectionChart';
 import { TouchButton } from '@/components/ui/TouchButton';
 import { NumericKeypad } from '@/components/ui/NumericKeypad';
@@ -28,6 +30,8 @@ const Dashboard = () => {
 
   // Keypad state
   const [keypadOpen, setKeypadOpen] = useState<'speed' | 'distance' | null>(null);
+
+  const [completedTestId, setCompletedTestId] = useState<number | null>(null);
 
   const isLocalMode = !liveData.remote_mode;
   const controlsDisabled = isLocalMode || !isConnected;
@@ -82,6 +86,16 @@ const Dashboard = () => {
     
     setChartData(prev => [...prev, { deflection, force }]);
   }, [isRecording, liveData.actual_deflection, liveData.deflection?.actual, forceN]);
+
+  // Auto-open report when test completes
+  useEffect(() => {
+    const unsub = socketClient.on<{ test_id?: number }>('test_complete', (data) => {
+      if (data.test_id) {
+        setCompletedTestId(data.test_id);
+      }
+    });
+    return unsub;
+  }, []);
 
   const handleStartTest = () => {
     setChartData([]);
@@ -334,6 +348,12 @@ const Dashboard = () => {
         initialValue={stepDistance}
         label={t('dashboard.stepDistance')}
         unit="mm"
+      />
+      {/* Auto-open Test Report on completion */}
+      <TestReportDialog
+        testId={completedTestId}
+        open={completedTestId !== null}
+        onOpenChange={(open) => { if (!open) setCompletedTestId(null); }}
       />
     </div>
   );

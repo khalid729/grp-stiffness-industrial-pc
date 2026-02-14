@@ -197,8 +197,10 @@ async def _save_test_result(data: dict):
                         f"RS={test_record.ring_stiffness:.1f} kN/m², "
                         f"SN{test_record.sn_class}, {'PASS' if test_record.passed else 'FAIL'}")
             _pending_metadata = {}
+            return test_record.id
     except Exception as e:
         logger.error(f"Failed to save test result: {e}")
+        return None
 
 
 async def broadcast_live_data():
@@ -269,10 +271,11 @@ async def broadcast_live_data():
                 if last_test_status >= 2 and last_test_status <= 5 and (current_test_status == 0 or current_test_status >= 5):
                     if last_test_status != current_test_status:
                         logger.info(f"Test completed (status {last_test_status} -> {current_test_status}) - saving results")
-                        await _save_test_result(data)
+                        saved_test_id = await _save_test_result(data)
                         await emit_test_complete({
                             'results': data.get('results', {}),
                             'test': data.get('test', {}),
+                            'test_id': saved_test_id,
                         })
                         # Reset calculated deflection state
                         _test_start_time = None
