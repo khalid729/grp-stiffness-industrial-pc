@@ -211,6 +211,7 @@ async def broadcast_live_data():
     reconnect_interval = 0
     last_connected = False
     last_test_status = 0
+    last_test_stage = 0
 
     while True:
         try:
@@ -238,25 +239,27 @@ async def broadcast_live_data():
                 data = data_service.get_live_data()
                 
                 current_test_status = data.get('test_status', 0)
+                current_test_stage = data.get('test', {}).get('stage', 0)
                 
-                # Detect test start: transition into active testing (status >= 2)
-                if current_test_status >= 2 and last_test_status < 2:
+                # Detect test start: start deflection timer when test_status becomes 2 (testing)
+                if current_test_status == 2 and last_test_status != 2:
                     _test_start_time = time.monotonic()
                     params = data_service.get_parameters()
                     _test_speed = params.get('test_speed', 12.0) or 12.0
                     _test_data_points = []
-                    logger.info(f"Calculated deflection started: speed={_test_speed} mm/min")
+                    logger.info(f"Test started, deflection timer started, speed={_test_speed} mm/min")
                 
-                # Calculate deflection during active test (status 2-5)
+                # Calculate deflection ONLY during testing (test_status == 2)
                 calculated_deflection = 0.0
-                if _test_start_time is not None and 2 <= current_test_status <= 5:
+                if _test_start_time is not None and current_test_status == 2:
                     elapsed = time.monotonic() - _test_start_time
                     calculated_deflection = (_test_speed / 60.0) * elapsed
-                    
-                    # Accumulate data points
+                
+                # Accumulate data points during full active test (force from load cell always)
+                if 2 <= current_test_status <= 5:
                     force_kn = data.get('actual_force', 0) or 0.0
                     _test_data_points.append({
-                        'timestamp': elapsed,
+                        'timestamp': time.monotonic() - (_test_start_time or time.monotonic()),
                         'force': force_kn,
                         'deflection': calculated_deflection,
                         'position': data.get('actual_position', 0) or 0.0,
@@ -282,6 +285,7 @@ async def broadcast_live_data():
                         _test_data_points = []
                 
                 last_test_status = current_test_status
+                last_test_stage = current_test_stage
 
         except Exception as e:
             logger.error(f"Error broadcasting live data: {e}")

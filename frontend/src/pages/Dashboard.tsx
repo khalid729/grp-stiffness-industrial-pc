@@ -36,7 +36,6 @@ const Dashboard = () => {
   const isLocalMode = !liveData.remote_mode;
   const controlsDisabled = isLocalMode || !isConnected;
   const isTestRunning = liveData.test_status >= 2 && liveData.test_status <= 5;
-  const isRecording = liveData.test?.recording === true;
   const forceN = (liveData.actual_force || 0) * 1000;
   
   const safety = liveData.safety || {
@@ -66,26 +65,33 @@ const Dashboard = () => {
     };
   }, [jogForward, jogBackward]);
 
-  // Track previous recording state to detect transitions
-  const wasRecording = useRef(false);
+  // Track previous test status to detect transitions
+  const prevTestStatus = useRef(liveData.test_status);
 
-  // Chart data update - ONLY when PLC recording flag is active
+  // Chart data update - use calculated deflection, stop before return phase
   useEffect(() => {
-    // Detect recording start -> clear old data
-    if (isRecording && !wasRecording.current) {
+    const testStatus = liveData.test_status;
+    const testStage = liveData.test?.stage ?? 0;
+
+    // Detect test start: transition into active testing (status >= 2)
+    if (testStatus >= 2 && prevTestStatus.current < 2) {
       setChartData([]);
     }
-    wasRecording.current = isRecording;
+    prevTestStatus.current = testStatus;
 
-    // Only add data points while actively recording
-    if (!isRecording) return;
-    
-    const deflection = liveData.deflection?.actual ?? liveData.actual_deflection ?? 0;
+    // Only add data points during active test (status 2-5), not during return
+    const isActiveTest = testStatus >= 2 && testStatus <= 5;
+    if (!isActiveTest || testStage >= 7) return;
+
+    // Use calculated deflection from backend (speed x time)
+    const deflection = (liveData as any).calculated_deflection ?? 0;
     const force = forceN;
-    if (deflection === 0 && force === 0) return;
-    
+
+    // Skip if no meaningful data yet
+    if (deflection <= 0 && force <= 0) return;
+
     setChartData(prev => [...prev, { deflection, force }]);
-  }, [isRecording, liveData.actual_deflection, liveData.deflection?.actual, forceN]);
+  }, [liveData.test_status, liveData.test?.stage, (liveData as any).calculated_deflection, forceN]);
 
   // Auto-open report when test completes
   useEffect(() => {
