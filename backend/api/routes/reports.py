@@ -147,6 +147,7 @@ async def download_pdf_report(
 async def export_excel(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    force_unit: str = Query("N", regex="^(N|kN)$"),
     db: AsyncSession = Depends(get_db)
 ):
     """Export tests to Excel file"""
@@ -170,7 +171,7 @@ async def export_excel(
         raise HTTPException(status_code=404, detail="No tests found for export")
 
     # Generate Excel
-    excel_buffer = excel_exporter.export_tests(tests)
+    excel_buffer = excel_exporter.export_tests(tests, force_unit=force_unit)
 
     filename = f"test_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
 
@@ -184,6 +185,7 @@ async def export_excel(
 @router.get("/report/excel/{test_id}")
 async def download_excel_report(
     test_id: int,
+    force_unit: str = Query("N", regex="^(N|kN)$"),
     db: AsyncSession = Depends(get_db)
 ):
     """Download Excel report for a specific test with data points"""
@@ -197,7 +199,7 @@ async def download_excel_report(
     if not test:
         raise HTTPException(status_code=404, detail="Test not found")
 
-    excel_buffer = excel_exporter.export_test_with_data_points(test)
+    excel_buffer = excel_exporter.export_test_with_data_points(test, force_unit=force_unit)
 
     filename = f"test_report_{test_id}_{test.test_date.strftime('%Y%m%d')}.xlsx"
 

@@ -59,9 +59,10 @@ const ReportsExport = () => {
     for (const id of ids) {
       try {
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+        const forceUnit = localStorage.getItem('report_force_unit') || 'N';
         const endpoint = format === 'pdf'
-          ? `/api/report/pdf/${id}?force_unit=${localStorage.getItem('report_force_unit') || 'N'}`
-          : `/api/report/excel/${id}`;
+          ? `/api/report/pdf/${id}?force_unit=${forceUnit}`
+          : `/api/report/excel/${id}?force_unit=${forceUnit}`;
         const response = await fetch(`${API_URL}${endpoint}`);
         if (!response.ok) throw new Error('Download failed');
         const blob = await response.blob();

@@ -28,17 +28,31 @@ class ExcelExporter:
         )
         self.center_align = Alignment(horizontal='center', vertical='center')
 
-    def export_tests(self, tests: List[Test]) -> bytes:
+    def _convert_force(self, value, force_unit: str):
+        """Convert force value based on unit. Raw values are in N."""
+        if value is None:
+            return ''
+        if force_unit == 'kN':
+            return round(value / 1000, 3)
+        return round(value, 1)
+
+    def _force_label(self, force_unit: str):
+        """Get force unit label"""
+        return 'kN' if force_unit == 'kN' else 'N'
+
+    def export_tests(self, tests: List[Test], force_unit: str = "N") -> bytes:
         """Export list of tests to Excel file"""
         wb = Workbook()
         ws = wb.active
         ws.title = "Test Results"
 
+        fu = self._force_label(force_unit)
+
         # Headers
         headers = [
             'ID', 'Date', 'Sample ID', 'Operator',
             'Diameter (mm)', 'Length (mm)', 'Deflection %',
-            'Force@Target (kN)', 'Max Force (kN)', 'Ring Stiffness (kN/m²)',
+            f'Force@Target ({fu})', f'Max Force ({fu})', 'Ring Stiffness (kN/m²)',
             'SN Class', 'Result'
         ]
 
@@ -59,8 +73,8 @@ class ExcelExporter:
                 test.pipe_diameter,
                 test.pipe_length,
                 test.deflection_percent,
-                round(test.force_at_target, 2) if test.force_at_target else '',
-                round(test.max_force, 2) if test.max_force else '',
+                self._convert_force(test.force_at_target, force_unit),
+                self._convert_force(test.max_force, force_unit),
                 round(test.ring_stiffness, 0) if test.ring_stiffness else '',
                 f"SN {test.sn_class}" if test.sn_class else '',
                 'PASS' if test.passed else 'FAIL'
@@ -144,9 +158,11 @@ class ExcelExporter:
         ws.column_dimensions['A'].width = 25
         ws.column_dimensions['B'].width = 20
 
-    def export_test_with_data_points(self, test: Test) -> bytes:
+    def export_test_with_data_points(self, test: Test, force_unit: str = "N") -> bytes:
         """Export single test with all data points"""
         wb = Workbook()
+
+        fu = self._force_label(force_unit)
 
         # Test info sheet
         ws_info = wb.active
@@ -166,9 +182,9 @@ class ExcelExporter:
             ['Deflection Target (%)', test.deflection_percent],
             ['', ''],
             ['Results', ''],
-            ['Force at Target (kN)', test.force_at_target],
-            ['Max Force (kN)', test.max_force],
-            ['Ring Stiffness (kN/m²)', test.ring_stiffness],
+            [f'Force at Target ({fu})', self._convert_force(test.force_at_target, force_unit)],
+            [f'Max Force ({fu})', self._convert_force(test.max_force, force_unit)],
+            ['Ring Stiffness (kN/m²)', round(test.ring_stiffness, 0) if test.ring_stiffness else ''],
             ['SN Class', f"SN {test.sn_class}" if test.sn_class else ''],
             ['Result', 'PASS' if test.passed else 'FAIL'],
         ]
@@ -187,7 +203,7 @@ class ExcelExporter:
         if test.data_points:
             ws_data = wb.create_sheet("Data Points")
 
-            headers = ['Time (s)', 'Force (kN)', 'Deflection (mm)', 'Position (mm)']
+            headers = ['Time (s)', f'Force ({fu})', 'Deflection (mm)', 'Position (mm)']
             for col, header in enumerate(headers, 1):
                 cell = ws_data.cell(row=1, column=col, value=header)
                 cell.font = self.header_font
@@ -196,7 +212,7 @@ class ExcelExporter:
 
             for row_num, dp in enumerate(sorted(test.data_points, key=lambda x: x.timestamp), 2):
                 ws_data.cell(row=row_num, column=1, value=round(dp.timestamp, 3))
-                ws_data.cell(row=row_num, column=2, value=round(dp.force, 3))
+                ws_data.cell(row=row_num, column=2, value=self._convert_force(dp.force, force_unit))
                 ws_data.cell(row=row_num, column=3, value=round(dp.deflection, 3))
                 ws_data.cell(row=row_num, column=4, value=round(dp.position, 3) if dp.position else '')
 
