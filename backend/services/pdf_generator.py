@@ -63,7 +63,7 @@ class PDFGenerator:
 
     def generate_test_report(self, test: Test, force_unit: str = "N") -> bytes:
         """Generate PDF report for a single test
-        
+
         Args:
             test: Test record
             force_unit: N for Newtons or kN for kilonewtons
@@ -102,6 +102,53 @@ class PDFGenerator:
         story.append(info_table)
         story.append(Spacer(1, 12))
 
+        # Product Information Table - Always shown
+        story.append(Paragraph("Product Information", self.styles['Heading_Custom']))
+        product_data = [
+            ['Parameter', 'Value', 'Unit'],
+            ['Lot Number', test.lot_number or 'N/A', ''],
+            ['Product ID', test.product_id or 'N/A', ''],
+            ['Nominal Diameter', f"{test.nominal_diameter:.1f}" if test.nominal_diameter is not None else 'N/A', 'mm'],
+            ['Thickness', f"{test.thickness:.2f}" if test.thickness is not None else 'N/A', 'mm'],
+            ['Nominal Weight', f"{test.nominal_weight:.2f}" if test.nominal_weight is not None else 'N/A', 'kg/m'],
+            ['Pressure Class', test.pressure_class or 'N/A', ''],
+            ['Stiffness Class', test.stiffness_class or 'N/A', ''],
+        ]
+
+        product_table = Table(product_data, colWidths=[6*cm, 4*cm, 3*cm])
+        product_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e2e8f0')),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e0')),
+            ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ]))
+        story.append(product_table)
+        story.append(Spacer(1, 12))
+
+        # Project Information Table - Always shown
+        story.append(Paragraph("Project Information", self.styles['Heading_Custom']))
+        project_data = [
+            ['Parameter', 'Value'],
+            ['Project Name', test.project_name or 'N/A'],
+            ['Customer Name', test.customer_name or 'N/A'],
+            ['PO Number', test.po_number or 'N/A'],
+        ]
+
+        project_table = Table(project_data, colWidths=[6*cm, 10*cm])
+        project_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e2e8f0')),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e0')),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ]))
+        story.append(project_table)
+        story.append(Spacer(1, 12))
+
         # Test Parameters Table
         story.append(Paragraph("Test Parameters", self.styles['Heading_Custom']))
         params_data = [
@@ -126,12 +173,14 @@ class PDFGenerator:
 
         # Test Results Table
         story.append(Paragraph("Test Results", self.styles['Heading_Custom']))
+
+        force_unit_label = force_unit
         sn_class_str = f"SN {test.sn_class}" if test.sn_class else 'N/A'
         results_data = [
             ['Parameter', 'Value', 'Unit'],
             ['Force at Target', f"{test.force_at_target:.2f}" if test.force_at_target else 'N/A', 'kN'],
             ['Maximum Force', f"{test.max_force:.2f}" if test.max_force else 'N/A', 'kN'],
-            ['Ring Stiffness', f"{test.ring_stiffness / 1000:.1f}" if test.ring_stiffness and force_unit == "kN" else (f"{test.ring_stiffness:.0f}" if test.ring_stiffness else 'N/A'), f'{force_unit_label}/m²'],
+            ['Ring Stiffness', f"{test.ring_stiffness / 1000:.1f}" if test.ring_stiffness and force_unit == "kN" else (f"{test.ring_stiffness:.0f}" if test.ring_stiffness else 'N/A'), f'{force_unit_label}/m\u00b2'],
             ['SN Classification', sn_class_str, ''],
         ]
         results_table = Table(results_data, colWidths=[6*cm, 4*cm, 3*cm])

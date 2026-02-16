@@ -28,6 +28,16 @@ class TestMetadataRequest(BaseModel):
     sample_id: Optional[str] = ''
     operator: Optional[str] = ''
     notes: Optional[str] = ''
+    lot_number: Optional[str] = ''
+    nominal_diameter: Optional[float] = None
+    pressure_class: Optional[str] = ''
+    stiffness_class: Optional[str] = ''
+    product_id: Optional[str] = ''
+    thickness: Optional[float] = None
+    nominal_weight: Optional[float] = None
+    project_name: Optional[str] = ''
+    customer_name: Optional[str] = ''
+    po_number: Optional[str] = ''
 
 
 class ConnectionResponse(BaseModel):

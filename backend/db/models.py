@@ -30,6 +30,20 @@ class Test(Base):
     duration = Column(Float, nullable=True)  # seconds
     notes = Column(Text, nullable=True)
 
+    # Product Information
+    lot_number = Column(String(50), nullable=True)
+    nominal_diameter = Column(Float, nullable=True)
+    pressure_class = Column(String(50), nullable=True)
+    stiffness_class = Column(String(50), nullable=True)
+    product_id = Column(String(50), nullable=True)
+    thickness = Column(Float, nullable=True)
+    nominal_weight = Column(Float, nullable=True)  # kg/m
+
+    # Project Information
+    project_name = Column(String(100), nullable=True)
+    customer_name = Column(String(100), nullable=True)
+    po_number = Column(String(50), nullable=True)
+
     # Relationship to data points
     data_points = relationship("TestDataPoint", back_populates="test", cascade="all, delete-orphan")
 
@@ -53,6 +67,16 @@ class Test(Base):
             "test_speed": self.test_speed,
             "duration": self.duration,
             "notes": self.notes,
+            "lot_number": self.lot_number,
+            "nominal_diameter": self.nominal_diameter,
+            "pressure_class": self.pressure_class,
+            "stiffness_class": self.stiffness_class,
+            "product_id": self.product_id,
+            "thickness": self.thickness,
+            "nominal_weight": self.nominal_weight,
+            "project_name": self.project_name,
+            "customer_name": self.customer_name,
+            "po_number": self.po_number,
         }
 
 

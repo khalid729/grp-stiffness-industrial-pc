@@ -384,6 +384,16 @@ export interface TestMetadata {
   sample_id: string;
   operator: string;
   notes: string;
+  lot_number: string;
+  nominal_diameter: number | null;
+  pressure_class: string;
+  stiffness_class: string;
+  product_id: string;
+  thickness: number | null;
+  nominal_weight: number | null;
+  project_name: string;
+  customer_name: string;
+  po_number: string;
 }
 
 export function useTestMetadata() {
@@ -734,6 +744,16 @@ export interface TestRecord {
   test_speed?: number;
   duration?: number;
   notes?: string;
+  lot_number?: string;
+  nominal_diameter?: number;
+  pressure_class?: string;
+  stiffness_class?: string;
+  product_id?: string;
+  thickness?: number;
+  nominal_weight?: number;
+  project_name?: string;
+  customer_name?: string;
+  po_number?: string;
 }
 
 export function useTestHistory() {

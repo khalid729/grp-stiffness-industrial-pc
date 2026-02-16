@@ -164,6 +164,75 @@ export function TestReportDialog({ testId, open, onOpenChange }: TestReportDialo
                 </div>
               </div>
 
+              {/* Product Information Section - Always shown */}
+              <div className="grid grid-cols-2 gap-0 mb-6 border border-gray-200 rounded-lg overflow-hidden">
+                <div className="p-4 border-r border-gray-200">
+                  <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                    {t('report.productInfo')}
+                  </h2>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">{t('report.lotNumber')}</span>
+                      <span className="font-medium text-gray-800">{test.lot_number || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">{t('report.productId')}</span>
+                      <span className="font-medium text-gray-800">{test.product_id || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">{t('report.nominalDiameter')}</span>
+                      <span className="font-medium text-gray-800">{test.nominal_diameter != null ? `${test.nominal_diameter} mm` : '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">{t('report.thickness')}</span>
+                      <span className="font-medium text-gray-800">{test.thickness != null ? `${test.thickness} mm` : '-'}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                    {t('report.projectInfo')}
+                  </h2>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">{t('report.nominalWeight')}</span>
+                      <span className="font-medium text-gray-800">{test.nominal_weight != null ? `${test.nominal_weight} kg/m` : '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">{t('report.pressureClass')}</span>
+                      <span className="font-medium text-gray-800">{test.pressure_class || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">{t('report.stiffnessClass')}</span>
+                      <span className="font-medium text-gray-800">{test.stiffness_class || '-'}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Project Information Section - Always shown */}
+              <div className="mb-6 border border-gray-200 rounded-lg overflow-hidden">
+                <div className="p-4">
+                  <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                    {t('report.projectInfo')}
+                  </h2>
+                  <div className="grid grid-cols-3 gap-x-8 gap-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">{t('report.projectName')}</span>
+                      <span className="font-medium text-gray-800">{test.project_name || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">{t('report.customerName')}</span>
+                      <span className="font-medium text-gray-800">{test.customer_name || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">{t('report.poNumber')}</span>
+                      <span className="font-medium text-gray-800">{test.po_number || '-'}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Chart (Center of Report) */}
               <div className="mb-6">
                 <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">

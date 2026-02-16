@@ -34,14 +34,18 @@ _pending_metadata: dict = {}
 
 SAUDI_TZ = timezone(timedelta(hours=3))
 
+# All metadata fields
+_METADATA_FIELDS = [
+    'sample_id', 'operator', 'notes',
+    'lot_number', 'nominal_diameter', 'pressure_class', 'stiffness_class',
+    'product_id', 'thickness', 'nominal_weight',
+    'project_name', 'customer_name', 'po_number',
+]
+
 
 def set_pending_metadata(data: dict):
     global _pending_metadata
-    _pending_metadata = {
-        'sample_id': data.get('sample_id', ''),
-        'operator': data.get('operator', ''),
-        'notes': data.get('notes', ''),
-    }
+    _pending_metadata = {field: data.get(field, '') for field in _METADATA_FIELDS}
 
 
 def get_pending_metadata() -> dict:
@@ -173,12 +177,35 @@ async def _save_test_result(data: dict):
             test_record.operator = _pending_metadata.get('operator')
         if _pending_metadata.get('notes'):
             test_record.notes = _pending_metadata.get('notes')
+
+        # Apply new product/project metadata
+        if _pending_metadata.get('lot_number'):
+            test_record.lot_number = _pending_metadata.get('lot_number')
+        if _pending_metadata.get('nominal_diameter'):
+            test_record.nominal_diameter = _pending_metadata.get('nominal_diameter')
+        if _pending_metadata.get('pressure_class'):
+            test_record.pressure_class = _pending_metadata.get('pressure_class')
+        if _pending_metadata.get('stiffness_class'):
+            test_record.stiffness_class = _pending_metadata.get('stiffness_class')
+        if _pending_metadata.get('product_id'):
+            test_record.product_id = _pending_metadata.get('product_id')
+        if _pending_metadata.get('thickness'):
+            test_record.thickness = _pending_metadata.get('thickness')
+        if _pending_metadata.get('nominal_weight'):
+            test_record.nominal_weight = _pending_metadata.get('nominal_weight')
+        if _pending_metadata.get('project_name'):
+            test_record.project_name = _pending_metadata.get('project_name')
+        if _pending_metadata.get('customer_name'):
+            test_record.customer_name = _pending_metadata.get('customer_name')
+        if _pending_metadata.get('po_number'):
+            test_record.po_number = _pending_metadata.get('po_number')
+
         test_record.test_date = datetime.now(SAUDI_TZ)
 
         async with AsyncSessionLocal() as session:
             session.add(test_record)
             await session.flush()  # Get the test ID
-            
+
             # Save data points
             if _test_data_points:
                 for dp in _test_data_points:
@@ -191,7 +218,7 @@ async def _save_test_result(data: dict):
                     )
                     session.add(point)
                 logger.info(f"Saving {len(_test_data_points)} data points")
-            
+
             await session.commit()
             logger.info(f"Test result saved: Ø{test_record.pipe_diameter}mm, "
                         f"RS={test_record.ring_stiffness:.1f} kN/m², "
@@ -206,7 +233,7 @@ async def _save_test_result(data: dict):
 async def broadcast_live_data():
     """Background task to broadcast live data every 100ms"""
     global _test_start_time, _test_speed, _test_data_points
-    
+
     logger.info("Starting live data broadcast task")
     reconnect_interval = 0
     last_connected = False
@@ -237,10 +264,10 @@ async def broadcast_live_data():
 
             if data_service:
                 data = data_service.get_live_data()
-                
+
                 current_test_status = data.get('test_status', 0)
                 current_test_stage = data.get('test', {}).get('stage', 0)
-                
+
                 # Detect test start: start deflection timer when test_status becomes 2 (testing)
                 if current_test_status == 2 and last_test_status != 2:
                     _test_start_time = time.monotonic()
@@ -248,13 +275,13 @@ async def broadcast_live_data():
                     _test_speed = params.get('test_speed', 12.0) or 12.0
                     _test_data_points = []
                     logger.info(f"Test started, deflection timer started, speed={_test_speed} mm/min")
-                
+
                 # Calculate deflection ONLY during testing (test_status == 2)
                 calculated_deflection = 0.0
                 if _test_start_time is not None and current_test_status == 2:
                     elapsed = time.monotonic() - _test_start_time
                     calculated_deflection = (_test_speed / 60.0) * elapsed
-                
+
                 # Accumulate data points during full active test (force from load cell always)
                 if 2 <= current_test_status <= 5:
                     force_kn = data.get('actual_force', 0) or 0.0
@@ -264,12 +291,12 @@ async def broadcast_live_data():
                         'deflection': calculated_deflection,
                         'position': data.get('actual_position', 0) or 0.0,
                     })
-                
+
                 # Inject calculated_deflection into broadcast
                 data['calculated_deflection'] = calculated_deflection
-                
+
                 await sio.emit('live_data', data, room='live_data')
-                
+
                 # Detect test completion: active -> complete/idle
                 if last_test_status >= 2 and last_test_status <= 5 and (current_test_status == 0 or current_test_status >= 5):
                     if last_test_status != current_test_status:
@@ -283,7 +310,7 @@ async def broadcast_live_data():
                         # Reset calculated deflection state
                         _test_start_time = None
                         _test_data_points = []
-                
+
                 last_test_status = current_test_status
                 last_test_stage = current_test_stage
 
