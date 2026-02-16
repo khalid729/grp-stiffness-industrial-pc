@@ -61,8 +61,13 @@ class PDFGenerator:
             fontName='Helvetica-Bold'
         ))
 
-    def generate_test_report(self, test: Test) -> bytes:
-        """Generate PDF report for a single test"""
+    def generate_test_report(self, test: Test, force_unit: str = "N") -> bytes:
+        """Generate PDF report for a single test
+        
+        Args:
+            test: Test record
+            force_unit: N for Newtons or kN for kilonewtons
+        """
         buffer = BytesIO()
         doc = SimpleDocTemplate(
             buffer,
@@ -126,7 +131,7 @@ class PDFGenerator:
             ['Parameter', 'Value', 'Unit'],
             ['Force at Target', f"{test.force_at_target:.2f}" if test.force_at_target else 'N/A', 'kN'],
             ['Maximum Force', f"{test.max_force:.2f}" if test.max_force else 'N/A', 'kN'],
-            ['Ring Stiffness', f"{test.ring_stiffness:.0f}" if test.ring_stiffness else 'N/A', 'kN/m²'],
+            ['Ring Stiffness', f"{test.ring_stiffness / 1000:.1f}" if test.ring_stiffness and force_unit == "kN" else (f"{test.ring_stiffness:.0f}" if test.ring_stiffness else 'N/A'), f'{force_unit_label}/m²'],
             ['SN Classification', sn_class_str, ''],
         ]
         results_table = Table(results_data, colWidths=[6*cm, 4*cm, 3*cm])

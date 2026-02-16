@@ -1,5 +1,24 @@
 # سجل التغييرات | Changelog
 
+## 2026-02-16 - Report Force Unit Options & Deployment Docs
+
+### New Features
+- Added Report Options section in Settings page with N/kN force unit toggle
+- Force unit selection applies to: force_at_target, max_force, and ring_stiffness
+- Force unit persisted in localStorage and passed to both frontend report dialog and backend PDF generator
+
+### Files Modified
+- frontend/src/pages/Settings.tsx - Added report options UI
+- frontend/src/contexts/LanguageContext.tsx - Added AR/EN translations
+- frontend/src/components/reports/TestReportDialog.tsx - Dynamic force unit display
+- frontend/src/hooks/useApi.ts - Pass force_unit query param to PDF endpoint
+- backend/api/routes/reports.py - Accept force_unit query parameter
+- backend/services/pdf_generator.py - Convert force values based on unit selection
+
+### Documentation
+- Created CLAUDE.md with deployment workflow and browser cache warning
+
+
 ## 2026-01-19 - Industrial PC Deployment
 
 ### Network Configuration

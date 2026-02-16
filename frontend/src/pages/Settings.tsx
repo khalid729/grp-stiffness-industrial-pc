@@ -12,7 +12,7 @@ import { useWifiControl, useLanControl, useLan2Control, useCursorControl } from 
 import {
   Languages, Moon, Sun, Wifi, WifiOff, Network,
   RefreshCw, Lock, Globe, Check, Loader2, Cpu, Settings as SettingsIcon, Signal,
-  MousePointer, EyeOff
+  MousePointer, EyeOff, FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -49,6 +49,16 @@ const Settings = () => {
 
   // Cursor
   const { cursorHidden, toggleCursor } = useCursorControl();
+
+  // Report Settings
+  const [forceUnit, setForceUnit] = useState<"N" | "kN">(() => {
+    return (localStorage.getItem("report_force_unit") as "N" | "kN") || "N";
+  });
+
+  const handleForceUnitChange = (unit: "N" | "kN") => {
+    setForceUnit(unit);
+    localStorage.setItem("report_force_unit", unit);
+  };
 
   // IP Keypad state
   const [ipKeypadOpen, setIpKeypadOpen] = useState<string | null>(null);
@@ -387,6 +397,35 @@ const Settings = () => {
           </TouchButton>
         </div>
       </div>
+
+      {/* Report Options */}
+      <div className="industrial-card p-2 flex flex-col gap-2 col-span-2">
+          <div className="flex items-center gap-2 text-base font-semibold">
+            <FileText className="w-6 h-6 text-primary" />
+            {t("settings.reportOptions")}
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">{t("settings.forceUnit")}</span>
+            <div className="flex gap-2">
+              <TouchButton
+                variant={forceUnit === "N" ? "primary" : "outline"}
+                size="sm"
+                onClick={() => handleForceUnitChange("N")}
+                className="min-h-[44px] min-w-[80px]"
+              >
+                N
+              </TouchButton>
+              <TouchButton
+                variant={forceUnit === "kN" ? "primary" : "outline"}
+                size="sm"
+                onClick={() => handleForceUnitChange("kN")}
+                className="min-h-[44px] min-w-[80px]"
+              >
+                kN
+              </TouchButton>
+            </div>
+          </div>
+        </div>
 
       {/* System Info */}
       <div className="industrial-card p-2">

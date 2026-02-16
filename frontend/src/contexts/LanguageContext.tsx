@@ -155,6 +155,10 @@ const translations: Translations = {
   "settings.cursorVisible": { en: "Visible", ar: "ظاهر" },
   "settings.cursorHidden": { en: "Hidden", ar: "مخفي" },
 
+  // Report Settings
+  "settings.reportOptions": { en: "Report Options", ar: "خيارات التقرير" },
+  "settings.forceUnit": { en: "Force Unit in Report", ar: "وحدة القوة في التقرير" },
+
   // Power Dialogs
   "power.shutdown": { en: "Shutdown System", ar: "إيقاف تشغيل النظام" },
   "power.shutdownConfirm": { en: "Are you sure you want to shutdown the system?", ar: "هل أنت متأكد من إيقاف تشغيل النظام؟" },

@@ -107,7 +107,11 @@ async def delete_test(test_id: int, db: AsyncSession = Depends(get_db)):
 # ========== PDF Reports ==========
 
 @router.get("/report/pdf/{test_id}")
-async def download_pdf_report(test_id: int, db: AsyncSession = Depends(get_db)):
+async def download_pdf_report(
+    test_id: int,
+    force_unit: str = Query("N", regex="^(N|kN)$"),
+    db: AsyncSession = Depends(get_db)
+):
     """Download PDF report for a specific test"""
     if pdf_generator is None:
         raise HTTPException(status_code=503, detail="PDF generator not initialized")
@@ -120,7 +124,7 @@ async def download_pdf_report(test_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Test not found")
 
     # Generate PDF
-    pdf_buffer = pdf_generator.generate_test_report(test)
+    pdf_buffer = pdf_generator.generate_test_report(test, force_unit=force_unit)
 
     filename = f"test_report_{test_id}_{test.test_date.strftime('%Y%m%d')}.pdf"
 

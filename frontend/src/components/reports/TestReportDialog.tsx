@@ -4,6 +4,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useState, useEffect } from "react";
 import { useTestDetail } from '@/hooks/useApi';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Printer, X } from 'lucide-react';
@@ -27,6 +28,29 @@ interface TestReportDialogProps {
 export function TestReportDialog({ testId, open, onOpenChange }: TestReportDialogProps) {
   const { t, language } = useLanguage();
   const { data: test, isLoading } = useTestDetail(open ? testId : null);
+
+  // Report settings
+  const [forceUnit, setForceUnit] = useState<'N' | 'kN'>(() => {
+    return (localStorage.getItem('report_force_unit') as 'N' | 'kN') || 'N';
+  });
+
+  // Listen for storage changes
+  useEffect(() => {
+    const handleStorage = () => {
+      setForceUnit((localStorage.getItem('report_force_unit') as 'N' | 'kN') || 'N');
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  // Force value converter: PLC sends in Newtons, convert if user wants kN
+  const displayForce = (valueInNewtons: number | null | undefined) => {
+    if (valueInNewtons == null) return '-';
+    if (forceUnit === 'kN') {
+      return (valueInNewtons / 1000).toFixed(3);
+    }
+    return valueInNewtons.toFixed(1);
+  };
 
   const handlePrint = () => {
     window.print();
@@ -228,16 +252,16 @@ export function TestReportDialog({ testId, open, onOpenChange }: TestReportDialo
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
                     <p className="text-xs text-gray-500 mb-1">{t('report.ringStiffness')}</p>
                     <p className="text-xl font-bold text-gray-900">
-                      {test.ring_stiffness?.toFixed(1) ?? '-'}
+                      {displayForce(test.ring_stiffness)}
                     </p>
-                    <p className="text-[10px] text-gray-400">kN/m²</p>
+                    <p className="text-[10px] text-gray-400">{forceUnit}/m²</p>
                   </div>
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
                     <p className="text-xs text-gray-500 mb-1">{t('report.forceAtTarget')}</p>
                     <p className="text-xl font-bold text-gray-900">
-                      {test.force_at_target?.toFixed(3) ?? '-'}
+                      {displayForce(test.force_at_target)}
                     </p>
-                    <p className="text-[10px] text-gray-400">kN</p>
+                    <p className="text-[10px] text-gray-400">{forceUnit}</p>
                   </div>
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
                     <p className="text-xs text-gray-500 mb-1">{t('report.snClass')}</p>
@@ -248,9 +272,9 @@ export function TestReportDialog({ testId, open, onOpenChange }: TestReportDialo
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
                     <p className="text-xs text-gray-500 mb-1">{t('report.maxForce')}</p>
                     <p className="text-xl font-bold text-gray-900">
-                      {test.max_force?.toFixed(3) ?? '-'}
+                      {displayForce(test.max_force)}
                     </p>
-                    <p className="text-[10px] text-gray-400">kN</p>
+                    <p className="text-[10px] text-gray-400">{forceUnit}</p>
                   </div>
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
                     <p className="text-xs text-gray-500 mb-1">{t('report.duration')}</p>

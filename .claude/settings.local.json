@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:github.com)",
+      "Bash(/opt/homebrew/bin/python3.11:*)",
+      "Bash(source venv/bin/activate)",
+      "Bash(python main.py:*)",
+      "Bash(npm run dev:*)",
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: switch PLC status reading from Data Blocks to Direct Hardware I/O\n\n- Update connector.py with read_input_bit\\(\\), read_input_byte\\(\\), read_analog_input\\(\\) methods\n- Update data_service.py to read status signals from PE Area \\(I0.0-I0.7\\) instead of DB3\n- Add new fields: upper_limit, lower_limit, e_stop, start_button, load_cell_raw\n- Update frontend types and hooks to match new data structure\n- Add PLC Variables Mapping v2.0 documentation\n\nThis fixes servo_ready not showing correctly in the UI by reading\ndirectly from hardware inputs instead of Data Blocks.\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(npm install:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill -9)",
+      "Bash(make dev:*)"
+    ]
+  }
+}

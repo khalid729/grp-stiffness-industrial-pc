@@ -767,7 +767,8 @@ export function useTestHistory() {
 
   const downloadPdf = async (testId: number) => {
     try {
-      const response = await fetch(`${API_URL}/api/report/pdf/${testId}`);
+      const forceUnit = localStorage.getItem("report_force_unit") || "N";
+      const response = await fetch(`${API_URL}/api/report/pdf/${testId}?force_unit=${forceUnit}`);
       if (!response.ok) throw new Error('Failed to download PDF');
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
