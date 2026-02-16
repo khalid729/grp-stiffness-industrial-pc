@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTestHistory } from '@/hooks/useApi';
 import { TouchButton } from '@/components/ui/TouchButton';
@@ -10,6 +10,21 @@ const History = () => {
   const { t, language } = useLanguage();
   const { tests, total, isLoading, refetch, deleteTest, downloadPdf } = useTestHistory();
   const [selectedTestId, setSelectedTestId] = useState<number | null>(null);
+  const [forceUnit, setForceUnit] = useState<'N' | 'kN'>(() => {
+    return (localStorage.getItem('report_force_unit') as 'N' | 'kN') || 'N';
+  });
+  useEffect(() => {
+    const handleStorage = () => {
+      setForceUnit((localStorage.getItem('report_force_unit') as 'N' | 'kN') || 'N');
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+  const displayForce = (val: number | null | undefined) => {
+    if (val == null) return '-';
+    if (forceUnit === 'kN') return (val / 1000).toFixed(3);
+    return val.toFixed(1);
+  };
 
   return (
     <div className="flex flex-col h-full gap-3 animate-slide-up">
@@ -81,7 +96,7 @@ const History = () => {
                     </div>
                     <div>
                       <span className="text-muted-foreground">{t('history.force')} </span>
-                      <span className="font-mono">{test.force_at_target?.toFixed(1) || '-'}kN</span>
+                      <span className="font-mono">{displayForce(test.force_at_target)}{forceUnit}</span>
                     </div>
                   </div>
                   
