@@ -6,7 +6,7 @@ import { TouchButton } from '@/components/ui/TouchButton';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import {
-  ArrowLeft, Usb, FileText, FileSpreadsheet, Download, Loader2,
+  ArrowLeft, Usb, FileText, FileSpreadsheet, Loader2,
   CheckCircle, XCircle, HardDrive, RefreshCw, Power,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -51,41 +51,6 @@ const ReportsExport = () => {
       usb_path: selectedUsb.path,
       force_unit: localStorage.getItem('report_force_unit') || 'N',
     });
-  };
-
-  const [downloading, setDownloading] = useState(false);
-
-  const handleDownload = async () => {
-    if (selectedIds.size === 0) return;
-    setDownloading(true);
-    try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const forceUnit = localStorage.getItem('report_force_unit') || 'N';
-      const response = await fetch(`${API_URL}/api/report/bulk-download`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          test_ids: Array.from(selectedIds),
-          format,
-          force_unit: forceUnit,
-        }),
-      });
-      if (!response.ok) throw new Error('Download failed');
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `test_reports.zip`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-      toast.success(t('export.downloadComplete'));
-    } catch {
-      toast.error('Failed to download reports');
-    } finally {
-      setDownloading(false);
-    }
   };
 
   return (
@@ -216,7 +181,7 @@ const ReportsExport = () => {
         )}
       </div>
 
-      {/* Action Bar */}
+      {/* Action Bar - USB Only */}
       <div className="flex gap-2 pt-1">
         <TouchButton
           variant="primary"
@@ -231,20 +196,6 @@ const ReportsExport = () => {
             <Usb className="w-5 h-5 mr-1" />
           )}
           {usbExport.isPending ? t('export.exporting') : t('export.exportUsb')}
-        </TouchButton>
-        <TouchButton
-          variant="outline"
-          size="sm"
-          onClick={handleDownload}
-          disabled={selectedIds.size === 0 || downloading}
-          className="flex-1 min-h-[48px]"
-        >
-          {downloading ? (
-            <Loader2 className="w-5 h-5 mr-1 animate-spin" />
-          ) : (
-            <Download className="w-5 h-5 mr-1" />
-          )}
-          {t('export.download')}
         </TouchButton>
       </div>
     </div>

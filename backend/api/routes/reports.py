@@ -305,7 +305,7 @@ def _detect_usb_block_devices():
                     os.makedirs(mount_dir, exist_ok=True)
                     try:
                         mount_result = subprocess.run(
-                            ["sudo", "mount", f"/dev/{dev_name}", mount_dir],
+                            ["sudo", "mount", "-o", "uid=1000,gid=1000,umask=0000", f"/dev/{dev_name}", mount_dir],
                             capture_output=True, text=True, timeout=10
                         )
                         if mount_result.returncode == 0:
