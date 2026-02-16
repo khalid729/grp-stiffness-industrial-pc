@@ -44,7 +44,7 @@ The GRP Ring Stiffness Test Machine uses a three-tier architecture:
 │  │                         FastAPI Application                          ││
 │  │  ┌─────────────────────────────────────────────────────────────────┐││
 │  │  │                         API Routes                               │││
-│  │  │  /api/status │ /api/commands │ /api/tests │ /api/report        │││
+│  │  │  /api/status │ /api/commands │ /api/tests │ /api/report │ /api/usb│││
 │  │  └─────────────────────────────────────────────────────────────────┘││
 │  │  ┌─────────────────────────────────────────────────────────────────┐││
 │  │  │                       Socket.IO Server                           │││
@@ -154,7 +154,7 @@ backend/
 │   └── routes/
 │       ├── status.py       # GET /api/status, /api/parameters
 │       ├── commands.py     # POST /api/command/*, /api/servo/*
-│       ├── reports.py      # GET /api/tests, /api/report/*
+│       ├── reports.py      # GET /api/tests, /api/report/*, /api/usb/*
 │       └── demo.py         # Demo data generation
 │
 ├── db/                     # Database Layer
@@ -178,7 +178,7 @@ backend/
 | `CommandService` | Send commands to PLC (jog, start, stop, etc.) |
 | `TestService` | Orchestrate test execution, record data |
 | `PDFGenerator` | Generate ISO-compliant test reports |
-| `ExcelExporter` | Export test data to spreadsheets |
+| `ExcelExporter` | Export test data to spreadsheets (single/bulk, with force unit) |
 
 ---
 
@@ -203,7 +203,8 @@ frontend/src/
 │   ├── Dashboard.tsx       # Main dashboard
 │   ├── TestSetup.tsx       # Test configuration
 │   ├── ManualControl.tsx   # Manual jog/clamp/servo
-│   ├── Reports.tsx         # Test history & export
+│   ├── Reports.tsx         # Test history & export (PDF/Excel)
+│   ├── ReportsExport.tsx   # USB export page
 │   ├── Alarms.tsx          # Alarm management
 │   └── Settings.tsx        # System settings
 │

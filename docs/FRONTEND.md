@@ -55,7 +55,8 @@ frontend/src/
 │   ├── Dashboard.tsx        # Main dashboard
 │   ├── TestSetup.tsx        # Test configuration
 │   ├── Alarms.tsx           # Alarm management
-│   ├── History.tsx          # Test history
+│   ├── History.tsx          # Test history (PDF/Excel download)
+│   ├── ReportsExport.tsx   # USB export page
 │   └── Settings.tsx         # System settings (Network, Theme, Language)
 │
 ├── lib/
@@ -331,6 +332,53 @@ function Alarms() {
 }
 ```
 
+### useUsbDevices
+
+USB device detection with auto-polling:
+
+```typescript
+import { useUsbDevices } from @/hooks/useApi;
+
+function UsbPanel() {
+  const { devices, isLoading, refetch, ejectUsb } = useUsbDevices();
+
+  return (
+    <div>
+      {devices.map(dev => (
+        <div key={dev.path}>
+          <span>{dev.label} - {dev.free_gb} GB free</span>
+          <button onClick={() => ejectUsb.mutate(dev.path)}>Eject</button>
+        </div>
+      ))}
+      <button onClick={() => refetch()}>Refresh</button>
+    </div>
+  );
+}
+```
+
+### useUsbExport
+
+Export reports to USB drive:
+
+```typescript
+import { useUsbExport } from @/hooks/useApi;
+
+function ExportButton() {
+  const usbExport = useUsbExport();
+
+  const handleExport = () => {
+    usbExport.mutate({
+      test_ids: [1, 2, 3],
+      format: pdf,
+      usb_path: /media/usb/sdb1,
+      force_unit: N,
+    });
+  };
+
+  return <button onClick={handleExport} disabled={usbExport.isPending}>Export</button>;
+}
+```
+
 ### useConnection
 
 PLC connection status:
@@ -427,6 +475,18 @@ interface TestRecord {
 }
 ```
 
+### UsbDevice
+
+```typescript
+interface UsbDevice {
+  label: string;
+  path: string;
+  free_gb: number | null;
+  device?: string;
+  size?: string;
+}
+```
+
 ### Alarm
 
 ```typescript
@@ -488,15 +548,25 @@ Manual control panel:
 | Lock/Unlock | Enabled | Enabled |
 | E-Stop | Always Available | Always Available |
 
-### Reports
+### Reports (History)
 
 Test history and export:
 
 - Paginated test list
 - Filter by sample ID, operator, pass/fail
-- PDF report download
-- Excel bulk export
+- Per-test download with PDF/Excel format picker dropdown
 - Delete test records
+
+### Reports Export (USB)
+
+USB export page (accessible from Settings):
+
+- USB device auto-detection with status indicator
+- USB free space display
+- Multi-select test list with Select All toggle
+- Format toggle (PDF/Excel)
+- Export to USB button (USB-only, no browser download)
+- USB eject button for safe removal
 
 ### Alarms
 
@@ -611,6 +681,7 @@ React Router v6 configuration in `App.tsx`:
   <Route path="/reports" element={<Reports />} />
   <Route path="/alarms" element={<Alarms />} />
   <Route path="/settings" element={<Settings />} />
+  <Route path="/reports-export" element={<ReportsExport />} />
 </Routes>
 ```
 

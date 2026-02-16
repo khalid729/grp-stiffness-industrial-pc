@@ -460,6 +460,11 @@ Delete a test record.
 #### GET /api/report/pdf/{test_id}
 Download PDF report for a specific test.
 
+**Query Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| force_unit | string | "N" | Force unit: "N" or "kN" |
+
 **Response:** PDF file download
 
 **Headers:**
@@ -478,6 +483,7 @@ Export tests to Excel file.
 |-----------|------|--------|-------------|
 | start_date | string | ISO 8601 | Filter start date |
 | end_date | string | ISO 8601 | Filter end date |
+| force_unit | string | "N" or "kN" | Force unit (default "N") |
 
 **Example:**
 ```
@@ -490,6 +496,120 @@ GET /api/report/excel?start_date=2025-01-01&end_date=2025-01-31
 ```
 Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
 Content-Disposition: attachment; filename=test_export_20250115_103000.xlsx
+```
+
+
+---
+
+#### GET /api/report/excel/{test_id}
+Download Excel report for a specific test with data points.
+
+**Query Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| force_unit | string | "N" | Force unit: "N" or "kN" |
+
+**Response:** Excel file download
+
+**Headers:**
+```
+Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+Content-Disposition: attachment; filename=test_report_1_20250115.xlsx
+```
+
+---
+
+#### POST /api/report/bulk-download
+Download multiple reports as a single ZIP file.
+
+**Request Body:**
+```json
+{
+  "test_ids": [1, 2, 3],
+  "format": "pdf",
+  "force_unit": "N"
+}
+```
+
+| Parameter | Type | Values | Description |
+|-----------|------|--------|-------------|
+| test_ids | int[] | - | List of test IDs |
+| format | string | "pdf" / "excel" | Report format |
+| force_unit | string | "N" / "kN" | Force unit (default "N") |
+
+**Response:** ZIP file download
+
+**Headers:**
+```
+Content-Type: application/zip
+Content-Disposition: attachment; filename=test_reports_20250115_103000.zip
+```
+
+---
+
+### USB Management
+
+#### GET /api/usb/devices
+Detect USB drives. Auto-mounts unmounted USB partitions to `/media/usb/`.
+
+**Response:**
+```json
+{
+  "devices": [
+    {
+      "label": "MY_USB",
+      "path": "/media/usb/sdb1",
+      "free_gb": 14.5,
+      "device": "/dev/sdb1",
+      "size": "16G"
+    }
+  ]
+}
+```
+
+---
+
+#### POST /api/usb/export
+Export reports directly to a USB drive.
+
+**Request Body:**
+```json
+{
+  "test_ids": [1, 2, 3],
+  "format": "pdf",
+  "usb_path": "/media/usb/sdb1",
+  "force_unit": "N"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "exported": ["test_report_1_20250115.pdf", "test_report_2_20250115.pdf"],
+  "errors": [],
+  "export_path": "/media/usb/sdb1/GRP_Test_Reports"
+}
+```
+
+---
+
+#### POST /api/usb/eject
+Safely unmount a USB drive.
+
+**Request Body:**
+```json
+{
+  "usb_path": "/media/usb/sdb1"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "USB safely ejected"
+}
 ```
 
 ---

@@ -1,5 +1,42 @@
 # سجل التغييرات | Changelog
 
+## 2026-02-16 - Excel Reports, USB Export & Format Choice
+
+### New Features
+- Individual test Excel reports with force unit support (N/kN)
+- PDF/Excel format picker dropdown in History page per-test download
+- Reports & USB Export page accessible from Settings
+  - USB auto-detection via lsblk with auto-mount
+  - Multi-select tests with Select All toggle
+  - Format toggle (PDF/Excel)
+  - Export to USB button (USB-only, no browser download)
+  - USB eject button for safe removal
+  - USB free space indicator
+- Bulk ZIP download endpoint for multiple reports
+
+### Bug Fixes
+- Fixed USB mount permissions (uid/gid/umask) so backend can write to VFAT drives
+- Fixed Excel reports showing raw N values when kN unit selected
+- Removed browser download from Reports Export page (USB-only)
+
+### New API Endpoints
+- `GET /api/report/excel/{test_id}` - Single test Excel report with force_unit
+- `GET /api/usb/devices` - Detect USB drives with auto-mount
+- `POST /api/usb/export` - Export reports to USB drive
+- `POST /api/usb/eject` - Safely unmount USB drive
+- `POST /api/report/bulk-download` - Download multiple reports as ZIP
+
+### Files Modified
+- backend/api/routes/reports.py - Added Excel, USB, bulk-download endpoints
+- backend/services/excel_export.py - Added force_unit parameter to all methods
+- frontend/src/pages/History.tsx - Added PDF/Excel dropdown menu
+- frontend/src/pages/ReportsExport.tsx - New USB export page
+- frontend/src/pages/Settings.tsx - Added Reports & USB Export button
+- frontend/src/hooks/useApi.ts - Added downloadExcel, useUsbDevices, useUsbExport hooks
+- frontend/src/contexts/LanguageContext.tsx - Added export translations (EN/AR)
+- frontend/src/App.tsx - Added /reports-export route
+
+
 ## 2026-02-16 - Report Force Unit Options & Deployment Docs
 
 ### New Features
@@ -90,4 +127,3 @@
 - frontend/src/components/layout/PortraitLayout.tsx (header layout)
 - frontend/src/contexts/LanguageContext.tsx (new translations)
 - /etc/sudoers.d/khalid (corrected paths for sudo-rs)
-
