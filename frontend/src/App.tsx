@@ -11,6 +11,7 @@ import TestSetup from "./pages/TestSetup";
 import Alarms from "./pages/Alarms";
 import History from "./pages/History";
 import Settings from "./pages/Settings";
+import ReportsExport from "./pages/ReportsExport";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
                 <Route path="/alarms" element={<Alarms />} />
                 <Route path="/history" element={<History />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/reports-export" element={<ReportsExport />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </PortraitLayout>

@@ -147,6 +147,8 @@ const translations: Translations = {
   "history.diameter": { en: "Dia:", ar: "القطر:" },
   "history.force": { en: "Force:", ar: "القوة:" },
   "history.sn": { en: "SN:", ar: "SN:" },
+  "history.downloadPdf": { en: "Download as PDF", ar: "تحميل كـ PDF" },
+  "history.downloadExcel": { en: "Download as Excel", ar: "تحميل كـ Excel" },
 
   // Settings Extras
   "settings.dark": { en: "Dark", ar: "داكن" },
@@ -165,6 +167,7 @@ const translations: Translations = {
   "settings.lanLabel": { en: "LAN", ar: "الشبكة المحلية" },
   "settings.plcNetworkLabel": { en: "PLC Network", ar: "شبكة PLC" },
   "settings.generalNetworkLabel": { en: "General Network", ar: "الشبكة العامة" },
+  "settings.reportsUsbExport": { en: "Reports & USB Export", ar: "التقارير وتصدير USB" },
 
   // Cursor
   "settings.mouseCursor": { en: "Mouse Cursor", ar: "مؤشر الفأرة" },
@@ -233,6 +236,18 @@ const translations: Translations = {
   "report.projectName": { en: "Project Name", ar: "اسم المشروع" },
   "report.customerName": { en: "Customer Name", ar: "اسم العميل" },
   "report.poNumber": { en: "PO Number", ar: "رقم أمر الشراء" },
+
+  // Export / USB
+  "export.title": { en: "Reports & USB Export", ar: "التقارير وتصدير USB" },
+  "export.noUsb": { en: "No USB detected", ar: "لم يتم اكتشاف USB" },
+  "export.free": { en: "free", ar: "متاح" },
+  "export.selectAll": { en: "Select All", ar: "تحديد الكل" },
+  "export.deselectAll": { en: "Deselect All", ar: "إلغاء التحديد" },
+  "export.exportUsb": { en: "Export to USB", ar: "تصدير إلى USB" },
+  "export.exporting": { en: "Exporting...", ar: "جاري التصدير..." },
+  "export.download": { en: "Download", ar: "تحميل" },
+  "export.downloadComplete": { en: "Download complete", ar: "اكتمل التحميل" },
+  "export.exportComplete": { en: "Export complete", ar: "اكتمل التصدير" },
 };
 
 interface LanguageContextType {

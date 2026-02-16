@@ -5,10 +5,16 @@ from sqlalchemy import select, desc
 from sqlalchemy.orm import selectinload
 from typing import Optional, List
 from datetime import datetime
+from pydantic import BaseModel
 import io
+import os
+import shutil
+import logging
 
 from db.database import get_db
 from db.models import Test, TestDataPoint, Alarm
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Reports"])
 
@@ -173,6 +179,132 @@ async def export_excel(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+
+@router.get("/report/excel/{test_id}")
+async def download_excel_report(
+    test_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Download Excel report for a specific test with data points"""
+    if excel_exporter is None:
+        raise HTTPException(status_code=503, detail="Excel exporter not initialized")
+
+    query = select(Test).options(selectinload(Test.data_points)).where(Test.id == test_id)
+    result = await db.execute(query)
+    test = result.scalar_one_or_none()
+
+    if not test:
+        raise HTTPException(status_code=404, detail="Test not found")
+
+    excel_buffer = excel_exporter.export_test_with_data_points(test)
+
+    filename = f"test_report_{test_id}_{test.test_date.strftime('%Y%m%d')}.xlsx"
+
+    return StreamingResponse(
+        io.BytesIO(excel_buffer),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+# ========== USB Detection & Export ==========
+
+USB_MOUNT_PATHS = ["/media/khalid", "/run/media/khalid"]
+
+
+@router.get("/usb/devices")
+async def get_usb_devices():
+    """Detect mounted USB drives"""
+    devices = []
+    for base_path in USB_MOUNT_PATHS:
+        if not os.path.isdir(base_path):
+            continue
+        try:
+            for entry in os.listdir(base_path):
+                full_path = os.path.join(base_path, entry)
+                if os.path.ismount(full_path):
+                    # Get free space
+                    try:
+                        stat = shutil.disk_usage(full_path)
+                        free_gb = stat.free / (1024 ** 3)
+                    except Exception:
+                        free_gb = None
+                    devices.append({
+                        "label": entry,
+                        "path": full_path,
+                        "free_gb": round(free_gb, 2) if free_gb is not None else None,
+                    })
+        except PermissionError:
+            continue
+    return {"devices": devices}
+
+
+class UsbExportRequest(BaseModel):
+    test_ids: List[int]
+    format: str  # "pdf" or "excel"
+    usb_path: str
+
+
+@router.post("/usb/export")
+async def export_to_usb(
+    req: UsbExportRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """Generate reports and copy them to a USB drive"""
+    # Validate USB path is a real mount
+    if not os.path.ismount(req.usb_path):
+        raise HTTPException(status_code=400, detail="USB device not found at specified path")
+
+    if req.format not in ("pdf", "excel"):
+        raise HTTPException(status_code=400, detail="Format must be 'pdf' or 'excel'")
+
+    # Create reports folder on USB
+    reports_dir = os.path.join(req.usb_path, "GRP_Test_Reports")
+    os.makedirs(reports_dir, exist_ok=True)
+
+    exported = []
+    errors = []
+
+    for test_id in req.test_ids:
+        query = select(Test).options(selectinload(Test.data_points)).where(Test.id == test_id)
+        result = await db.execute(query)
+        test = result.scalar_one_or_none()
+
+        if not test:
+            errors.append(f"Test {test_id} not found")
+            continue
+
+        try:
+            date_str = test.test_date.strftime('%Y%m%d') if test.test_date else "unknown"
+            if req.format == "pdf":
+                if pdf_generator is None:
+                    errors.append(f"Test {test_id}: PDF generator not available")
+                    continue
+                force_unit = "N"
+                data = pdf_generator.generate_test_report(test, force_unit=force_unit)
+                filename = f"test_report_{test_id}_{date_str}.pdf"
+            else:
+                if excel_exporter is None:
+                    errors.append(f"Test {test_id}: Excel exporter not available")
+                    continue
+                data = excel_exporter.export_test_with_data_points(test)
+                filename = f"test_report_{test_id}_{date_str}.xlsx"
+
+            filepath = os.path.join(reports_dir, filename)
+            with open(filepath, "wb") as f:
+                f.write(data)
+            exported.append(filename)
+        except Exception as e:
+            logger.error(f"Failed to export test {test_id}: {e}")
+            errors.append(f"Test {test_id}: {str(e)}")
+
+    return {
+        "success": len(exported) > 0,
+        "exported": exported,
+        "errors": errors,
+        "export_path": reports_dir,
+    }
 
 
 # ========== Alarms ==========

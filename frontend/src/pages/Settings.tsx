@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { TouchButton } from "@/components/ui/TouchButton";
@@ -12,7 +13,7 @@ import { useWifiControl, useLanControl, useLan2Control, useCursorControl } from 
 import {
   Languages, Moon, Sun, Wifi, WifiOff, Network,
   RefreshCw, Lock, Globe, Check, Loader2, Cpu, Settings as SettingsIcon, Signal,
-  MousePointer, EyeOff, FileText
+  MousePointer, EyeOff, FileText, HardDrive
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +26,7 @@ interface WifiNetwork {
 const Settings = () => {
   const { t, language, setLanguage } = useLanguage();
   const { theme, setTheme } = useTheme();
+  const navigate = useNavigate();
 
   // WiFi
   const { wifiStatus, networks, isScanning, scanNetworks, connectWifi, disconnectWifi } = useWifiControl();
@@ -425,6 +427,15 @@ const Settings = () => {
               </TouchButton>
             </div>
           </div>
+          <TouchButton
+            variant="outline"
+            size="sm"
+            onClick={() => navigate("/reports-export")}
+            className="min-h-[48px] w-full"
+          >
+            <HardDrive className="w-5 h-5 mr-2" />
+            {t("settings.reportsUsbExport")}
+          </TouchButton>
         </div>
 
       {/* System Info */}

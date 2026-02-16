@@ -805,6 +805,25 @@ export function useTestHistory() {
     }
   };
 
+  const downloadExcel = async (testId: number) => {
+    try {
+      const response = await fetch(`${API_URL}/api/report/excel/${testId}`);
+      if (!response.ok) throw new Error('Failed to download Excel');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `test_report_${testId}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('Excel downloaded');
+    } catch (error) {
+      toast.error('Failed to download Excel');
+    }
+  };
+
   return {
     tests: tests.data?.tests || [],
     total: tests.data?.total || 0,
@@ -812,6 +831,7 @@ export function useTestHistory() {
     refetch: tests.refetch,
     deleteTest,
     downloadPdf,
+    downloadExcel,
   };
 }
 
@@ -826,5 +846,68 @@ export function useTestDetail(testId: number | null) {
       return response.json();
     },
     enabled: !!testId,
+  });
+}
+
+// ========== USB Devices ==========
+
+export interface UsbDevice {
+  label: string;
+  path: string;
+  free_gb: number | null;
+}
+
+export function useUsbDevices() {
+  const devices = useQuery<{ devices: UsbDevice[] }>({
+    queryKey: ['usb-devices'],
+    queryFn: async () => {
+      const response = await fetch(`${API_URL}/api/usb/devices`);
+      if (!response.ok) throw new Error('Failed to detect USB devices');
+      return response.json();
+    },
+    refetchInterval: 3000,
+  });
+
+  return {
+    devices: devices.data?.devices || [],
+    isLoading: devices.isLoading,
+    refetch: devices.refetch,
+  };
+}
+
+// ========== USB Export ==========
+
+export interface UsbExportResult {
+  success: boolean;
+  exported: string[];
+  errors: string[];
+  export_path: string;
+}
+
+export function useUsbExport() {
+  return useMutation<UsbExportResult, Error, { test_ids: number[]; format: string; usb_path: string }>({
+    mutationFn: async (params) => {
+      const response = await fetch(`${API_URL}/api/usb/export`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Export failed');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        toast.success(`Exported ${data.exported.length} report(s) to USB`);
+      }
+      if (data.errors.length > 0) {
+        toast.error(`${data.errors.length} error(s) during export`);
+      }
+    },
+    onError: (error) => {
+      toast.error(`USB export failed: ${error.message}`);
+    },
   });
 }

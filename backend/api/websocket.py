@@ -28,6 +28,7 @@ broadcast_task: Optional[asyncio.Task] = None
 _test_start_time: Optional[float] = None
 _test_speed: float = 0.0
 _test_data_points: list = []
+_test_duration: Optional[float] = None  # seconds from start to target deflection
 
 # Pending test metadata
 _pending_metadata: dict = {}
@@ -149,7 +150,7 @@ async def set_jog_speed(sid, data):
 
 async def _save_test_result(data: dict):
     """Save completed test result to database"""
-    global _pending_metadata, _test_data_points
+    global _pending_metadata, _test_data_points, _test_duration
     from db.database import AsyncSessionLocal
     from db.models import Test, TestDataPoint
 
@@ -168,6 +169,7 @@ async def _save_test_result(data: dict):
             passed=test_info.get('passed', False),
             test_speed=params.get('test_speed', 12),
             max_force=results.get('force_at_target', 0),
+            duration=_test_duration,
         )
 
         # Apply pending metadata
@@ -232,7 +234,7 @@ async def _save_test_result(data: dict):
 
 async def broadcast_live_data():
     """Background task to broadcast live data every 100ms"""
-    global _test_start_time, _test_speed, _test_data_points
+    global _test_start_time, _test_speed, _test_data_points, _test_duration
 
     logger.info("Starting live data broadcast task")
     reconnect_interval = 0
@@ -271,10 +273,16 @@ async def broadcast_live_data():
                 # Detect test start: start deflection timer when test_status becomes 2 (testing)
                 if current_test_status == 2 and last_test_status != 2:
                     _test_start_time = time.monotonic()
+                    _test_duration = None
                     params = data_service.get_parameters()
                     _test_speed = params.get('test_speed', 12.0) or 12.0
                     _test_data_points = []
                     logger.info(f"Test started, deflection timer started, speed={_test_speed} mm/min")
+
+                # Detect reaching target: status transitions from 2 (testing) to 3+ (at target)
+                if last_test_status == 2 and current_test_status > 2 and _test_start_time is not None and _test_duration is None:
+                    _test_duration = time.monotonic() - _test_start_time
+                    logger.info(f"Target reached, duration: {_test_duration:.1f}s")
 
                 # Calculate deflection ONLY during testing (test_status == 2)
                 calculated_deflection = 0.0
@@ -310,6 +318,7 @@ async def broadcast_live_data():
                         # Reset calculated deflection state
                         _test_start_time = None
                         _test_data_points = []
+                        _test_duration = None
 
                 last_test_status = current_test_status
                 last_test_stage = current_test_stage

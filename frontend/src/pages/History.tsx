@@ -2,13 +2,19 @@ import { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTestHistory } from '@/hooks/useApi';
 import { TouchButton } from '@/components/ui/TouchButton';
-import { History as HistoryIcon, FileText, Trash2, Download, Loader2, CheckCircle, XCircle } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { History as HistoryIcon, FileText, Trash2, Download, Loader2, CheckCircle, XCircle, FileSpreadsheet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TestReportDialog } from '@/components/reports/TestReportDialog';
 
 const History = () => {
   const { t, language } = useLanguage();
-  const { tests, total, isLoading, refetch, deleteTest, downloadPdf } = useTestHistory();
+  const { tests, total, isLoading, refetch, deleteTest, downloadPdf, downloadExcel } = useTestHistory();
   const [selectedTestId, setSelectedTestId] = useState<number | null>(null);
   const [forceUnit, setForceUnit] = useState<'N' | 'kN'>(() => {
     return (localStorage.getItem('report_force_unit') as 'N' | 'kN') || 'N';
@@ -67,7 +73,7 @@ const History = () => {
               role='button'
               tabIndex={0}
               onClick={() => setSelectedTestId(test.id)}
-              onTouchEnd={(e) => { if (!(e.target as HTMLElement).closest('button')) { e.preventDefault(); setSelectedTestId(test.id); } }}
+              onTouchEnd={(e) => { if (!(e.target as HTMLElement).closest('button') && !(e.target as HTMLElement).closest('[role="menu"]')) { e.preventDefault(); setSelectedTestId(test.id); } }}
             >
               <div className="flex items-start gap-3">
                 <div className={cn(
@@ -76,7 +82,7 @@ const History = () => {
                 )}>
                   {test.passed ? <CheckCircle className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
                 </div>
-                
+
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="font-mono text-base font-bold">#{test.id}</span>
@@ -84,7 +90,7 @@ const History = () => {
                       <span className="text-base text-muted-foreground">{test.sample_id}</span>
                     )}
                   </div>
-                  
+
                   <div className="grid grid-cols-3 gap-2 text-sm">
                     <div>
                       <span className="text-muted-foreground">{t('history.diameter')} </span>
@@ -99,23 +105,37 @@ const History = () => {
                       <span className="font-mono">{displayForce(test.force_at_target)}{forceUnit}</span>
                     </div>
                   </div>
-                  
+
                   <p className="text-sm text-muted-foreground mt-1">
                     {new Date(test.test_date).toLocaleString(language === 'ar' ? 'ar-SA' : 'en-US')}
                   </p>
                 </div>
-                
+
                 <div className="flex flex-col gap-1">
-                  <TouchButton 
-                    variant="outline" 
-                    size="sm"
-                    onClick={(e) => { e.stopPropagation(); downloadPdf(test.id); }}
-                    className="px-2"
-                  >
-                    <Download className="w-4 h-4" />
-                  </TouchButton>
-                  <TouchButton 
-                    variant="outline" 
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <TouchButton
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => e.stopPropagation()}
+                        className="px-2"
+                      >
+                        <Download className="w-4 h-4" />
+                      </TouchButton>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenuItem onClick={() => downloadPdf(test.id)}>
+                        <FileText className="w-4 h-4 mr-2" />
+                        {t('history.downloadPdf')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => downloadExcel(test.id)}>
+                        <FileSpreadsheet className="w-4 h-4 mr-2" />
+                        {t('history.downloadExcel')}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <TouchButton
+                    variant="outline"
                     size="sm"
                     onClick={(e) => { e.stopPropagation(); deleteTest.mutate(test.id); }}
                     disabled={deleteTest.isPending}
