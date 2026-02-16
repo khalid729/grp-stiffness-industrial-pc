@@ -53,33 +53,39 @@ const ReportsExport = () => {
     });
   };
 
+  const [downloading, setDownloading] = useState(false);
+
   const handleDownload = async () => {
     if (selectedIds.size === 0) return;
-    const ids = Array.from(selectedIds);
-    // Download one by one (browser download)
-    for (const id of ids) {
-      try {
-        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-        const forceUnit = localStorage.getItem('report_force_unit') || 'N';
-        const endpoint = format === 'pdf'
-          ? `/api/report/pdf/${id}?force_unit=${forceUnit}`
-          : `/api/report/excel/${id}?force_unit=${forceUnit}`;
-        const response = await fetch(`${API_URL}${endpoint}`);
-        if (!response.ok) throw new Error('Download failed');
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `test_report_${id}.${format === 'pdf' ? 'pdf' : 'xlsx'}`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
-      } catch {
-        toast.error(`Failed to download test ${id}`);
-      }
+    setDownloading(true);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const forceUnit = localStorage.getItem('report_force_unit') || 'N';
+      const response = await fetch(`${API_URL}/api/report/bulk-download`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          test_ids: Array.from(selectedIds),
+          format,
+          force_unit: forceUnit,
+        }),
+      });
+      if (!response.ok) throw new Error('Download failed');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `test_reports.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success(t('export.downloadComplete'));
+    } catch {
+      toast.error('Failed to download reports');
+    } finally {
+      setDownloading(false);
     }
-    toast.success(t('export.downloadComplete'));
   };
 
   return (
@@ -230,10 +236,14 @@ const ReportsExport = () => {
           variant="outline"
           size="sm"
           onClick={handleDownload}
-          disabled={selectedIds.size === 0}
+          disabled={selectedIds.size === 0 || downloading}
           className="flex-1 min-h-[48px]"
         >
-          <Download className="w-5 h-5 mr-1" />
+          {downloading ? (
+            <Loader2 className="w-5 h-5 mr-1 animate-spin" />
+          ) : (
+            <Download className="w-5 h-5 mr-1" />
+          )}
           {t('export.download')}
         </TouchButton>
       </div>

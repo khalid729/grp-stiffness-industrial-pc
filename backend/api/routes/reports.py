@@ -10,6 +10,7 @@ import io
 import os
 import shutil
 import logging
+import zipfile
 
 from db.database import get_db
 from db.models import Test, TestDataPoint, Alarm
@@ -207,6 +208,59 @@ async def download_excel_report(
         io.BytesIO(excel_buffer),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+# ========== Bulk Download (ZIP) ==========
+
+class BulkDownloadRequest(BaseModel):
+    test_ids: List[int]
+    format: str  # "pdf" or "excel"
+    force_unit: str = "N"
+
+
+@router.post("/report/bulk-download")
+async def bulk_download(
+    req: BulkDownloadRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """Generate multiple reports and return as a single ZIP file"""
+    if req.format not in ("pdf", "excel"):
+        raise HTTPException(status_code=400, detail="Format must be 'pdf' or 'excel'")
+
+    zip_buffer = io.BytesIO()
+
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for test_id in req.test_ids:
+            query = select(Test).options(selectinload(Test.data_points)).where(Test.id == test_id)
+            result = await db.execute(query)
+            test = result.scalar_one_or_none()
+
+            if not test:
+                continue
+
+            date_str = test.test_date.strftime('%Y%m%d') if test.test_date else "unknown"
+
+            if req.format == "pdf":
+                if pdf_generator is None:
+                    continue
+                data = pdf_generator.generate_test_report(test, force_unit=req.force_unit)
+                filename = f"test_report_{test_id}_{date_str}.pdf"
+            else:
+                if excel_exporter is None:
+                    continue
+                data = excel_exporter.export_test_with_data_points(test, force_unit=req.force_unit)
+                filename = f"test_report_{test_id}_{date_str}.xlsx"
+
+            zf.writestr(filename, data)
+
+    zip_buffer.seek(0)
+    zip_filename = f"test_reports_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+
+    return StreamingResponse(
+        zip_buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename={zip_filename}"}
     )
 
 
