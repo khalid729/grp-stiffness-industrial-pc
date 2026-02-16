@@ -856,9 +856,13 @@ export interface UsbDevice {
   label: string;
   path: string;
   free_gb: number | null;
+  device?: string;
+  size?: string;
 }
 
 export function useUsbDevices() {
+  const queryClient = useQueryClient();
+
   const devices = useQuery<{ devices: UsbDevice[] }>({
     queryKey: ['usb-devices'],
     queryFn: async () => {
@@ -869,10 +873,33 @@ export function useUsbDevices() {
     refetchInterval: 3000,
   });
 
+  const ejectUsb = useMutation({
+    mutationFn: async (usbPath: string) => {
+      const response = await fetch(`${API_URL}/api/usb/eject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usb_path: usbPath }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to eject');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast.success(data.message);
+      queryClient.invalidateQueries({ queryKey: ['usb-devices'] });
+    },
+    onError: (error) => {
+      toast.error(`Eject failed: ${error.message}`);
+    },
+  });
+
   return {
     devices: devices.data?.devices || [],
     isLoading: devices.isLoading,
     refetch: devices.refetch,
+    ejectUsb,
   };
 }
 
@@ -886,7 +913,7 @@ export interface UsbExportResult {
 }
 
 export function useUsbExport() {
-  return useMutation<UsbExportResult, Error, { test_ids: number[]; format: string; usb_path: string }>({
+  return useMutation<UsbExportResult, Error, { test_ids: number[]; format: string; usb_path: string; force_unit?: string }>({
     mutationFn: async (params) => {
       const response = await fetch(`${API_URL}/api/usb/export`, {
         method: 'POST',

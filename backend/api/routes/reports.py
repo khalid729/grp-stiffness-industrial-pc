@@ -212,40 +212,111 @@ async def download_excel_report(
 
 # ========== USB Detection & Export ==========
 
-USB_MOUNT_PATHS = ["/media/khalid", "/run/media/khalid"]
+USB_MOUNT_BASE = "/media/usb"
+
+
+def _detect_usb_block_devices():
+    """Detect USB block devices using lsblk, auto-mount if needed"""
+    import subprocess
+    devices = []
+    try:
+        result = subprocess.run(
+            ["lsblk", "-J", "-o", "NAME,SIZE,TYPE,MOUNTPOINT,LABEL,TRAN,RM"],
+            capture_output=True, text=True, timeout=5
+        )
+        if result.returncode != 0:
+            return devices
+
+        import json
+        data = json.loads(result.stdout)
+
+        for disk in data.get("blockdevices", []):
+            # Look for removable USB disks (rm=True or tran=usb)
+            is_usb = disk.get("tran") == "usb" or disk.get("rm") == True or disk.get("rm") == "1"
+            if not is_usb or disk.get("type") != "disk":
+                continue
+
+            # Check partitions
+            for part in disk.get("children", []):
+                if part.get("type") != "part":
+                    continue
+
+                label = part.get("label") or part.get("name", "USB")
+                mountpoint = part.get("mountpoint")
+                dev_name = part.get("name")
+
+                # Auto-mount if not mounted
+                if not mountpoint:
+                    mount_dir = os.path.join(USB_MOUNT_BASE, dev_name)
+                    os.makedirs(mount_dir, exist_ok=True)
+                    try:
+                        mount_result = subprocess.run(
+                            ["sudo", "mount", f"/dev/{dev_name}", mount_dir],
+                            capture_output=True, text=True, timeout=10
+                        )
+                        if mount_result.returncode == 0:
+                            mountpoint = mount_dir
+                            logger.info(f"Auto-mounted /dev/{dev_name} to {mount_dir}")
+                        else:
+                            logger.warning(f"Failed to mount /dev/{dev_name}: {mount_result.stderr}")
+                            continue
+                    except Exception as e:
+                        logger.warning(f"Mount error for /dev/{dev_name}: {e}")
+                        continue
+
+                # Get free space
+                free_gb = None
+                try:
+                    stat = shutil.disk_usage(mountpoint)
+                    free_gb = round(stat.free / (1024 ** 3), 2)
+                except Exception:
+                    pass
+
+                devices.append({
+                    "label": label,
+                    "path": mountpoint,
+                    "free_gb": free_gb,
+                    "device": f"/dev/{dev_name}",
+                    "size": part.get("size", ""),
+                })
+
+    except Exception as e:
+        logger.error(f"USB detection error: {e}")
+
+    return devices
 
 
 @router.get("/usb/devices")
 async def get_usb_devices():
-    """Detect mounted USB drives"""
-    devices = []
-    for base_path in USB_MOUNT_PATHS:
-        if not os.path.isdir(base_path):
-            continue
-        try:
-            for entry in os.listdir(base_path):
-                full_path = os.path.join(base_path, entry)
-                if os.path.ismount(full_path):
-                    # Get free space
-                    try:
-                        stat = shutil.disk_usage(full_path)
-                        free_gb = stat.free / (1024 ** 3)
-                    except Exception:
-                        free_gb = None
-                    devices.append({
-                        "label": entry,
-                        "path": full_path,
-                        "free_gb": round(free_gb, 2) if free_gb is not None else None,
-                    })
-        except PermissionError:
-            continue
+    """Detect USB drives, auto-mount if needed"""
+    devices = _detect_usb_block_devices()
     return {"devices": devices}
+
+
+class UsbEjectRequest(BaseModel):
+    usb_path: str
+
+
+@router.post("/usb/eject")
+async def eject_usb(req: UsbEjectRequest):
+    """Safely unmount/eject a USB drive"""
+    import subprocess
+    if not req.usb_path or not os.path.ismount(req.usb_path):
+        raise HTTPException(status_code=400, detail="Invalid USB path")
+    try:
+        subprocess.run(["sudo", "umount", req.usb_path], check=True, timeout=10)
+        return {"success": True, "message": "USB safely ejected"}
+    except subprocess.CalledProcessError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to eject: {e}")
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=500, detail="Eject timed out")
 
 
 class UsbExportRequest(BaseModel):
     test_ids: List[int]
     format: str  # "pdf" or "excel"
     usb_path: str
+    force_unit: str = "N"
 
 
 @router.post("/usb/export")
@@ -283,14 +354,13 @@ async def export_to_usb(
                 if pdf_generator is None:
                     errors.append(f"Test {test_id}: PDF generator not available")
                     continue
-                force_unit = "N"
-                data = pdf_generator.generate_test_report(test, force_unit=force_unit)
+                data = pdf_generator.generate_test_report(test, force_unit=req.force_unit)
                 filename = f"test_report_{test_id}_{date_str}.pdf"
             else:
                 if excel_exporter is None:
                     errors.append(f"Test {test_id}: Excel exporter not available")
                     continue
-                data = excel_exporter.export_test_with_data_points(test)
+                data = excel_exporter.export_test_with_data_points(test, force_unit=req.force_unit)
                 filename = f"test_report_{test_id}_{date_str}.xlsx"
 
             filepath = os.path.join(reports_dir, filename)

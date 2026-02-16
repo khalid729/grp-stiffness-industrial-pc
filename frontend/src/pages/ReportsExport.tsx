@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import {
   ArrowLeft, Usb, FileText, FileSpreadsheet, Download, Loader2,
-  CheckCircle, XCircle, HardDrive, RefreshCw,
+  CheckCircle, XCircle, HardDrive, RefreshCw, Power,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -16,7 +16,7 @@ const ReportsExport = () => {
   const { t, language } = useLanguage();
   const navigate = useNavigate();
   const { tests, isLoading, refetch } = useTestHistory();
-  const { devices, isLoading: usbLoading, refetch: refetchUsb } = useUsbDevices();
+  const { devices, isLoading: usbLoading, refetch: refetchUsb, ejectUsb } = useUsbDevices();
   const usbExport = useUsbExport();
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -49,6 +49,7 @@ const ReportsExport = () => {
       test_ids: Array.from(selectedIds),
       format,
       usb_path: selectedUsb.path,
+      force_unit: localStorage.getItem('report_force_unit') || 'N',
     });
   };
 
@@ -99,6 +100,9 @@ const ReportsExport = () => {
           {selectedUsb ? (
             <div className="flex items-center gap-2">
               <span className="font-medium">{selectedUsb.label}</span>
+              {selectedUsb.size && (
+                <Badge variant="outline" className="text-xs">{selectedUsb.size}</Badge>
+              )}
               {selectedUsb.free_gb != null && (
                 <Badge variant="outline" className="text-xs">
                   {selectedUsb.free_gb} GB {t('export.free')}
@@ -109,9 +113,22 @@ const ReportsExport = () => {
             <span className="text-sm text-muted-foreground">{t('export.noUsb')}</span>
           )}
         </div>
-        <TouchButton variant="outline" size="sm" onClick={() => refetchUsb()} disabled={usbLoading} className="px-2">
-          <RefreshCw className={cn("w-4 h-4", usbLoading && "animate-spin")} />
-        </TouchButton>
+        <div className="flex gap-1">
+          {selectedUsb && (
+            <TouchButton
+              variant="outline"
+              size="sm"
+              onClick={() => ejectUsb.mutate(selectedUsb.path)}
+              disabled={ejectUsb.isPending}
+              className="px-2"
+            >
+              <Power className="w-4 h-4" />
+            </TouchButton>
+          )}
+          <TouchButton variant="outline" size="sm" onClick={() => refetchUsb()} disabled={usbLoading} className="px-2">
+            <RefreshCw className={cn("w-4 h-4", usbLoading && "animate-spin")} />
+          </TouchButton>
+        </div>
       </div>
 
       {/* Format Toggle + Select All */}
