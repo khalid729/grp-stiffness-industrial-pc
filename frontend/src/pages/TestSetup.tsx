@@ -22,6 +22,7 @@ const defaultParameters: TestParameters = {
   test_speed: 50,
   max_stroke: 150,
   max_force: 50,
+  target_sn_class: 2500,
 };
 
 const defaultMeta: TestMetadata = {
@@ -92,11 +93,17 @@ const TestSetup = () => {
 
   const handleSave = () => {
     setParameters.mutate(parameters);
-    saveMetadata.mutate(meta);
+    // Sync stiffness_class metadata from the PLC parameter
+    const updatedMeta = { ...meta, stiffness_class: `SN${parameters.target_sn_class || 2500}` };
+    saveMetadata.mutate(updatedMeta);
   };
 
   const handleReset = () => {
-    setLocalParameters(defaultParameters);
+    if (savedParams) {
+      setLocalParameters(prev => ({ ...prev, ...savedParams }));
+    } else {
+      setLocalParameters(defaultParameters);
+    }
     toast.info(t('testSetup.reset'));
   };
 
@@ -257,6 +264,28 @@ const TestSetup = () => {
                 step={5}
               />
             </div>
+
+            {/* Target SN Class - sent to PLC for pass/fail */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-base">
+                <span className="text-muted-foreground">{t('testSetup.targetSnClass')}</span>
+                <span className="font-mono font-bold">SN {parameters.target_sn_class || 2500}</span>
+              </div>
+              <Select
+                value={String(parameters.target_sn_class || 2500)}
+                onValueChange={(v) => setLocalParameters(prev => ({ ...prev, target_sn_class: parseInt(v) }))}
+              >
+                <SelectTrigger className="w-full text-lg h-12">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1250">SN 1250</SelectItem>
+                  <SelectItem value="2500">SN 2500</SelectItem>
+                  <SelectItem value="5000">SN 5000</SelectItem>
+                  <SelectItem value="10000">SN 10000</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 
@@ -384,23 +413,12 @@ const TestSetup = () => {
                 </SelectContent>
               </Select>
             </div>
-            {/* Stiffness Class - dropdown select */}
+            {/* Stiffness Class - saved as metadata only (display) */}
             <div className="col-span-2 space-y-1">
               <label className="text-sm text-muted-foreground">{t('testSetup.stiffnessClass')}</label>
-              <Select
-                value={meta.stiffness_class || undefined}
-                onValueChange={(v) => setMeta(prev => ({ ...prev, stiffness_class: v === '_none_' ? '' : v }))}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={t('testSetup.stiffnessClass')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none_">-</SelectItem>
-                  {STIFFNESS_CLASS_OPTIONS.map((opt) => (
-                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="w-full rounded-md border border-input bg-muted px-3 py-2 text-sm text-muted-foreground">
+                SN {parameters.target_sn_class || 2500}
+              </div>
             </div>
           </div>
         </div>
