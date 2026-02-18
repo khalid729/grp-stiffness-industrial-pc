@@ -201,12 +201,12 @@ const Dashboard = () => {
             <span className="text-sm">{t('manual.jogDown')}</span>
           </button>
           <button
-            onClick={() => !controlsDisabled && setKeypadOpen('speed')}
-            disabled={controlsDisabled}
+            onClick={() => isConnected && setKeypadOpen('speed')}
+            disabled={!isConnected}
             className={cn(
               "flex items-center justify-between px-2 bg-secondary/30 rounded-lg border border-border cursor-pointer hover:bg-secondary/50 transition-colors",
               "min-h-[80px]",
-              controlsDisabled && "opacity-50 cursor-not-allowed"
+              !isConnected && "opacity-50 cursor-not-allowed"
             )}
           >
             <span className="text-base text-muted-foreground">{t('manual.speed')}</span>

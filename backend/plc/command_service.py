@@ -186,7 +186,7 @@ class CommandService:
         """Set jog speed - DB3.DBD26 (mm/min)"""
         if not self._check_connection():
             return False
-        velocity = max(1.2, min(6000.0, velocity))
+        velocity = max(1.2, min(400.0, velocity))
         result = self.plc.write_real(self.DB_SERVO, self.CMD_JOG_VELOCITY_SETPOINT, velocity)
         logger.info(f"Jog velocity: {velocity} mm/min (DB3.DBD26)")
         return result

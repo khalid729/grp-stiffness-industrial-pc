@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { socketClient } from '@/api/socket';
 import type { LiveData } from '@/types/api';
 
@@ -75,6 +75,16 @@ export function useLiveData() {
 // Jog control via WebSocket for real-time response
 export function useJogControl() {
   const [jogSpeed, setJogSpeedState] = useState(50);
+  const initializedRef = useRef(false);
+  const { liveData } = useLiveData();
+
+  // Sync jog speed from PLC on first valid data
+  useEffect(() => {
+    if (!initializedRef.current && liveData.servo?.jog_velocity && liveData.servo.jog_velocity > 0) {
+      setJogSpeedState(Math.round(liveData.servo.jog_velocity));
+      initializedRef.current = true;
+    }
+  }, [liveData.servo?.jog_velocity]);
 
   const jogForward = useCallback((pressed: boolean) => {
     socketClient.jogForward(pressed);
@@ -85,8 +95,9 @@ export function useJogControl() {
   }, []);
 
   const setJogSpeed = useCallback((speed: number) => {
-    setJogSpeedState(speed);
-    socketClient.setJogSpeed(speed);
+    const clamped = Math.max(1, Math.min(400, speed));
+    setJogSpeedState(clamped);
+    socketClient.setJogSpeed(clamped);
   }, []);
 
   return { jogForward, jogBackward, setJogSpeed, jogSpeed };

@@ -543,6 +543,9 @@ Manual control panel:
 | Control | LOCAL Mode | REMOTE Mode |
 |---------|------------|-------------|
 | Jog Up/Down | Disabled (grayed) | Enabled |
+| Jog Speed | Enabled | Enabled |
+| Tare (Force Zero) | Enabled | Enabled |
+| Position Reset | Enabled | Enabled |
 | Enable/Disable | Enabled | Enabled |
 | Reset Alarm | Enabled | Enabled |
 | Lock/Unlock | Enabled | Enabled |

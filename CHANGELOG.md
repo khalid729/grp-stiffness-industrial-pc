@@ -1,5 +1,40 @@
 # سجل التغييرات | Changelog
 
+## 2026-02-18 - Dashboard Controls & Jog Speed Improvements
+
+### Changes
+- Jog speed selector now works in both LOCAL and REMOTE modes (only requires PLC connection)
+- Tare (force zero) button now works in both LOCAL and REMOTE modes
+- Position Reset button now works in both LOCAL and REMOTE modes
+- Jog speed display now syncs from PLC on startup (reads actual servo.jog_velocity instead of hardcoded 50)
+- Maximum jog speed limited to 400 mm/min (was 6000) in both frontend and backend
+
+### Files Modified
+- frontend/src/pages/Dashboard.tsx - Jog speed button: changed disabled condition from controlsDisabled to !isConnected
+- frontend/src/components/layout/PortraitLayout.tsx - Tare & Position Reset: changed disabled from controlsDisabled to !isConnected
+- frontend/src/hooks/useLiveData.ts - useJogControl: added PLC jog_velocity sync on startup, clamped speed to 1-400
+- backend/plc/command_service.py - set_jog_velocity: changed max limit from 6000 to 400 mm/min
+
+---
+
+## 2026-02-18 - Target SN Class Parameter
+
+### New Features
+- Added Target SN Class parameter to Test Setup page (dropdown: SN 1250 / 2500 / 5000 / 10000)
+- Value is written to PLC DB1 offset 58 (Int, 2 bytes) and read back on page load
+- Stiffness Class field in Product Info section now auto-syncs with selected Target SN Class (read-only)
+- PLC uses this value for pass/fail determination during test
+
+### Files Modified
+- backend/plc/data_service.py - Added PARAM_TARGET_SN_CLASS = 58 (DB1, Int), read/write in get_parameters()/set_parameters()
+- backend/api/routes/status.py - Added target_sn_class: Optional[int] in ParametersRequest
+- frontend/src/hooks/useApi.ts - Added target_sn_class in TestParameters interface
+- frontend/src/types/api.ts - Added target_sn_class in TestParameters interface
+- frontend/src/pages/TestSetup.tsx - Added Target SN Class dropdown, synced metadata stiffness_class
+- frontend/src/contexts/LanguageContext.tsx - Added translation "testSetup.targetSnClass" (EN/AR)
+
+---
+
 ## 2026-02-16 - Excel Reports, USB Export & Format Choice
 
 ### New Features

@@ -33,6 +33,7 @@ The PLC uses three Data Blocks for communication:
 | 12 | Real | test_speed | mm/min | Actuator movement speed |
 | 16 | Real | max_stroke | mm | Maximum stroke limit |
 | 20 | Real | max_force | kN | Maximum force limit |
+| 58 | Int | target_sn_class | - | Target SN class for pass/fail (1250/2500/5000/10000) |
 
 **Memory Layout:**
 ```
@@ -42,7 +43,8 @@ DB1
 ├── DBD8   : deflection_percent (Real, 4 bytes)
 ├── DBD12  : test_speed (Real, 4 bytes)
 ├── DBD16  : max_stroke (Real, 4 bytes)
-└── DBD20  : max_force (Real, 4 bytes)
+├── DBD20  : max_force (Real, 4 bytes)
+└── DBW58  : target_sn_class (Int, 2 bytes)
 ```
 
 ---
@@ -355,7 +357,7 @@ sudo iptables -A INPUT -p tcp --sport 102 -j ACCEPT
 The backend implements these safety measures:
 
 1. **Jog Auto-Stop**: When WebSocket disconnects, all jog movements stop
-2. **Velocity Limits**: Jog velocity clamped to 1-100 mm/min
+2. **Velocity Limits**: Jog velocity clamped to 1.2-400 mm/min
 3. **Shutdown Safety**: All movements stopped on server shutdown
 
 ### PLC Interlocks (Recommended)

@@ -202,7 +202,7 @@ export function PortraitLayout({ children }: PortraitLayoutProps) {
                 variant="outline"
                 size="sm"
                 onClick={() => tareLoadCell.mutate()}
-                disabled={controlsDisabled || isTestRunning}
+                disabled={!isConnected || isTestRunning}
                 className="px-3 py-2 text-sm h-9"
               >
                 <Scale className="w-5 h-5" />
@@ -228,7 +228,7 @@ export function PortraitLayout({ children }: PortraitLayoutProps) {
                 variant="outline"
                 size="sm"
                 onClick={() => zeroPosition.mutate()}
-                disabled={controlsDisabled || isTestRunning}
+                disabled={!isConnected || isTestRunning}
                 className="px-3 py-2 text-sm h-9"
               >
                 <RotateCcw className="w-5 h-5" />
