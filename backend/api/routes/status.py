@@ -22,6 +22,7 @@ class ParametersRequest(BaseModel):
     test_speed: Optional[float] = None
     max_stroke: Optional[float] = None
     max_force: Optional[float] = None
+    target_sn_class: Optional[int] = None
 
 
 class TestMetadataRequest(BaseModel):
@@ -105,6 +106,7 @@ async def set_parameters(params: ParametersRequest):
         test_speed=params.test_speed,
         max_stroke=params.max_stroke,
         max_force=params.max_force,
+        target_sn_class=params.target_sn_class,
     )
 
     if not success:

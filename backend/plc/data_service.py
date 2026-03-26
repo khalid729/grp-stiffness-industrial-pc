@@ -48,6 +48,7 @@ class DataService:
     PARAM_APPROACH_SPEED = 42
     PARAM_CONTACT_SPEED = 46
     PARAM_RETURN_SPEED = 50
+    PARAM_TARGET_SN_CLASS = 58   # Int (2 bytes) - Target SN class for pass/fail
 
     # ═══════════════════════════════════════════════════════════════════
     # DB2 - TEST RESULTS OFFSETS
@@ -261,12 +262,13 @@ class DataService:
                 "deflection_percent": self.plc.read_real(self.DB_PARAMS, self.PARAM_DEFLECTION_PERCENT) or 3.0,
                 "deflection_target": self.plc.read_real(self.DB_PARAMS, self.PARAM_DEFLECTION_TARGET) or 0.0,
                 "test_speed": self.plc.read_real(self.DB_PARAMS, self.PARAM_TEST_SPEED) or 12.0,
-                "max_stroke": self.plc.read_real(self.DB_PARAMS, self.PARAM_MAX_STROKE) or 100.0,
-                "max_force": self.plc.read_real(self.DB_PARAMS, self.PARAM_MAX_FORCE) or 50000.0,
+                "max_stroke": self.plc.read_real(self.DB_PARAMS, self.PARAM_MAX_STROKE) or 300.0,
+                "max_force": self.plc.read_real(self.DB_PARAMS, self.PARAM_MAX_FORCE) or 200000.0,
                 "preload_force": self.plc.read_real(self.DB_PARAMS, self.PARAM_PRELOAD_FORCE) or 10.0,
                 "approach_speed": self.plc.read_real(self.DB_PARAMS, self.PARAM_APPROACH_SPEED) or 50.0,
                 "contact_speed": self.plc.read_real(self.DB_PARAMS, self.PARAM_CONTACT_SPEED) or 2.0,
-                "return_speed": self.plc.read_real(self.DB_PARAMS, self.PARAM_RETURN_SPEED) or 100.0,
+                "return_speed": self.plc.read_real(self.DB_PARAMS, self.PARAM_RETURN_SPEED) or 300.0,
+                "target_sn_class": self.plc.read_int(self.DB_PARAMS, self.PARAM_TARGET_SN_CLASS) or 2500,
                 "connected": True,
             }
         except Exception as e:
@@ -276,9 +278,9 @@ class DataService:
     def _get_default_parameters(self) -> Dict[str, Any]:
         return {
             "pipe_diameter": 0.0, "pipe_length": 300.0, "deflection_percent": 3.0,
-            "deflection_target": 0.0, "test_speed": 12.0, "max_stroke": 100.0,
-            "max_force": 50000.0, "preload_force": 10.0, "approach_speed": 50.0,
-            "contact_speed": 2.0, "return_speed": 100.0, "connected": False,
+            "deflection_target": 0.0, "test_speed": 12.0, "max_stroke": 300.0,
+            "max_force": 200000.0, "preload_force": 10.0, "approach_speed": 50.0,
+            "contact_speed": 2.0, "return_speed": 100.0, "target_sn_class": 2500, "connected": False,
         }
 
     def set_parameters(self, **kwargs) -> bool:
@@ -299,6 +301,8 @@ class DataService:
                 self.plc.write_real(self.DB_PARAMS, self.PARAM_MAX_FORCE, float(kwargs["max_force"]))
             if "preload_force" in kwargs:
                 self.plc.write_real(self.DB_PARAMS, self.PARAM_PRELOAD_FORCE, float(kwargs["preload_force"]))
+            if "target_sn_class" in kwargs:
+                self.plc.write_int(self.DB_PARAMS, self.PARAM_TARGET_SN_CLASS, int(kwargs["target_sn_class"]))
             logger.info(f"Parameters written: {kwargs}")
             return True
         except Exception as e:

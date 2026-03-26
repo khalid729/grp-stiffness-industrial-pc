@@ -1,5 +1,26 @@
 # سجل التغييرات | Changelog
 
+## 2026-03-26 - Test Setup Improvements & Cursor Fix
+
+### Bug Fixes
+- Fixed mouse cursor toggle in Settings not working — removed `-nocursor` flag from `startx` in `.bash_profile` so cursor visibility is fully controlled by `unclutter` (start/stop)
+- Fixed Max Force display showing raw Newtons as kN (e.g. 50000 kN instead of 50 kN) — added N→kN conversion in frontend display and kN→N conversion when sending to PLC
+
+### Changes
+- Added SN 12500 to Target SN Class dropdown (was: 1250/2500/5000/10000)
+- Max Force default raised from 50 kN to **200 kN** (load cell maximum) — slider range 10–200 kN
+- Max Stroke default raised from 100 mm to **300 mm** — slider range 50–300 mm
+- Pipe Diameter max raised from 1000 mm to **2000 mm**
+- Pipe Diameter slider step changed from 10 mm to **50 mm** (50, 100, 150, ..., 2000)
+- Updated STIFFNESS_CLASS_OPTIONS to include SN12500
+
+### Files Modified
+- ~/.bash_profile — Removed `-nocursor` from startx command
+- frontend/src/pages/TestSetup.tsx — SN 12500 option, max_force N/kN conversion, pipe diameter max & step, default values
+- backend/plc/data_service.py — Updated default max_force (200000 N) and max_stroke (300 mm)
+
+---
+
 ## 2026-02-18 - Dashboard Controls & Jog Speed Improvements
 
 ### Changes

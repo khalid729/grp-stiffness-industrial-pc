@@ -85,6 +85,7 @@ const translations: Translations = {
   "testSetup.testSpeed": { en: "Test Speed", ar: "سرعة الاختبار" },
   "testSetup.maxStroke": { en: "Max Stroke", ar: "أقصى شوط" },
   "testSetup.maxForce": { en: "Max Force", ar: "أقصى قوة" },
+  "testSetup.targetSnClass": { en: "Target SN Class", ar: "هدف فئة الصلابة" },
   "testSetup.isoNote": { en: "Parameters according to ISO 9969 standard", ar: "المعاملات وفقاً لمعيار ISO 9969" },
 
   // Test Setup - Product Information

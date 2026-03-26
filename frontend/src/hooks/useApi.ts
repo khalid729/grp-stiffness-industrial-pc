@@ -612,6 +612,7 @@ export interface TestParameters {
   test_speed?: number;
   max_stroke?: number;
   max_force?: number;
+  target_sn_class?: number;
   connected?: boolean;
 }
 

@@ -183,6 +183,7 @@ export interface TestParameters {
   approach_speed: number;
   contact_speed: number;
   return_speed: number;
+  target_sn_class: number;
   connected: boolean;
 }
 

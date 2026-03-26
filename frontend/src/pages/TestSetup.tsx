@@ -20,8 +20,8 @@ const defaultParameters: TestParameters = {
   pipe_length: 300,
   deflection_percent: 3,
   test_speed: 50,
-  max_stroke: 150,
-  max_force: 50,
+  max_stroke: 300,
+  max_force: 200000,
   target_sn_class: 2500,
 };
 
@@ -43,7 +43,7 @@ const defaultMeta: TestMetadata = {
 
 // GRP Fiberglass pipe standard options
 const PRESSURE_CLASS_OPTIONS = ['PN1', 'PN6', 'PN10', 'PN16', 'PN20', 'PN25', 'PN32'];
-const STIFFNESS_CLASS_OPTIONS = ['SN1250', 'SN2500', 'SN5000', 'SN10000'];
+const STIFFNESS_CLASS_OPTIONS = ['SN1250', 'SN2500', 'SN5000', 'SN10000', 'SN12500'];
 
 const TestSetup = () => {
   const { t } = useLanguage();
@@ -180,8 +180,8 @@ const TestSetup = () => {
                 value={[parameters.pipe_diameter || 300]}
                 onValueChange={(v) => handleSliderChange('pipe_diameter', v)}
                 min={50}
-                max={1000}
-                step={10}
+                max={2000}
+                step={50}
               />
             </div>
 
@@ -243,7 +243,7 @@ const TestSetup = () => {
                 <span className="font-mono font-bold">{parameters.max_stroke} mm</span>
               </div>
               <Slider
-                value={[parameters.max_stroke || 150]}
+                value={[parameters.max_stroke || 300]}
                 onValueChange={(v) => handleSliderChange('max_stroke', v)}
                 min={50}
                 max={300}
@@ -254,13 +254,13 @@ const TestSetup = () => {
             <div className="space-y-2">
               <div className="flex justify-between text-base">
                 <span className="text-muted-foreground">{t('testSetup.maxForce')}</span>
-                <span className="font-mono font-bold">{parameters.max_force} kN</span>
+                <span className="font-mono font-bold">{Math.round((parameters.max_force || 200000) / 1000)} kN</span>
               </div>
               <Slider
-                value={[parameters.max_force || 50]}
-                onValueChange={(v) => handleSliderChange('max_force', v)}
+                value={[Math.round((parameters.max_force || 200000) / 1000)]}
+                onValueChange={(v) => handleSliderChange('max_force', [v[0] * 1000])}
                 min={10}
-                max={100}
+                max={200}
                 step={5}
               />
             </div>
@@ -283,6 +283,7 @@ const TestSetup = () => {
                   <SelectItem value="2500">SN 2500</SelectItem>
                   <SelectItem value="5000">SN 5000</SelectItem>
                   <SelectItem value="10000">SN 10000</SelectItem>
+                  <SelectItem value="12500">SN 12500</SelectItem>
                 </SelectContent>
               </Select>
             </div>

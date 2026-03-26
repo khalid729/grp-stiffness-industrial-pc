@@ -169,6 +169,7 @@ Get current test parameters from PLC.
   "test_speed": 10.0,
   "max_stroke": 100.0,
   "max_force": 100.0,
+  "target_sn_class": 2500,
   "connected": true
 }
 ```
@@ -186,7 +187,8 @@ Set test parameters to PLC.
   "deflection_percent": 3.0,
   "test_speed": 10.0,
   "max_stroke": 100.0,
-  "max_force": 100.0
+  "max_force": 100.0,
+  "target_sn_class": 2500
 }
 ```
 
