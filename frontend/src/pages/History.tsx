@@ -8,14 +8,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { History as HistoryIcon, FileText, Trash2, Download, Loader2, CheckCircle, XCircle, FileSpreadsheet } from 'lucide-react';
+import { History as HistoryIcon, FileText, Trash2, Download, Loader2, CheckCircle, XCircle, FileSpreadsheet, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 import { TestReportDialog } from '@/components/reports/TestReportDialog';
+import { GroupReportDialog } from '@/components/reports/GroupReportDialog';
 
 const History = () => {
   const { t, language } = useLanguage();
   const { tests, total, isLoading, refetch, deleteTest, downloadPdf, downloadExcel } = useTestHistory();
   const [selectedTestId, setSelectedTestId] = useState<number | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [forceUnit, setForceUnit] = useState<'N' | 'kN'>(() => {
     return (localStorage.getItem('report_force_unit') as 'N' | 'kN') || 'N';
   });
@@ -72,8 +75,8 @@ const History = () => {
               style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
               role='button'
               tabIndex={0}
-              onClick={() => setSelectedTestId(test.id)}
-              onTouchEnd={(e) => { if (!(e.target as HTMLElement).closest('button') && !(e.target as HTMLElement).closest('[role="menu"]')) { e.preventDefault(); setSelectedTestId(test.id); } }}
+              onClick={() => { if (test.group_id) { setSelectedGroupId(test.group_id); } else { setSelectedTestId(test.id); } }}
+              onTouchEnd={(e) => { if (!(e.target as HTMLElement).closest('button') && !(e.target as HTMLElement).closest('[role="menu"]')) { e.preventDefault(); if (test.group_id) { setSelectedGroupId(test.group_id); } else { setSelectedTestId(test.id); } } }}
             >
               <div className="flex items-start gap-3">
                 <div className={cn(
@@ -88,6 +91,12 @@ const History = () => {
                     <span className="font-mono text-base font-bold">#{test.id}</span>
                     {test.sample_id && (
                       <span className="text-base text-muted-foreground">{test.sample_id}</span>
+                    )}
+                    {test.group_id && test.position && (
+                      <Badge variant="outline" className="text-xs px-1.5 py-0 bg-primary/10 text-primary border-primary/30">
+                        <Layers className="w-3 h-3 mr-0.5" />
+                        P{test.position} · {test.angle}°
+                      </Badge>
                     )}
                   </div>
 
@@ -154,6 +163,11 @@ const History = () => {
         testId={selectedTestId}
         open={selectedTestId !== null}
         onOpenChange={(open) => { if (!open) setSelectedTestId(null); }}
+      />
+      <GroupReportDialog
+        groupId={selectedGroupId}
+        open={selectedGroupId !== null}
+        onOpenChange={(open) => { if (!open) setSelectedGroupId(null); }}
       />
     </div>
   );

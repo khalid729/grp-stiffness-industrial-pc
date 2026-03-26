@@ -13,7 +13,7 @@ import logging
 import zipfile
 
 from db.database import get_db
-from db.models import Test, TestDataPoint, Alarm
+from db.models import Test, TestDataPoint, Alarm, TestGroup
 
 logger = logging.getLogger(__name__)
 
@@ -263,6 +263,103 @@ async def bulk_download(
         headers={"Content-Disposition": f"attachment; filename={zip_filename}"}
     )
 
+
+
+
+# ========== Test Groups ==========
+
+@router.get("/groups")
+async def get_groups(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get test groups with pagination"""
+    query = select(TestGroup).order_by(desc(TestGroup.test_date))
+    
+    result = await db.execute(select(TestGroup))
+    total = len(result.scalars().all())
+    
+    offset = (page - 1) * page_size
+    query = query.offset(offset).limit(page_size)
+    result = await db.execute(query)
+    groups = result.scalars().all()
+    
+    return {
+        "groups": [g.to_dict() for g in groups],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
+
+
+@router.get("/groups/active")
+async def get_active_group_status():
+    """Get current active group state from websocket"""
+    from api.websocket import get_active_group
+    return get_active_group()
+
+
+@router.post("/groups/reset")
+async def reset_active_group():
+    """Reset/cancel active group"""
+    from api.websocket import reset_group
+    reset_group()
+    return {"success": True, "message": "Group reset"}
+
+
+@router.get("/groups/{group_id}")
+async def get_group(group_id: int, db: AsyncSession = Depends(get_db)):
+    """Get group details with all position tests"""
+    query = select(TestGroup).where(TestGroup.id == group_id)
+    result = await db.execute(query)
+    group = result.scalar_one_or_none()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    # Get tests in this group
+    tests_query = select(Test).options(selectinload(Test.data_points)).where(Test.group_id == group_id).order_by(Test.position)
+    tests_result = await db.execute(tests_query)
+    tests = tests_result.scalars().all()
+    
+    group_dict = group.to_dict()
+    group_dict["tests"] = []
+    for t in tests:
+        td = t.to_dict()
+        td["data_points"] = [dp.to_dict() for dp in t.data_points]
+        group_dict["tests"].append(td)
+    
+    return group_dict
+
+
+@router.post("/groups/{group_id}/retry/{position}")
+async def retry_position(group_id: int, position: int, db: AsyncSession = Depends(get_db)):
+    """Delete a position test so it can be retried"""
+    from api.websocket import get_active_group
+    
+    # Find and delete the existing test at this position
+    query = select(Test).where(Test.group_id == group_id, Test.position == position)
+    result = await db.execute(query)
+    test = result.scalar_one_or_none()
+    
+    if test:
+        await db.delete(test)
+    
+    # Update group
+    group = await db.get(TestGroup, group_id)
+    if group:
+        group.current_position = position
+        group.status = "in_progress"
+        await db.commit()
+    
+    # Update websocket state
+    from api import websocket
+    websocket._active_group_id = group_id
+    websocket._group_current_position = position
+    websocket._group_num_positions = group.num_positions
+    websocket._group_angles = group.angles or [0, 40, 80]
+    
+    return {"success": True, "message": f"Position {position} ready for retry"}
 
 # ========== USB Detection & Export ==========
 

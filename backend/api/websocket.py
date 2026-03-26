@@ -33,6 +33,12 @@ _test_duration: Optional[float] = None  # seconds from start to target deflectio
 # Pending test metadata
 _pending_metadata: dict = {}
 
+# Active test group state
+_active_group_id: int = None
+_group_num_positions: int = 1
+_group_current_position: int = 1
+_group_angles: list = [0, 40, 80]
+
 SAUDI_TZ = timezone(timedelta(hours=3))
 
 # All metadata fields
@@ -42,6 +48,37 @@ _METADATA_FIELDS = [
     'product_id', 'thickness', 'nominal_weight',
     'project_name', 'customer_name', 'po_number',
 ]
+
+_GROUP_FIELDS = ['num_positions', 'angles']
+
+
+def set_group_config(data: dict):
+    """Set multi-position group config from frontend"""
+    global _active_group_id, _group_num_positions, _group_current_position, _group_angles
+    _group_num_positions = int(data.get('num_positions', 1))
+    _group_angles = data.get('angles', [0, 40, 80])
+    _group_current_position = 1
+    _active_group_id = None  # Will be created on first test save
+
+
+def get_active_group():
+    """Get current group state"""
+    return {
+        'group_id': _active_group_id,
+        'num_positions': _group_num_positions,
+        'current_position': _group_current_position,
+        'angles': _group_angles,
+        'is_active': _active_group_id is not None or _group_num_positions > 1,
+        'is_complete': _group_current_position > _group_num_positions,
+    }
+
+
+def reset_group():
+    """Reset group state after completion or cancel"""
+    global _active_group_id, _group_num_positions, _group_current_position
+    _active_group_id = None
+    _group_num_positions = 1
+    _group_current_position = 1
 
 
 def set_pending_metadata(data: dict):
@@ -151,8 +188,9 @@ async def set_jog_speed(sid, data):
 async def _save_test_result(data: dict):
     """Save completed test result to database"""
     global _pending_metadata, _test_data_points, _test_duration
+    global _active_group_id, _group_current_position
     from db.database import AsyncSessionLocal
-    from db.models import Test, TestDataPoint
+    from db.models import Test, TestDataPoint, TestGroup
 
     try:
         params = data_service.get_parameters() if data_service else {}
@@ -204,7 +242,46 @@ async def _save_test_result(data: dict):
 
         test_record.test_date = datetime.now(SAUDI_TZ)
 
+        # Set position/angle for multi-position tests
+        if _group_num_positions > 1:
+            current_angle = _group_angles[_group_current_position - 1] if _group_current_position <= len(_group_angles) else 0
+            test_record.position = _group_current_position
+            test_record.angle = current_angle
+
         async with AsyncSessionLocal() as session:
+            # Create or link test group
+            if _group_num_positions > 1:
+                if _active_group_id is None:
+                    # First position - create group
+                    group = TestGroup(
+                        sample_id=_pending_metadata.get('sample_id', ''),
+                        operator=_pending_metadata.get('operator', ''),
+                        pipe_diameter=params.get('pipe_diameter', 0),
+                        pipe_length=params.get('pipe_length', 300),
+                        deflection_percent=params.get('deflection_percent', 3),
+                        test_speed=params.get('test_speed', 12),
+                        num_positions=_group_num_positions,
+                        angles=_group_angles,
+                        current_position=1,
+                        status='in_progress',
+                        lot_number=_pending_metadata.get('lot_number', ''),
+                        nominal_diameter=_pending_metadata.get('nominal_diameter'),
+                        pressure_class=_pending_metadata.get('pressure_class', ''),
+                        stiffness_class=_pending_metadata.get('stiffness_class', ''),
+                        product_id=_pending_metadata.get('product_id', ''),
+                        thickness=_pending_metadata.get('thickness'),
+                        nominal_weight=_pending_metadata.get('nominal_weight'),
+                        project_name=_pending_metadata.get('project_name', ''),
+                        customer_name=_pending_metadata.get('customer_name', ''),
+                        po_number=_pending_metadata.get('po_number', ''),
+                    )
+                    session.add(group)
+                    await session.flush()
+                    _active_group_id = group.id
+                    logger.info(f"Created test group {group.id} with {_group_num_positions} positions")
+
+                test_record.group_id = _active_group_id
+
             session.add(test_record)
             await session.flush()  # Get the test ID
 
@@ -225,7 +302,32 @@ async def _save_test_result(data: dict):
             logger.info(f"Test result saved: Ø{test_record.pipe_diameter}mm, "
                         f"RS={test_record.ring_stiffness:.1f} kN/m², "
                         f"SN{test_record.sn_class}, {'PASS' if test_record.passed else 'FAIL'}")
-            _pending_metadata = {}
+            # Update group progress
+            if _active_group_id and _group_num_positions > 1:
+                group = await session.get(TestGroup, _active_group_id)
+                if group:
+                    _group_current_position += 1
+                    group.current_position = _group_current_position
+
+                    # Check if all positions complete
+                    if _group_current_position > _group_num_positions:
+                        # Calculate average ring stiffness
+                        from sqlalchemy import select as sa_select
+                        result = await session.execute(
+                            sa_select(Test).where(Test.group_id == _active_group_id)
+                        )
+                        group_tests = result.scalars().all()
+                        stiffness_values = [t.ring_stiffness for t in group_tests if t.ring_stiffness]
+                        if stiffness_values:
+                            group.avg_ring_stiffness = sum(stiffness_values) / len(stiffness_values)
+                            group.sn_class = test_record.sn_class
+                            group.passed = all(t.passed for t in group_tests)
+                        group.status = 'completed'
+                        logger.info(f"Test group {_active_group_id} completed: avg RS={group.avg_ring_stiffness}")
+                    await session.commit()
+            
+            if _group_num_positions <= 1 or _group_current_position > _group_num_positions:
+                _pending_metadata = {}
             return test_record.id
     except Exception as e:
         logger.error(f"Failed to save test result: {e}")
@@ -314,6 +416,7 @@ async def broadcast_live_data():
                             'results': data.get('results', {}),
                             'test': data.get('test', {}),
                             'test_id': saved_test_id,
+                            'group': get_active_group(),
                         })
                         # Reset calculated deflection state
                         _test_start_time = None

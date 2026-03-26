@@ -47,6 +47,7 @@ const STIFFNESS_CLASS_OPTIONS = ['SN1250', 'SN2500', 'SN5000', 'SN10000', 'SN125
 
 const TestSetup = () => {
   const { t } = useLanguage();
+  const [numPositions, setNumPositions] = useState(3);
   const { parameters: savedParams, isLoading, setParameters } = useParametersControl();
   const [parameters, setLocalParameters] = useState<TestParameters>(defaultParameters);
 
@@ -94,7 +95,12 @@ const TestSetup = () => {
   const handleSave = () => {
     setParameters.mutate(parameters);
     // Sync stiffness_class metadata from the PLC parameter
-    const updatedMeta = { ...meta, stiffness_class: `SN${parameters.target_sn_class || 2500}` };
+    const updatedMeta = {
+      ...meta,
+      stiffness_class: `SN${parameters.target_sn_class || 2500}`,
+      num_positions: numPositions,
+      angles: numPositions === 3 ? [0, 40, 80] : [0],
+    };
     saveMetadata.mutate(updatedMeta);
   };
 
@@ -263,6 +269,32 @@ const TestSetup = () => {
                 max={200}
                 step={5}
               />
+            </div>
+
+            {/* Number of Test Positions */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-base">
+                <span className="text-muted-foreground">{t('testSetup.numPositions')}</span>
+                <span className="font-mono font-bold">{numPositions === 3 ? '3 (0°, 40°, 80°)' : '1'}</span>
+              </div>
+              <div className="flex gap-2">
+                <TouchButton
+                  variant={numPositions === 1 ? "primary" : "outline"}
+                  size="sm"
+                  onClick={() => setNumPositions(1)}
+                  className="flex-1 min-h-[48px]"
+                >
+                  1 {t('testSetup.position')}
+                </TouchButton>
+                <TouchButton
+                  variant={numPositions === 3 ? "primary" : "outline"}
+                  size="sm"
+                  onClick={() => setNumPositions(3)}
+                  className="flex-1 min-h-[48px]"
+                >
+                  3 {t('testSetup.positions')} (ISO 9969)
+                </TouchButton>
+              </div>
             </div>
 
             {/* Target SN Class - sent to PLC for pass/fail */}

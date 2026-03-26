@@ -1,7 +1,86 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone, timedelta
 from .database import Base
+
+
+
+class TestGroup(Base):
+    """Test group model - groups multiple position tests for the same sample"""
+    __tablename__ = "test_groups"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    test_date = Column(DateTime, default=lambda: datetime.now(timezone(timedelta(hours=3))), index=True)
+    status = Column(String(20), default="in_progress")  # in_progress, completed
+
+    # Shared test info
+    sample_id = Column(String(50), nullable=True, index=True)
+    operator = Column(String(100), nullable=True)
+
+    # Test Parameters
+    pipe_diameter = Column(Float, nullable=False)
+    pipe_length = Column(Float, nullable=False)
+    deflection_percent = Column(Float, nullable=False)
+    test_speed = Column(Float, nullable=True)
+
+    # Multi-position config
+    num_positions = Column(Integer, default=3)  # 1 or 3
+    angles = Column(JSON, default=lambda: [0, 40, 80])  # degrees
+    current_position = Column(Integer, default=1)  # 1, 2, or 3
+
+    # Aggregated results
+    avg_ring_stiffness = Column(Float, nullable=True)
+    sn_class = Column(Integer, nullable=True)
+    passed = Column(Boolean, default=False)
+
+    # Product Information
+    lot_number = Column(String(50), nullable=True)
+    nominal_diameter = Column(Float, nullable=True)
+    pressure_class = Column(String(50), nullable=True)
+    stiffness_class = Column(String(50), nullable=True)
+    product_id = Column(String(50), nullable=True)
+    thickness = Column(Float, nullable=True)
+    nominal_weight = Column(Float, nullable=True)
+
+    # Project Information
+    project_name = Column(String(100), nullable=True)
+    customer_name = Column(String(100), nullable=True)
+    po_number = Column(String(50), nullable=True)
+
+    # Relationship
+    tests = relationship("Test", back_populates="group", cascade="all, delete-orphan", order_by="Test.position")
+
+    def __repr__(self):
+        return f"<TestGroup {self.id}: {self.num_positions} positions, {'PASS' if self.passed else 'FAIL'}>"
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "test_date": self.test_date.isoformat() if self.test_date else None,
+            "status": self.status,
+            "sample_id": self.sample_id,
+            "operator": self.operator,
+            "pipe_diameter": self.pipe_diameter,
+            "pipe_length": self.pipe_length,
+            "deflection_percent": self.deflection_percent,
+            "test_speed": self.test_speed,
+            "num_positions": self.num_positions,
+            "angles": self.angles,
+            "current_position": self.current_position,
+            "avg_ring_stiffness": self.avg_ring_stiffness,
+            "sn_class": self.sn_class,
+            "passed": self.passed,
+            "lot_number": self.lot_number,
+            "nominal_diameter": self.nominal_diameter,
+            "pressure_class": self.pressure_class,
+            "stiffness_class": self.stiffness_class,
+            "product_id": self.product_id,
+            "thickness": self.thickness,
+            "nominal_weight": self.nominal_weight,
+            "project_name": self.project_name,
+            "customer_name": self.customer_name,
+            "po_number": self.po_number,
+        }
 
 
 class Test(Base):
@@ -30,6 +109,11 @@ class Test(Base):
     duration = Column(Float, nullable=True)  # seconds
     notes = Column(Text, nullable=True)
 
+    # Group linkage
+    group_id = Column(Integer, ForeignKey("test_groups.id", ondelete="SET NULL"), nullable=True, index=True)
+    position = Column(Integer, nullable=True)  # 1, 2, 3
+    angle = Column(Float, nullable=True)  # degrees (0, 40, 80)
+
     # Product Information
     lot_number = Column(String(50), nullable=True)
     nominal_diameter = Column(Float, nullable=True)
@@ -44,7 +128,8 @@ class Test(Base):
     customer_name = Column(String(100), nullable=True)
     po_number = Column(String(50), nullable=True)
 
-    # Relationship to data points
+    # Relationships
+    group = relationship("TestGroup", back_populates="tests")
     data_points = relationship("TestDataPoint", back_populates="test", cascade="all, delete-orphan")
 
     def __repr__(self):
@@ -67,6 +152,9 @@ class Test(Base):
             "test_speed": self.test_speed,
             "duration": self.duration,
             "notes": self.notes,
+            "group_id": self.group_id,
+            "position": self.position,
+            "angle": self.angle,
             "lot_number": self.lot_number,
             "nominal_diameter": self.nominal_diameter,
             "pressure_class": self.pressure_class,
@@ -139,7 +227,9 @@ class Alarm(Base):
 
 # SN Class constants for reference
 SN_CLASSES = {
+    1250: "SN 1250",
     2500: "SN 2500",
     5000: "SN 5000",
     10000: "SN 10000",
+    12500: "SN 12500",
 }

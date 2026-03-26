@@ -39,6 +39,8 @@ class TestMetadataRequest(BaseModel):
     project_name: Optional[str] = ''
     customer_name: Optional[str] = ''
     po_number: Optional[str] = ''
+    num_positions: Optional[int] = 1
+    angles: Optional[list] = None
 
 
 class ConnectionResponse(BaseModel):
@@ -123,6 +125,8 @@ async def get_test_metadata():
 
 @router.post("/test-metadata")
 async def set_test_metadata(meta: TestMetadataRequest):
-    from api.websocket import set_pending_metadata
-    set_pending_metadata(meta.model_dump())
+    from api.websocket import set_pending_metadata, set_group_config
+    data = meta.model_dump()
+    set_pending_metadata(data)
+    set_group_config(data)
     return {"success": True, "message": "Test metadata saved"}

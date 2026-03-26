@@ -1,5 +1,47 @@
 # سجل التغييرات | Changelog
 
+## 2026-03-26 - Multi-Position Testing (ISO 9969)
+
+### New Features
+- **Multi-position test groups**: Test same sample at 3 angular positions (0°, 40°, 80°) per ISO 9969
+- Test Setup: Option to choose 1 or 3 positions (default: 3)
+- Dashboard: Position indicator showing current position and angle
+- Dashboard: Accept/Retry dialog after each position completes
+- Dashboard: Next angle prompt dialog between positions
+- History: Group badge showing position number and angle for grouped tests
+- History: Click on grouped test opens combined group report
+- **Combined Group Report** (4 pages when printed):
+  - Page 1: Summary with results table for all positions + average ring stiffness + overall PASS/FAIL
+  - Pages 2-4: Individual position reports with force-deflection charts
+
+### Database Changes
+- New `test_groups` table: stores shared sample info, multi-position config, average results
+- Added `group_id`, `position`, `angle` columns to `tests` table
+- Updated SN_CLASSES to include SN 1250 and SN 12500
+
+### New API Endpoints
+- `GET /api/groups` — List test groups with pagination
+- `GET /api/groups/active` — Get current active group state
+- `GET /api/groups/{id}` — Get group details with all position tests
+- `POST /api/groups/{id}/retry/{position}` — Retry a specific position
+- `POST /api/groups/reset` — Reset/cancel active group
+
+### Files Added
+- frontend/src/components/reports/GroupReportDialog.tsx — Combined group report component
+
+### Files Modified
+- backend/db/models.py — TestGroup model, group fields on Test model
+- backend/api/websocket.py — Group state management, auto-create/link groups on test save
+- backend/api/routes/reports.py — Group API endpoints
+- backend/api/routes/status.py — num_positions/angles in test metadata
+- frontend/src/pages/TestSetup.tsx — 1/3 positions toggle
+- frontend/src/pages/Dashboard.tsx — Position indicator, accept/retry dialog, angle prompt, group report
+- frontend/src/pages/History.tsx — Group badge, group report link
+- frontend/src/hooks/useApi.ts — num_positions/angles in TestMetadata
+- frontend/src/contexts/LanguageContext.tsx — Position/group translations (EN/AR)
+
+---
+
 ## 2026-03-26 - Printer Settings, Report Improvements & Chart Fix
 
 ### New Features

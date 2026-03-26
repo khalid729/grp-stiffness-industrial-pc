@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { TestReportDialog } from '@/components/reports/TestReportDialog';
+import { GroupReportDialog } from '@/components/reports/GroupReportDialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { socketClient } from '@/api/socket';
 import { ForceDeflectionChart } from '@/components/dashboard/ForceDeflectionChart';
 import { TouchButton } from '@/components/ui/TouchButton';
@@ -32,6 +34,26 @@ const Dashboard = () => {
   const [keypadOpen, setKeypadOpen] = useState<'speed' | 'distance' | null>(null);
 
   const [completedTestId, setCompletedTestId] = useState<number | null>(null);
+  const [groupState, setGroupState] = useState<{
+    group_id: number | null;
+    num_positions: number;
+    current_position: number;
+    angles: number[];
+    is_active: boolean;
+    is_complete: boolean;
+  } | null>(null);
+  const [showAngleDialog, setShowAngleDialog] = useState(false);
+  const [nextAngle, setNextAngle] = useState(0);
+  const [showPositionResult, setShowPositionResult] = useState(false);
+  const [showGroupReport, setShowGroupReport] = useState(false);
+  const [completedGroupId, setCompletedGroupId] = useState<number | null>(null);
+  const [positionResult, setPositionResult] = useState<{
+    position: number;
+    angle: number;
+    testId: number | null;
+    passed: boolean;
+    isLastPosition: boolean;
+  } | null>(null);
 
   const isLocalMode = !liveData.remote_mode;
   const controlsDisabled = isLocalMode || !isConnected;
@@ -95,13 +117,67 @@ const Dashboard = () => {
 
   // Auto-open report when test completes
   useEffect(() => {
-    const unsub = socketClient.on<{ test_id?: number }>('test_complete', (data) => {
-      if (data.test_id) {
-        setCompletedTestId(data.test_id);
+    const unsub = socketClient.on<{ test_id?: number; group?: any; test?: any }>('test_complete', (data) => {
+      if (data.group && data.group.is_active) {
+        setGroupState(data.group);
+        const completedPos = data.group.current_position - 1;
+        const angles = data.group.angles || [0, 40, 80];
+        
+        // Show position result dialog
+        setPositionResult({
+          position: completedPos,
+          angle: angles[completedPos - 1] || 0,
+          testId: data.test_id || null,
+          passed: data.test?.passed || false,
+          isLastPosition: data.group.is_complete,
+        });
+        setShowPositionResult(true);
+
+        if (!data.group.is_complete) {
+          const nextPos = data.group.current_position;
+          setNextAngle(angles[nextPos - 1] || 0);
+        }
+      } else {
+        // Single position test - show report directly
+        setGroupState(null);
+        if (data.test_id) setCompletedTestId(data.test_id);
       }
     });
     return unsub;
   }, []);
+
+  // Fetch active group state on mount
+  useEffect(() => {
+    fetch('/api/groups/active').then(r => r.json()).then(data => {
+      if (data.is_active) setGroupState(data);
+    }).catch(() => {});
+  }, []);
+
+  const handleAcceptPosition = () => {
+    setShowPositionResult(false);
+    if (positionResult?.isLastPosition) {
+      // All done - show group report
+      if (groupState?.group_id) {
+        setCompletedGroupId(groupState.group_id);
+        setShowGroupReport(true);
+      }
+    } else {
+      // Show next angle dialog
+      setShowAngleDialog(true);
+    }
+  };
+
+  const handleRetryPosition = async () => {
+    if (!positionResult || !groupState?.group_id) return;
+    try {
+      await fetch(`/api/groups/${groupState.group_id}/retry/${positionResult.position}`, { method: 'POST' });
+      // Refresh group state
+      const res = await fetch('/api/groups/active');
+      const data = await res.json();
+      setGroupState(data);
+    } catch (e) {}
+    setShowPositionResult(false);
+  };
 
   const handleStartTest = () => {
     setChartData([]);
@@ -355,11 +431,45 @@ const Dashboard = () => {
         label={t('dashboard.stepDistance')}
         unit="mm"
       />
+      {/* Position Indicator */}
+      {groupState && groupState.is_active && !groupState.is_complete && (
+        <div className="fixed top-2 right-2 z-50 bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 text-sm font-bold">
+          <span>{t('testSetup.positionOf')} {Math.min(groupState.current_position, groupState.num_positions)}/{groupState.num_positions}</span>
+          <span className="text-primary-foreground/70">|</span>
+          <span>{t('testSetup.angle')}: {groupState.angles[(groupState.current_position > groupState.num_positions ? groupState.num_positions : groupState.current_position) - 1]}°</span>
+        </div>
+      )}
+
+      {/* Next Angle Dialog */}
+      <Dialog open={showAngleDialog} onOpenChange={setShowAngleDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl">
+              {t('testSetup.positionOf')} {groupState ? groupState.current_position : ''}/{groupState?.num_positions || 3}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="text-center py-6 space-y-4">
+            <p className="text-4xl font-bold text-primary">{nextAngle}°</p>
+            <p className="text-lg text-muted-foreground">{t('testSetup.placeAtAngle')} {nextAngle}°</p>
+          </div>
+          <DialogFooter>
+            <TouchButton variant="primary" size="sm" onClick={() => setShowAngleDialog(false)} className="w-full min-h-[52px]">
+              {t('settings.save')}
+            </TouchButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Auto-open Test Report on completion */}
       <TestReportDialog
         testId={completedTestId}
-        open={completedTestId !== null}
+        open={completedTestId !== null && !showGroupReport}
         onOpenChange={(open) => { if (!open) setCompletedTestId(null); }}
+      />
+      <GroupReportDialog
+        groupId={completedGroupId}
+        open={showGroupReport}
+        onOpenChange={(open) => { if (!open) { setShowGroupReport(false); setCompletedGroupId(null); setGroupState(null); } }}
       />
     </div>
   );

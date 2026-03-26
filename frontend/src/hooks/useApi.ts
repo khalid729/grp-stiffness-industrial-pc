@@ -394,6 +394,8 @@ export interface TestMetadata {
   project_name: string;
   customer_name: string;
   po_number: string;
+  num_positions?: number;
+  angles?: number[];
 }
 
 export function useTestMetadata() {
