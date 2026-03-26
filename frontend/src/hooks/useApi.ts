@@ -940,3 +940,119 @@ export function useUsbExport() {
     },
   });
 }
+
+// ==================== Printer Control ====================
+
+interface PrinterInfo {
+  name: string;
+  device_uri: string;
+  status: string;
+  enabled: boolean;
+  is_default: boolean;
+  description: string;
+}
+
+interface DiscoveredPrinter {
+  device_uri: string;
+  description: string;
+  protocol: string;
+}
+
+export function usePrinterControl() {
+  const queryClient = useQueryClient();
+
+  const printerList = useQuery<{ printers: PrinterInfo[]; default_printer: string | null }>({
+    queryKey: ['printer-list'],
+    queryFn: async () => {
+      const response = await fetch(`${API_URL}/api/printer/list`);
+      if (!response.ok) throw new Error('Failed to fetch printers');
+      return response.json();
+    },
+    refetchInterval: 15000,
+  });
+
+  const discoverPrinters = useMutation<{ printers: DiscoveredPrinter[] }>({
+    mutationFn: async () => {
+      const response = await fetch(`${API_URL}/api/printer/discover`);
+      if (!response.ok) throw new Error('Failed to discover printers');
+      return response.json();
+    },
+  });
+
+  const addPrinter = useMutation({
+    mutationFn: async (data: { name: string; device_uri: string; driver?: string; description?: string; set_default?: boolean }) => {
+      const response = await fetch(`${API_URL}/api/printer/add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to add printer');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['printer-list'] });
+    },
+  });
+
+  const removePrinter = useMutation({
+    mutationFn: async (printer_name: string) => {
+      const response = await fetch(`${API_URL}/api/printer/remove`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ printer_name }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to remove printer');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['printer-list'] });
+    },
+  });
+
+  const setDefaultPrinter = useMutation({
+    mutationFn: async (printer_name: string) => {
+      const response = await fetch(`${API_URL}/api/printer/set-default`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ printer_name }),
+      });
+      if (!response.ok) throw new Error('Failed to set default');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['printer-list'] });
+    },
+  });
+
+  const printTestPage = useMutation({
+    mutationFn: async (printer_name: string) => {
+      const response = await fetch(`${API_URL}/api/printer/test-page`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ printer_name }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to print test page');
+      }
+      return response.json();
+    },
+  });
+
+  return {
+    printers: printerList.data?.printers || [],
+    defaultPrinter: printerList.data?.default_printer,
+    isLoading: printerList.isLoading,
+    discoverPrinters,
+    addPrinter,
+    removePrinter,
+    setDefaultPrinter,
+    printTestPage,
+  };
+}

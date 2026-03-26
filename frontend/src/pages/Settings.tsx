@@ -9,11 +9,11 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { IPKeypad } from "@/components/ui/IPKeypad";
 import { VirtualKeyboard } from "@/components/ui/VirtualKeyboard";
-import { useWifiControl, useLanControl, useLan2Control, useCursorControl } from "@/hooks/useApi";
+import { useWifiControl, useLanControl, useLan2Control, useCursorControl, usePrinterControl } from "@/hooks/useApi";
 import {
   Languages, Moon, Sun, Wifi, WifiOff, Network,
   RefreshCw, Lock, Globe, Check, Loader2, Cpu, Settings as SettingsIcon, Signal,
-  MousePointer, EyeOff, FileText, HardDrive
+  MousePointer, EyeOff, FileText, HardDrive, Printer, Trash2, Star, Search
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -51,6 +51,38 @@ const Settings = () => {
 
   // Cursor
   const { cursorHidden, toggleCursor } = useCursorControl();
+
+  // Printer
+  const { printers, discoverPrinters, addPrinter, removePrinter, setDefaultPrinter, printTestPage } = usePrinterControl();
+  const [discoveredPrinters, setDiscoveredPrinters] = useState<Array<{device_uri: string; description: string; protocol: string}>>([]);
+  const [isDiscovering, setIsDiscovering] = useState(false);
+  const [showAddPrinterDialog, setShowAddPrinterDialog] = useState(false);
+  const [selectedDiscovered, setSelectedDiscovered] = useState<{device_uri: string; description: string; protocol: string} | null>(null);
+  const [newPrinterName, setNewPrinterName] = useState("");
+  const [setAsDefault, setSetAsDefault] = useState(true);
+
+  const handleDiscover = async () => {
+    setIsDiscovering(true);
+    try {
+      const result = await discoverPrinters.mutateAsync();
+      setDiscoveredPrinters(result.printers || []);
+    } catch (e) {}
+    setIsDiscovering(false);
+  };
+
+  const handleAddPrinter = () => {
+    if (selectedDiscovered && newPrinterName) {
+      addPrinter.mutate({
+        name: newPrinterName,
+        device_uri: selectedDiscovered.device_uri,
+        set_default: setAsDefault,
+      });
+      setShowAddPrinterDialog(false);
+      setSelectedDiscovered(null);
+      setNewPrinterName("");
+      setDiscoveredPrinters([]);
+    }
+  };
 
   // Report Settings
   const [forceUnit, setForceUnit] = useState<"N" | "kN">(() => {
@@ -400,6 +432,88 @@ const Settings = () => {
         </div>
       </div>
 
+
+      {/* Printer Settings */}
+      <div className="industrial-card p-2 flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-base font-semibold">
+            <Printer className="w-6 h-6 text-primary" />
+            {t('settings.printer')}
+            {printers.length > 0 && (
+              <Badge variant="outline" className="bg-success/10 text-success border-success/30">{printers.length}</Badge>
+            )}
+          </div>
+          <TouchButton
+            variant="outline"
+            size="sm"
+            onClick={handleDiscover}
+            disabled={isDiscovering}
+            className="h-10"
+          >
+            <Search className={cn('w-5 h-5', isDiscovering && 'animate-spin')} />
+            <span className="ml-1 text-sm">{isDiscovering ? t('settings.printerDiscovering') : t('settings.printerDiscover')}</span>
+          </TouchButton>
+        </div>
+
+        {/* Configured Printers */}
+        {printers.length > 0 ? (
+          <div className="grid grid-cols-2 gap-2">
+            {printers.map((p) => (
+              <div key={p.name} className="p-2 bg-secondary/30 rounded flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-sm flex items-center gap-1">
+                    {p.is_default && <Star className="w-4 h-4 text-warning fill-warning" />}
+                    {p.name.replace(/_/g, ' ')}
+                  </span>
+                  <Badge variant="outline" className={cn('text-xs px-1 py-0', p.status === 'idle' ? 'bg-success/10 text-success border-success/30' : 'bg-warning/10 text-warning border-warning/30')}>
+                    {p.status}
+                  </Badge>
+                </div>
+                <span className="text-xs font-mono text-muted-foreground truncate">{p.device_uri}</span>
+                <div className="flex gap-1 mt-1">
+                  <TouchButton variant="outline" size="sm" onClick={() => printTestPage.mutate(p.name)} disabled={printTestPage.isPending} className="flex-1 min-h-[36px] text-xs">
+                    <Printer className="w-3 h-3 mr-1" />{t('settings.printerTestPage')}
+                  </TouchButton>
+                  {!p.is_default && (
+                    <TouchButton variant="outline" size="sm" onClick={() => setDefaultPrinter.mutate(p.name)} className="flex-1 min-h-[36px] text-xs">
+                      <Star className="w-3 h-3 mr-1" />{t('settings.printerSetDefault')}
+                    </TouchButton>
+                  )}
+                  <TouchButton variant="destructive" size="sm" onClick={() => removePrinter.mutate(p.name)} className="min-h-[36px] text-xs px-2">
+                    <Trash2 className="w-3 h-3" />
+                  </TouchButton>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground text-center py-2">{t('settings.printerNone')}</p>
+        )}
+
+        {/* Discovered Printers */}
+        {discoveredPrinters.length > 0 && (
+          <div className="space-y-1">
+            <span className="text-sm text-muted-foreground">{t('settings.printerDiscover')}</span>
+            <div className="grid grid-cols-2 gap-1 max-h-24 overflow-y-auto">
+              {discoveredPrinters.map((dp, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between p-2 bg-secondary/30 rounded text-sm hover:bg-secondary/50 cursor-pointer"
+                  onClick={() => {
+                    setSelectedDiscovered(dp);
+                    setNewPrinterName(dp.description.replace(/[^a-zA-Z0-9 _-]/g, '').trim().replace(/ /g, '_').substring(0, 30));
+                    setShowAddPrinterDialog(true);
+                  }}
+                >
+                  <span className="truncate flex-1">{dp.description}</span>
+                  <Badge variant="outline" className="text-xs px-1 py-0 ml-1">{dp.protocol}</Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Report Options */}
       <div className="industrial-card p-2 flex flex-col gap-2 col-span-2">
           <div className="flex items-center gap-2 text-base font-semibold">
@@ -476,6 +590,54 @@ const Settings = () => {
           </TouchButton>
         </div>
       </div>
+
+
+      {/* Add Printer Dialog */}
+      <Dialog open={showAddPrinterDialog} onOpenChange={setShowAddPrinterDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Printer className="w-5 h-5" />
+              {t('settings.printerAdd')}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>{t('settings.printerName')}</Label>
+              <Input
+                value={newPrinterName}
+                onChange={(e) => setNewPrinterName(e.target.value)}
+                className="h-12 text-lg font-mono"
+              />
+            </div>
+            {selectedDiscovered && (
+              <div className="p-2 bg-secondary/30 rounded text-sm">
+                <span className="text-muted-foreground">URI: </span>
+                <span className="font-mono text-xs">{selectedDiscovered.device_uri}</span>
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="set-default"
+                checked={setAsDefault}
+                onChange={(e) => setSetAsDefault(e.target.checked)}
+                className="w-5 h-5"
+              />
+              <Label htmlFor="set-default">{t('settings.printerSetAsDefault')}</Label>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <TouchButton variant="outline" onClick={() => setShowAddPrinterDialog(false)} className="min-h-[48px]">
+              {t('settings.cancel')}
+            </TouchButton>
+            <TouchButton variant="primary" onClick={handleAddPrinter} disabled={!newPrinterName || addPrinter.isPending} className="min-h-[48px]">
+              {addPrinter.isPending ? <Loader2 className="w-5 h-5 mr-1 animate-spin" /> : <Printer className="w-5 h-5 mr-1" />}
+              {t('settings.printerAdd')}
+            </TouchButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* WiFi Password Dialog */}
       <Dialog open={showPasswordDialog} onOpenChange={(open) => { setShowPasswordDialog(open); if (!open) setShowKeyboard(false); }}>

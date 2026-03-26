@@ -1,5 +1,42 @@
 # سجل التغييرات | Changelog
 
+## 2026-03-26 - Printer Settings, Report Improvements & Chart Fix
+
+### New Features
+- Added **Printer Management** section in Settings page
+  - Discover network printers via CUPS/DNS-SD
+  - Add/remove printers, set default, print test page
+  - Shows configured printers with status badges
+- Installed and configured CUPS on industrial PC for printer support
+
+### Bug Fixes
+- Fixed report Force-Deflection chart Y-axis starting from negative values — now starts from 0
+
+### Changes
+- Removed Max Force, Duration, and Data Points from report Results section (kept: Ring Stiffness, Force at Target, SN Class)
+- Reduced inner text sizes in report by ~25% (text-sm → text-xs) for better A4 fit
+- Reduced section padding and spacing in report for compact layout
+- Added print CSS (@media print) for proper A4 page sizing
+
+### New API Endpoints
+- `GET /api/printer/list` — List configured printers and status
+- `GET /api/printer/discover` — Discover network printers
+- `POST /api/printer/add` — Add a printer
+- `POST /api/printer/remove` — Remove a printer
+- `POST /api/printer/set-default` — Set default printer
+- `POST /api/printer/test-page` — Print test page
+
+### Files Modified
+- backend/api/routes/printer.py — New printer management API
+- backend/main.py — Registered printer router
+- frontend/src/hooks/useApi.ts — Added usePrinterControl hook
+- frontend/src/pages/Settings.tsx — Added Printer section with discover/add/remove UI
+- frontend/src/components/reports/TestReportDialog.tsx — Removed extra results, reduced text sizes, fixed chart Y-axis domain
+- frontend/src/index.css — Added @media print styles for A4
+- frontend/src/contexts/LanguageContext.tsx — Added printer translations (EN/AR)
+
+---
+
 ## 2026-03-26 - Test Setup Improvements & Cursor Fix
 
 ### Bug Fixes

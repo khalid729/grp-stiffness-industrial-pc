@@ -172,6 +172,18 @@ const translations: Translations = {
 
   // Cursor
   "settings.mouseCursor": { en: "Mouse Cursor", ar: "مؤشر الفأرة" },
+  "settings.printer": { en: "Printer", ar: "الطابعة" },
+  "settings.printerDiscover": { en: "Discover", ar: "بحث" },
+  "settings.printerAdd": { en: "Add", ar: "إضافة" },
+  "settings.printerRemove": { en: "Remove", ar: "إزالة" },
+  "settings.printerTestPage": { en: "Test Print", ar: "طباعة تجريبية" },
+  "settings.printerSetDefault": { en: "Set Default", ar: "تعيين كافتراضية" },
+  "settings.printerDefault": { en: "Default", ar: "الافتراضية" },
+  "settings.printerName": { en: "Printer Name", ar: "اسم الطابعة" },
+  "settings.printerNone": { en: "No printers configured", ar: "لا توجد طابعات" },
+  "settings.printerDiscovering": { en: "Searching...", ar: "جاري البحث..." },
+  "settings.printerNoFound": { en: "No printers found", ar: "لم يتم العثور على طابعات" },
+  "settings.printerSetAsDefault": { en: "Set as default", ar: "تعيين كافتراضية" },
   "settings.cursorVisible": { en: "Visible", ar: "ظاهر" },
   "settings.cursorHidden": { en: "Hidden", ar: "مخفي" },
 

@@ -23,7 +23,7 @@ from plc.command_service import CommandService
 from services.pdf_generator import PDFGenerator
 from services.excel_export import ExcelExporter
 from services.test_service import TestService
-from api.routes import status, commands, reports, demo, network
+from api.routes import status, commands, reports, demo, network, printer
 from api import websocket as ws
 
 # Configure logging
@@ -114,6 +114,7 @@ app.include_router(commands.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
 app.include_router(demo.router, prefix="/api")  # Demo data for testing
 app.include_router(network.router, prefix="/api")  # Network configuration
+app.include_router(printer.router, prefix="/api")  # Printer management
 
 
 # Additional API endpoints

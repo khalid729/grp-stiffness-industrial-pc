@@ -77,9 +77,9 @@ export function TestReportDialog({ testId, open, onOpenChange }: TestReportDialo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 print:max-w-none print:max-h-none print:overflow-visible">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 print:max-w-none print:max-h-none print:overflow-visible print:shadow-none print:border-none">
         {/* A4 Paper Report */}
-        <div id="test-report" className="bg-white text-black p-8 print:p-12">
+        <div id="test-report" className="bg-white text-black p-8 print:p-6">
           {isLoading ? (
             <div className="flex items-center justify-center py-20">
               <p className="text-muted-foreground">{t('report.loading')}</p>
@@ -87,7 +87,7 @@ export function TestReportDialog({ testId, open, onOpenChange }: TestReportDialo
           ) : test ? (
             <>
               {/* Header with Logo */}
-              <div className="flex items-start justify-between pb-5 mb-6 border-b-2 border-gray-800">
+              <div className="flex items-start justify-between pb-4 mb-4 border-b-2 border-gray-800">
                 <div className="flex items-center gap-4">
                   <img
                     src="/logo.png"
@@ -113,13 +113,13 @@ export function TestReportDialog({ testId, open, onOpenChange }: TestReportDialo
               </div>
 
               {/* Two-Column Info Section */}
-              <div className="grid grid-cols-2 gap-0 mb-6 border border-gray-200 rounded-lg overflow-hidden">
+              <div className="grid grid-cols-2 gap-0 mb-4 border border-gray-200 rounded-lg overflow-hidden">
                 {/* Left: Test Information */}
-                <div className="p-4 border-r border-gray-200">
+                <div className="p-3 border-r border-gray-200">
                   <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
                     {t('report.testInfo')}
                   </h2>
-                  <div className="space-y-2 text-sm">
+                  <div className="space-y-1.5 text-xs">
                     <div className="flex justify-between">
                       <span className="text-gray-500">{t('report.testId')}</span>
                       <span className="font-semibold text-gray-900">#{test.id}</span>
@@ -139,11 +139,11 @@ export function TestReportDialog({ testId, open, onOpenChange }: TestReportDialo
                   </div>
                 </div>
                 {/* Right: Test Parameters */}
-                <div className="p-4">
+                <div className="p-3">
                   <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
                     {t('report.parameters')}
                   </h2>
-                  <div className="space-y-2 text-sm">
+                  <div className="space-y-1.5 text-xs">
                     <div className="flex justify-between">
                       <span className="text-gray-500">{t('report.pipeDiameter')}</span>
                       <span className="font-medium text-gray-800">{test.pipe_diameter} mm</span>
@@ -165,12 +165,12 @@ export function TestReportDialog({ testId, open, onOpenChange }: TestReportDialo
               </div>
 
               {/* Product Information Section - Always shown */}
-              <div className="grid grid-cols-2 gap-0 mb-6 border border-gray-200 rounded-lg overflow-hidden">
-                <div className="p-4 border-r border-gray-200">
+              <div className="grid grid-cols-2 gap-0 mb-4 border border-gray-200 rounded-lg overflow-hidden">
+                <div className="p-3 border-r border-gray-200">
                   <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
                     {t('report.productInfo')}
                   </h2>
-                  <div className="space-y-2 text-sm">
+                  <div className="space-y-1.5 text-xs">
                     <div className="flex justify-between">
                       <span className="text-gray-500">{t('report.lotNumber')}</span>
                       <span className="font-medium text-gray-800">{test.lot_number || '-'}</span>
@@ -189,11 +189,11 @@ export function TestReportDialog({ testId, open, onOpenChange }: TestReportDialo
                     </div>
                   </div>
                 </div>
-                <div className="p-4">
+                <div className="p-3">
                   <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
                     {t('report.projectInfo')}
                   </h2>
-                  <div className="space-y-2 text-sm">
+                  <div className="space-y-1.5 text-xs">
                     <div className="flex justify-between">
                       <span className="text-gray-500">{t('report.nominalWeight')}</span>
                       <span className="font-medium text-gray-800">{test.nominal_weight != null ? `${test.nominal_weight} kg/m` : '-'}</span>
@@ -212,11 +212,11 @@ export function TestReportDialog({ testId, open, onOpenChange }: TestReportDialo
 
               {/* Project Information Section - Always shown */}
               <div className="mb-6 border border-gray-200 rounded-lg overflow-hidden">
-                <div className="p-4">
+                <div className="p-3">
                   <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
                     {t('report.projectInfo')}
                   </h2>
-                  <div className="grid grid-cols-3 gap-x-8 gap-y-2 text-sm">
+                  <div className="grid grid-cols-3 gap-x-8 gap-y-1.5 text-xs">
                     <div className="flex justify-between">
                       <span className="text-gray-500">{t('report.projectName')}</span>
                       <span className="font-medium text-gray-800">{test.project_name || '-'}</span>
@@ -234,12 +234,12 @@ export function TestReportDialog({ testId, open, onOpenChange }: TestReportDialo
               </div>
 
               {/* Chart (Center of Report) */}
-              <div className="mb-6">
-                <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+              <div className="mb-4">
+                <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
                   {t('report.forceDeflectionChart')}
                 </h2>
                 {test.data_points && test.data_points.length > 0 ? (
-                  <div className="h-[300px] bg-gray-50 rounded-lg p-3 border border-gray-200">
+                  <div className="h-[300px] print:h-[220px] bg-gray-50 rounded-lg p-3 border border-gray-200">
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart
                         data={test.data_points.map((dp: any) => ({
@@ -262,6 +262,7 @@ export function TestReportDialog({ testId, open, onOpenChange }: TestReportDialo
                           }}
                         />
                         <YAxis
+                          domain={[0, "auto"]}
                           stroke="#6b7280"
                           fontSize={11}
                           tickFormatter={(v: number) => v.toFixed(0)}
@@ -313,8 +314,8 @@ export function TestReportDialog({ testId, open, onOpenChange }: TestReportDialo
               </div>
 
               {/* Results Cards Grid */}
-              <div className="mb-6">
-                <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+              <div className="mb-4">
+                <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
                   {t('report.results')}
                 </h2>
                 <div className="grid grid-cols-3 gap-3">
@@ -336,25 +337,6 @@ export function TestReportDialog({ testId, open, onOpenChange }: TestReportDialo
                     <p className="text-xs text-gray-500 mb-1">{t('report.snClass')}</p>
                     <p className="text-xl font-bold text-gray-900">
                       SN {test.sn_class || '-'}
-                    </p>
-                  </div>
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
-                    <p className="text-xs text-gray-500 mb-1">{t('report.maxForce')}</p>
-                    <p className="text-xl font-bold text-gray-900">
-                      {displayForce(test.max_force)}
-                    </p>
-                    <p className="text-[10px] text-gray-400">{forceUnit}</p>
-                  </div>
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
-                    <p className="text-xs text-gray-500 mb-1">{t('report.duration')}</p>
-                    <p className="text-xl font-bold text-gray-900">
-                      {formatDuration(test.duration)}
-                    </p>
-                  </div>
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
-                    <p className="text-xs text-gray-500 mb-1">{t('report.dataPoints')}</p>
-                    <p className="text-xl font-bold text-gray-900">
-                      {test.data_points?.length || 0}
                     </p>
                   </div>
                 </div>

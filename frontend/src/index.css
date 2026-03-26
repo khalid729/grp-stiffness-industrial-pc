@@ -425,3 +425,55 @@
 .animate-slide-up {
   animation: slide-up 0.3s ease-out;
 }
+
+/* Print styles for A4 report */
+@media print {
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
+
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide everything except the report */
+  body > * {
+    display: none !important;
+  }
+
+  /* Show the dialog overlay and content */
+  [role="dialog"],
+  [data-radix-portal],
+  [data-state="open"] {
+    display: block !important;
+    position: static !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: white !important;
+  }
+
+  /* Scale report to fit A4 */
+  #test-report {
+    width: 100% !important;
+    max-width: 190mm !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    font-size: 11px !important;
+  }
+
+  #test-report h1 {
+    font-size: 18px !important;
+  }
+
+  /* Hide dialog overlay */
+  [data-radix-portal] > div:first-child {
+    display: none !important;
+  }
+}
