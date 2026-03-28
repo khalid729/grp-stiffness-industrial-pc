@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { TestReportDialog } from '@/components/reports/TestReportDialog';
 import { GroupReportDialog } from '@/components/reports/GroupReportDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Slider } from '@/components/ui/slider';
 import { socketClient } from '@/api/socket';
 import { ForceDeflectionChart } from '@/components/dashboard/ForceDeflectionChart';
 import { TouchButton } from '@/components/ui/TouchButton';
@@ -12,13 +13,14 @@ import {
 } from 'lucide-react';
 import { useLiveData, useJogControl } from '@/hooks/useLiveData';
 import { useStepControl } from '@/hooks/useStepControl';
-import { useCommands, useServoControl, useClampControl } from '@/hooks/useApi';
+import { useCommands, useServoControl, useClampControl, useTestModeControl } from '@/hooks/useApi';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 
 const Dashboard = () => {
   const { t } = useLanguage();
   const { liveData, setLiveData, isConnected } = useLiveData();
+  const { userContinue, userAbort, crackFound, continueToCrack } = useTestModeControl();
   const { startTest, stopTest, goHome } = useCommands();
   const { enableServo, disableServo, resetAlarm } = useServoControl();
   const { lockUpper, lockLower, unlockAll } = useClampControl();
@@ -31,7 +33,7 @@ const Dashboard = () => {
   const jogDownActive = useRef(false);
 
   // Keypad state
-  const [keypadOpen, setKeypadOpen] = useState<'speed' | 'distance' | null>(null);
+  const [keypadOpen, setKeypadOpen] = useState<'speed' | 'distance' | 'fracture' | null>(null);
 
   const [completedTestId, setCompletedTestId] = useState<number | null>(null);
   const [groupState, setGroupState] = useState<{
@@ -46,6 +48,11 @@ const Dashboard = () => {
   const [nextAngle, setNextAngle] = useState(0);
   const [showPositionResult, setShowPositionResult] = useState(false);
   const [showGroupReport, setShowGroupReport] = useState(false);
+  const [showCrackDialog, setShowCrackDialog] = useState<null | 'stage5' | 'stage21' | 'stage23'>(null);
+  const [crackStage1Edit, setCrackStage1Edit] = useState(12.0);
+  const [crackStage2Edit, setCrackStage2Edit] = useState(17.0);
+  const [prevWaitingUser, setPrevWaitingUser] = useState(false);
+  const [fractureMaxPercent, setFractureMaxPercent] = useState(50);
   const [completedGroupId, setCompletedGroupId] = useState<number | null>(null);
   const [positionResult, setPositionResult] = useState<{
     position: number;
@@ -153,6 +160,24 @@ const Dashboard = () => {
     }).catch(() => {});
   }, []);
 
+  // Watch PLC waiting_user flag for crack dialogs
+  useEffect(() => {
+    const waitingUser = (liveData as any).hmi_ext?.waiting_user || false;
+    const stage = liveData.test?.stage || 0;
+    
+    if (waitingUser && !prevWaitingUser) {
+      // PLC just started waiting
+      if (stage === 5) setShowCrackDialog('stage5');
+      else if (stage === 21) setShowCrackDialog('stage21');
+      else if (stage === 23) setShowCrackDialog('stage23');
+    }
+    if (!waitingUser && prevWaitingUser) {
+      // PLC acknowledged input - close dialog
+      setShowCrackDialog(null);
+    }
+    setPrevWaitingUser(waitingUser);
+  }, [(liveData as any).hmi_ext?.waiting_user, liveData.test?.stage]);
+
   const handleAcceptPosition = () => {
     setShowPositionResult(false);
     if (positionResult?.isLastPosition) {
@@ -178,6 +203,9 @@ const Dashboard = () => {
     } catch (e) {}
     setShowPositionResult(false);
   };
+
+  const paramError = (liveData as any).hmi_ext?.param_error || false;
+  const paramErrorCode = (liveData as any).hmi_ext?.param_error_code || 0;
 
   const handleStartTest = () => {
     setChartData([]);
@@ -212,9 +240,9 @@ const Dashboard = () => {
     <div className="flex flex-col h-full gap-2 animate-slide-up">
       {/* Control Groups - Horizontal Layout - Equal Width */}
       <div className="grid grid-cols-5 gap-2">
-        {/* Group 1: Test Control */}
+        {/* Group 1: Stiffness Test Control */}
         <div className="flex flex-col justify-between gap-1.5 p-2 bg-card rounded-lg border border-border">
-          <span className="text-sm font-bold text-muted-foreground text-center uppercase tracking-wide">{t('dashboard.group.test')}</span>
+          <span className="text-sm font-bold text-muted-foreground text-center uppercase tracking-wide">{t('dashboard.group.stiffness')}</span>
           <TouchButton
             variant="outline"
             size="sm"
@@ -335,39 +363,53 @@ const Dashboard = () => {
           </button>
         </div>
 
-        {/* Group 4: Jaw/Clamp Control */}
+        {/* Group 4: Fracture Test Control */}
         <div className="flex flex-col justify-between gap-1.5 p-2 bg-card rounded-lg border border-border">
-          <span className="text-sm font-bold text-muted-foreground text-center uppercase tracking-wide">{t('dashboard.group.jaw')}</span>
+          <span className="text-sm font-bold text-muted-foreground text-center uppercase tracking-wide">{t('dashboard.group.fracture')}</span>
           <TouchButton
-            variant="success"
+            variant="warning"
             size="sm"
-            onClick={() => lockUpper.mutate()}
-            disabled={!isConnected}
+            onClick={() => {
+              // Set mode to Fracture (3) then start
+              fetch('/api/parameters', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ test_mode: 3, fracture_max_percent: fractureMaxPercent })
+              }).then(() => {
+                handleStartTest();
+              });
+            }}
+            disabled={controlsDisabled || isTestRunning || !safety.ok}
             className="flex items-center justify-center gap-1.5 w-full min-h-[80px]"
           >
-            <Lock className="w-6 h-6" />
-            <span className="text-sm">{t('manual.lockUpper')}</span>
-          </TouchButton>
-          <TouchButton
-            variant="success"
-            size="sm"
-            onClick={() => lockLower.mutate()}
-            disabled={!isConnected}
-            className="flex items-center justify-center gap-1.5 w-full min-h-[80px]"
-          >
-            <Lock className="w-6 h-6" />
-            <span className="text-sm">{t('manual.lockLower')}</span>
+            <Play className="w-6 h-6" />
+            <span className="text-sm">{t('actions.start')}</span>
           </TouchButton>
           <TouchButton
             variant="destructive"
             size="sm"
-            onClick={() => unlockAll.mutate()}
-            disabled={!isConnected}
+            onClick={handleStop}
+            disabled={controlsDisabled}
             className="flex items-center justify-center gap-1.5 w-full min-h-[80px]"
           >
-            <Unlock className="w-6 h-6" />
-            <span className="text-sm">{t('manual.unlockAll')}</span>
+            <Square className="w-6 h-6" />
+            <span className="text-sm">{t('actions.stop')}</span>
           </TouchButton>
+          <button
+            onClick={() => !controlsDisabled && setKeypadOpen('fracture')}
+            disabled={controlsDisabled}
+            className={cn(
+              "flex items-center justify-between px-2 bg-secondary/30 rounded-lg border border-border cursor-pointer hover:bg-secondary/50 transition-colors",
+              "min-h-[80px]",
+              controlsDisabled && "opacity-50 cursor-not-allowed"
+            )}
+          >
+            <span className="text-base text-muted-foreground">Max%</span>
+            <div className="flex items-center gap-0.5">
+              <span className="text-primary font-mono text-xl font-bold">{fractureMaxPercent}</span>
+              <span className="text-base text-muted-foreground">%</span>
+            </div>
+          </button>
         </div>
 
         {/* Group 5: Servo Control */}
@@ -431,6 +473,14 @@ const Dashboard = () => {
         label={t('dashboard.stepDistance')}
         unit="mm"
       />
+      <NumericKeypad
+        isOpen={keypadOpen === 'fracture'}
+        onClose={() => setKeypadOpen(null)}
+        onConfirm={(value) => setFractureMaxPercent(value)}
+        initialValue={fractureMaxPercent}
+        label={t('dashboard.fractureMax')}
+        unit="%"
+      />
       {/* Position Indicator */}
       {groupState && groupState.is_active && !groupState.is_complete && (
         <div className="fixed top-2 right-2 z-50 bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 text-sm font-bold">
@@ -466,6 +516,99 @@ const Dashboard = () => {
         open={completedTestId !== null && !showGroupReport}
         onOpenChange={(open) => { if (!open) setCompletedTestId(null); }}
       />
+
+      {/* Stage 5 Dialog — Continue to Crack? (after stiffness complete in Mode 2) */}
+      <Dialog open={showCrackDialog === 'stage5'} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl">{t('testSetup.continueToCrack')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="text-center space-y-1">
+              <p className="text-sm text-muted-foreground">Ring Stiffness</p>
+              <p className="text-2xl font-bold">{liveData.results?.ring_stiffness?.toFixed(1) || '-'} kN/m²</p>
+              <p className="text-sm">SN {liveData.results?.sn_class || '-'}</p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>{t('testSetup.crackStage1')}</span>
+                <span className="font-mono font-bold">{crackStage1Edit}%</span>
+              </div>
+              <Slider value={[crackStage1Edit]} onValueChange={(v) => setCrackStage1Edit(v[0])} min={5} max={30} step={0.5} />
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>{t('testSetup.crackStage2')}</span>
+                <span className="font-mono font-bold">{crackStage2Edit}%</span>
+              </div>
+              <Slider value={[crackStage2Edit]} onValueChange={(v) => setCrackStage2Edit(v[0])} min={10} max={35} step={0.5} />
+            </div>
+          </div>
+          <DialogFooter className="flex gap-2">
+            <TouchButton variant="outline" size="sm" onClick={() => { userAbort.mutate(); setShowCrackDialog(null); }} className="flex-1 min-h-[52px]">
+              {t('testSetup.stiffnessOnly')}
+            </TouchButton>
+            <TouchButton variant="primary" size="sm" onClick={() => {
+              // Update crack % in PLC before continuing
+              fetch('/api/parameters', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ crack_stage1_percent: crackStage1Edit, crack_stage2_percent: crackStage2Edit })
+              }).then(() => {
+                continueToCrack.mutate();
+                setShowCrackDialog(null);
+              });
+            }} className="flex-1 min-h-[52px]">
+              {t('testSetup.crackTest')}
+            </TouchButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Stage 21 Dialog — Crack Inspection Stage 1 */}
+      <Dialog open={showCrackDialog === 'stage21'} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl">{t('testSetup.crackInspection')} — Stage 1</DialogTitle>
+          </DialogHeader>
+          <div className="text-center py-4 space-y-3">
+            <p className="text-4xl font-bold text-primary">{(liveData as any).crack?.deflection_stage1?.toFixed(1) || '-'} mm</p>
+            <p className="text-sm text-muted-foreground">{t('testSetup.forceAt')}: {(liveData as any).crack?.force_stage1?.toFixed(0) || '-'} N</p>
+            <p className="text-lg font-semibold">هل يوجد كراك؟</p>
+          </div>
+          <DialogFooter className="flex gap-2">
+            <TouchButton variant="destructive" size="sm" onClick={() => { crackFound.mutate(); setShowCrackDialog(null); }} className="flex-1 min-h-[52px]">
+              {t('testSetup.crackFound')}
+            </TouchButton>
+            <TouchButton variant="success" size="sm" onClick={() => { userContinue.mutate(); setShowCrackDialog(null); }} className="flex-1 min-h-[52px]">
+              {t('testSetup.noCrack')}
+            </TouchButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Stage 23 Dialog — Crack Inspection Stage 2 (Final) */}
+      <Dialog open={showCrackDialog === 'stage23'} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl">{t('testSetup.crackInspection')} — Stage 2</DialogTitle>
+          </DialogHeader>
+          <div className="text-center py-4 space-y-3">
+            <p className="text-4xl font-bold text-primary">{(liveData as any).crack?.deflection_stage2?.toFixed(1) || '-'} mm</p>
+            <p className="text-sm text-muted-foreground">{t('testSetup.forceAt')}: {(liveData as any).crack?.force_stage2?.toFixed(0) || '-'} N</p>
+            <p className="text-lg font-semibold">هل يوجد كراك؟</p>
+          </div>
+          <DialogFooter className="flex gap-2">
+            <TouchButton variant="destructive" size="sm" onClick={() => { crackFound.mutate(); setShowCrackDialog(null); }} className="flex-1 min-h-[52px]">
+              {t('testSetup.crackFound')}
+            </TouchButton>
+            <TouchButton variant="success" size="sm" onClick={() => { userContinue.mutate(); setShowCrackDialog(null); }} className="flex-1 min-h-[52px]">
+              {t('testSetup.noCrackPass')}
+            </TouchButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <GroupReportDialog
         groupId={completedGroupId}
         open={showGroupReport}

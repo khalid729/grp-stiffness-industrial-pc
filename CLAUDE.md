@@ -54,3 +54,40 @@ If the hard refresh does not work, clear the cache manually:
 - grp-frontend.service runs serve -s dist on port 8080 (NOT used by kiosk)
 - PLC force values are stored in Newtons in the database
 - Report force unit (N/kN) is configurable in Settings page, stored in localStorage
+
+
+## Test Modes (PLC DB1 offset 60)
+
+| Mode | Name | Flow |
+|------|------|------|
+| 0 | Stiffness Only | Standard ring stiffness test |
+| 1 | Crack Only | Deflect to 12% then 17%, operator inspects for cracks |
+| 2 | Stiffness + Crack | Stiffness first, then ask operator to continue to crack |
+| 3 | Fracture | Deflect until load drops (fracture detected) |
+
+## Multi-Position Testing
+
+- 1 or 3 positions per sample (default: 3, angles: 0°, 40°, 80°)
+- Test groups link multiple positions to the same sample
+- Combined group report: summary page + individual position pages
+
+## Current Branch
+
+- `feature/crack-test` branch has crack/fracture test support
+- Tag `v1.0-stable` marks the pre-crack stable release
+- To revert: `git checkout main` or `git checkout v1.0-stable`
+
+## ⚠️ DB3 Offset Verification Pending
+
+The following DB3 servo offsets need live verification when PLC is connected:
+- Remote_Mode: code=(25,0) vs PLC doc=(24,7)
+- E_Stop: code=(25,1) vs doc=(25,0)
+- Upper_Limit: code=(25,2) vs doc=(25,1)
+- Lower_Limit: code=(25,3) vs doc=(25,2)
+- Home_Position: code=(25,4) vs doc=(25,3)
+- Safety_OK: code=(25,5) vs doc=(25,4)
+- Motion_Allowed: code=(25,6) vs doc=(25,5)
+
+Files to update if offsets change:
+- backend/plc/data_service.py (STATUS_* constants)
+- backend/plc/command_service.py (CMD_REMOTE_MODE, STATUS_* constants)

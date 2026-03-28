@@ -30,9 +30,9 @@ class DataService:
     DB_HMI = 4
 
     # Block sizes for reading
-    DB2_SIZE = 89
+    DB2_SIZE = 126
     DB3_SIZE = 37
-    DB4_SIZE = 64
+    DB4_SIZE = 68
 
     # ═══════════════════════════════════════════════════════════════════
     # DB1 - TEST PARAMETERS OFFSETS
@@ -49,6 +49,16 @@ class DataService:
     PARAM_CONTACT_SPEED = 46
     PARAM_RETURN_SPEED = 50
     PARAM_TARGET_SN_CLASS = 58   # Int (2 bytes) - Target SN class for pass/fail
+
+    # NEW — Test mode & crack/fracture parameters
+    PARAM_TEST_MODE = 60             # Int - 0=Stiffness, 1=Crack, 2=S+C, 3=Fracture
+    PARAM_CRACK_STAGE1_PERCENT = 62  # Real - % of diameter (default 12)
+    PARAM_CRACK_STAGE2_PERCENT = 66  # Real - % of diameter (default 17)
+    PARAM_FRACTURE_MAX_PERCENT = 70  # Real - % of diameter (default 50)
+    PARAM_FRACTURE_DROP_THRESHOLD = 74  # Real - % load drop = fracture (default 10)
+    PARAM_CRACK_TARGET_1_ABS = 78    # Real - READ ONLY (PLC calculates mm)
+    PARAM_CRACK_TARGET_2_ABS = 82    # Real - READ ONLY (PLC calculates mm)
+    PARAM_FRACTURE_TARGET_ABS = 86   # Real - READ ONLY (PLC calculates mm)
 
     # ═══════════════════════════════════════════════════════════════════
     # DB2 - TEST RESULTS OFFSETS
@@ -73,6 +83,20 @@ class DataService:
     RES_CONTACT_POSITION = 76
     RES_DATA_POINT_COUNT = 80
     RES_RECORDING_ACTIVE = (82, 0)
+
+    # NEW — Crack test results
+    RES_CRACK_FORCE_STAGE1 = 94      # Real - N
+    RES_CRACK_FORCE_STAGE2 = 98      # Real - N
+    RES_CRACK_DEFLECTION_STAGE1 = 102  # Real - mm
+    RES_CRACK_DEFLECTION_STAGE2 = 106  # Real - mm
+    RES_CRACK_FOUND_STAGE1 = (110, 0)  # Bool
+    RES_CRACK_FOUND_STAGE2 = (110, 1)  # Bool
+    RES_CRACK_TEST_PASSED = (110, 2)   # Bool
+
+    # NEW — Fracture test results
+    RES_FRACTURE_PEAK_FORCE = 112      # Real - N
+    RES_FRACTURE_PEAK_DEFLECTION = 116  # Real - mm
+    RES_FRACTURE_DETECTED = (120, 0)    # Bool
 
     # ═══════════════════════════════════════════════════════════════════
     # DB3 - SERVO CONTROL OFFSETS
@@ -112,6 +136,15 @@ class DataService:
     HMI_LAMP_RUNNING = (59, 4)
     HMI_LAMP_ERROR = (59, 5)
     HMI_TEST_PROGRESS = 62
+
+    # NEW — HMI extended (operator interaction)
+    HMI_WAITING_USER = (64, 0)       # Read - PLC waiting for operator
+    HMI_USER_CONTINUE = (64, 1)      # Write - pulse
+    HMI_USER_ABORT = (64, 2)         # Write - pulse
+    HMI_CRACK_FOUND = (64, 3)        # Write - pulse
+    HMI_CONTINUE_TO_CRACK = (64, 4)  # Write - pulse
+    HMI_PARAM_ERROR = (64, 5)        # Read - parameter validation failed
+    HMI_PARAM_ERROR_CODE = 66        # Int - 1=Stage2<=Stage1, 2=Stiffness%>=Stage1%
 
     def __init__(self, plc: PLCConnector):
         self.plc = plc
@@ -206,6 +239,25 @@ class DataService:
                     "running": get_bool(db4, self.HMI_LAMP_RUNNING[0], self.HMI_LAMP_RUNNING[1]),
                     "error": get_bool(db4, self.HMI_LAMP_ERROR[0], self.HMI_LAMP_ERROR[1]),
                 },
+                "crack": {
+                    "force_stage1": safe_float(get_real(db2, self.RES_CRACK_FORCE_STAGE1)),
+                    "force_stage2": safe_float(get_real(db2, self.RES_CRACK_FORCE_STAGE2)),
+                    "deflection_stage1": safe_float(get_real(db2, self.RES_CRACK_DEFLECTION_STAGE1)),
+                    "deflection_stage2": safe_float(get_real(db2, self.RES_CRACK_DEFLECTION_STAGE2)),
+                    "found_stage1": get_bool(db2, self.RES_CRACK_FOUND_STAGE1[0], self.RES_CRACK_FOUND_STAGE1[1]),
+                    "found_stage2": get_bool(db2, self.RES_CRACK_FOUND_STAGE2[0], self.RES_CRACK_FOUND_STAGE2[1]),
+                    "passed": get_bool(db2, self.RES_CRACK_TEST_PASSED[0], self.RES_CRACK_TEST_PASSED[1]),
+                },
+                "fracture": {
+                    "peak_force": safe_float(get_real(db2, self.RES_FRACTURE_PEAK_FORCE)),
+                    "peak_deflection": safe_float(get_real(db2, self.RES_FRACTURE_PEAK_DEFLECTION)),
+                    "detected": get_bool(db2, self.RES_FRACTURE_DETECTED[0], self.RES_FRACTURE_DETECTED[1]),
+                },
+                "hmi_ext": {
+                    "waiting_user": get_bool(db4, self.HMI_WAITING_USER[0], self.HMI_WAITING_USER[1]),
+                    "param_error": get_bool(db4, self.HMI_PARAM_ERROR[0], self.HMI_PARAM_ERROR[1]),
+                    "param_error_code": get_int(db4, self.HMI_PARAM_ERROR_CODE),
+                },
                 "connected": True,
                 "plc": {"connected": True, "cpu_state": self.plc.get_cpu_state(), "ip": self.plc.ip},
                 # Legacy flat fields
@@ -243,6 +295,9 @@ class DataService:
             "mode": {"remote": False, "can_change": False},
             "alarm": {"active": False, "code": 0},
             "lamps": {"ready": False, "running": False, "error": False},
+            "crack": {"force_stage1": 0.0, "force_stage2": 0.0, "deflection_stage1": 0.0, "deflection_stage2": 0.0, "found_stage1": False, "found_stage2": False, "passed": False},
+            "fracture": {"peak_force": 0.0, "peak_deflection": 0.0, "detected": False},
+            "hmi_ext": {"waiting_user": False, "param_error": False, "param_error_code": 0},
             "connected": False,
             "plc": {"connected": False, "cpu_state": "unknown", "ip": self.plc.ip},
             "servo_ready": False, "servo_error": False, "servo_enabled": False,
@@ -259,7 +314,7 @@ class DataService:
             return {
                 "pipe_diameter": self.plc.read_real(self.DB_PARAMS, self.PARAM_PIPE_DIAMETER) or 0.0,
                 "pipe_length": self.plc.read_real(self.DB_PARAMS, self.PARAM_PIPE_LENGTH) or 300.0,
-                "deflection_percent": self.plc.read_real(self.DB_PARAMS, self.PARAM_DEFLECTION_PERCENT) or 3.0,
+                "deflection_percent": self.plc.read_real(self.DB_PARAMS, self.PARAM_DEFLECTION_PERCENT) or 5.0,
                 "deflection_target": self.plc.read_real(self.DB_PARAMS, self.PARAM_DEFLECTION_TARGET) or 0.0,
                 "test_speed": self.plc.read_real(self.DB_PARAMS, self.PARAM_TEST_SPEED) or 12.0,
                 "max_stroke": self.plc.read_real(self.DB_PARAMS, self.PARAM_MAX_STROKE) or 300.0,
@@ -269,6 +324,14 @@ class DataService:
                 "contact_speed": self.plc.read_real(self.DB_PARAMS, self.PARAM_CONTACT_SPEED) or 2.0,
                 "return_speed": self.plc.read_real(self.DB_PARAMS, self.PARAM_RETURN_SPEED) or 300.0,
                 "target_sn_class": self.plc.read_int(self.DB_PARAMS, self.PARAM_TARGET_SN_CLASS) or 2500,
+                "test_mode": self.plc.read_int(self.DB_PARAMS, self.PARAM_TEST_MODE) or 0,
+                "crack_stage1_percent": self.plc.read_real(self.DB_PARAMS, self.PARAM_CRACK_STAGE1_PERCENT) or 12.0,
+                "crack_stage2_percent": self.plc.read_real(self.DB_PARAMS, self.PARAM_CRACK_STAGE2_PERCENT) or 17.0,
+                "fracture_max_percent": self.plc.read_real(self.DB_PARAMS, self.PARAM_FRACTURE_MAX_PERCENT) or 50.0,
+                "fracture_drop_threshold": self.plc.read_real(self.DB_PARAMS, self.PARAM_FRACTURE_DROP_THRESHOLD) or 10.0,
+                "crack_target_1_abs": self.plc.read_real(self.DB_PARAMS, self.PARAM_CRACK_TARGET_1_ABS) or 0.0,
+                "crack_target_2_abs": self.plc.read_real(self.DB_PARAMS, self.PARAM_CRACK_TARGET_2_ABS) or 0.0,
+                "fracture_target_abs": self.plc.read_real(self.DB_PARAMS, self.PARAM_FRACTURE_TARGET_ABS) or 0.0,
                 "connected": True,
             }
         except Exception as e:
@@ -277,10 +340,14 @@ class DataService:
 
     def _get_default_parameters(self) -> Dict[str, Any]:
         return {
-            "pipe_diameter": 0.0, "pipe_length": 300.0, "deflection_percent": 3.0,
+            "pipe_diameter": 0.0, "pipe_length": 300.0, "deflection_percent": 5.0,
             "deflection_target": 0.0, "test_speed": 12.0, "max_stroke": 300.0,
             "max_force": 200000.0, "preload_force": 10.0, "approach_speed": 50.0,
-            "contact_speed": 2.0, "return_speed": 100.0, "target_sn_class": 2500, "connected": False,
+            "contact_speed": 2.0, "return_speed": 100.0, "target_sn_class": 2500,
+            "test_mode": 0, "crack_stage1_percent": 12.0, "crack_stage2_percent": 17.0,
+            "fracture_max_percent": 50.0, "fracture_drop_threshold": 10.0,
+            "crack_target_1_abs": 0.0, "crack_target_2_abs": 0.0, "fracture_target_abs": 0.0,
+            "connected": False,
         }
 
     def set_parameters(self, **kwargs) -> bool:
@@ -303,6 +370,16 @@ class DataService:
                 self.plc.write_real(self.DB_PARAMS, self.PARAM_PRELOAD_FORCE, float(kwargs["preload_force"]))
             if "target_sn_class" in kwargs:
                 self.plc.write_int(self.DB_PARAMS, self.PARAM_TARGET_SN_CLASS, int(kwargs["target_sn_class"]))
+            if "test_mode" in kwargs:
+                self.plc.write_int(self.DB_PARAMS, self.PARAM_TEST_MODE, int(kwargs["test_mode"]))
+            if "crack_stage1_percent" in kwargs:
+                self.plc.write_real(self.DB_PARAMS, self.PARAM_CRACK_STAGE1_PERCENT, float(kwargs["crack_stage1_percent"]))
+            if "crack_stage2_percent" in kwargs:
+                self.plc.write_real(self.DB_PARAMS, self.PARAM_CRACK_STAGE2_PERCENT, float(kwargs["crack_stage2_percent"]))
+            if "fracture_max_percent" in kwargs:
+                self.plc.write_real(self.DB_PARAMS, self.PARAM_FRACTURE_MAX_PERCENT, float(kwargs["fracture_max_percent"]))
+            if "fracture_drop_threshold" in kwargs:
+                self.plc.write_real(self.DB_PARAMS, self.PARAM_FRACTURE_DROP_THRESHOLD, float(kwargs["fracture_drop_threshold"]))
             logger.info(f"Parameters written: {kwargs}")
             return True
         except Exception as e:

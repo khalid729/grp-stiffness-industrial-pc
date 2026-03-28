@@ -326,3 +326,49 @@ async def get_step_status():
     """Get current step movement status"""
     _check_service()
     return command_service.get_step_status()
+
+
+# ========== Operator Interaction Commands (NEW) ==========
+
+@router.post("/command/user-continue", response_model=CommandResponse)
+async def user_continue():
+    """Operator pressed Continue during wait stage"""
+    _check_service()
+    result = command_service.user_continue()
+    return CommandResponse(success=result["success"], message=result["message"])
+
+
+@router.post("/command/user-abort", response_model=CommandResponse)
+async def user_abort():
+    """Operator pressed Abort during wait stage"""
+    _check_service()
+    result = command_service.user_abort()
+    return CommandResponse(success=result["success"], message=result["message"])
+
+
+@router.post("/command/crack-found", response_model=CommandResponse)
+async def crack_found():
+    """Operator declared crack found"""
+    _check_service()
+    result = command_service.crack_found()
+    return CommandResponse(success=result["success"], message=result["message"])
+
+
+@router.post("/command/continue-to-crack", response_model=CommandResponse)
+async def continue_to_crack():
+    """Operator chose to extend stiffness test to crack test"""
+    _check_service()
+    result = command_service.continue_to_crack()
+    return CommandResponse(success=result["success"], message=result["message"])
+
+
+class TestModeRequest(BaseModel):
+    mode: int
+
+
+@router.post("/command/test-mode", response_model=CommandResponse)
+async def set_test_mode(req: TestModeRequest):
+    """Set test mode: 0=Stiffness, 1=Crack, 2=S+C, 3=Fracture"""
+    _check_service()
+    result = command_service.set_test_mode(req.mode)
+    return CommandResponse(success=result["success"], message=result["message"])

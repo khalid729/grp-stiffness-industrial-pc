@@ -1058,3 +1058,25 @@ export function usePrinterControl() {
     printTestPage,
   };
 }
+
+// ==================== Test Mode Control (Crack/Fracture) ====================
+
+export function useTestModeControl() {
+  const apiCall = async (endpoint: string, body?: any) => {
+    const response = await fetch(`${API_URL}/api/command/${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!response.ok) throw new Error('Command failed');
+    return response.json();
+  };
+
+  const setTestMode = useMutation({ mutationFn: (mode: number) => apiCall('test-mode', { mode }) });
+  const userContinue = useMutation({ mutationFn: () => apiCall('user-continue') });
+  const userAbort = useMutation({ mutationFn: () => apiCall('user-abort') });
+  const crackFound = useMutation({ mutationFn: () => apiCall('crack-found') });
+  const continueToCrack = useMutation({ mutationFn: () => apiCall('continue-to-crack') });
+
+  return { setTestMode, userContinue, userAbort, crackFound, continueToCrack };
+}

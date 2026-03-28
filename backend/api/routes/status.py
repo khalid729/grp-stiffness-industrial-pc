@@ -23,6 +23,11 @@ class ParametersRequest(BaseModel):
     max_stroke: Optional[float] = None
     max_force: Optional[float] = None
     target_sn_class: Optional[int] = None
+    test_mode: Optional[int] = None
+    crack_stage1_percent: Optional[float] = None
+    crack_stage2_percent: Optional[float] = None
+    fracture_max_percent: Optional[float] = None
+    fracture_drop_threshold: Optional[float] = None
 
 
 class TestMetadataRequest(BaseModel):

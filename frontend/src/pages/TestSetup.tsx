@@ -18,7 +18,7 @@ import {
 const defaultParameters: TestParameters = {
   pipe_diameter: 300,
   pipe_length: 300,
-  deflection_percent: 3,
+  deflection_percent: 5,
   test_speed: 50,
   max_stroke: 300,
   max_force: 200000,
@@ -48,6 +48,9 @@ const STIFFNESS_CLASS_OPTIONS = ['SN1250', 'SN2500', 'SN5000', 'SN10000', 'SN125
 const TestSetup = () => {
   const { t } = useLanguage();
   const [numPositions, setNumPositions] = useState(3);
+  const [crackEnabled, setCrackEnabled] = useState(false);
+  const [crackStage1, setCrackStage1] = useState(12.0);
+  const [crackStage2, setCrackStage2] = useState(17.0);
   const { parameters: savedParams, isLoading, setParameters } = useParametersControl();
   const [parameters, setLocalParameters] = useState<TestParameters>(defaultParameters);
 
@@ -93,8 +96,15 @@ const TestSetup = () => {
   };
 
   const handleSave = () => {
-    setParameters.mutate(parameters);
-    // Sync stiffness_class metadata from the PLC parameter
+    // Determine test_mode: 1-position+crack=2, 3-positions always=2 (Stage5 asks), else=0
+    const testMode = (numPositions === 1 && crackEnabled) ? 2 : (numPositions === 3 ? 2 : 0);
+    const updatedParams = {
+      ...parameters,
+      test_mode: testMode,
+      crack_stage1_percent: crackStage1,
+      crack_stage2_percent: crackStage2,
+    };
+    setParameters.mutate(updatedParams);
     const updatedMeta = {
       ...meta,
       stiffness_class: `SN${parameters.target_sn_class || 2500}`,
@@ -140,7 +150,7 @@ const TestSetup = () => {
     setActiveKeyboard(prev => prev === field ? prev : field);
   };
 
-  const targetDeflection = ((parameters.pipe_diameter || 300) * (parameters.deflection_percent || 3)) / 100;
+  const targetDeflection = ((parameters.pipe_diameter || 300) * (parameters.deflection_percent || 5)) / 100;
 
   return (
     <div className="flex flex-col h-full gap-3 animate-slide-up">
@@ -211,7 +221,7 @@ const TestSetup = () => {
                 <span className="font-mono font-bold">{parameters.deflection_percent}%</span>
               </div>
               <Slider
-                value={[parameters.deflection_percent || 3]}
+                value={[parameters.deflection_percent || 5]}
                 onValueChange={(v) => handleSliderChange('deflection_percent', v)}
                 min={1}
                 max={10}
@@ -296,6 +306,54 @@ const TestSetup = () => {
                 </TouchButton>
               </div>
             </div>
+
+
+            {/* Crack Test Option - only for 1 position */}
+            {numPositions === 1 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground text-base">{t('testSetup.crackTest')}</span>
+                <div
+                  className={`w-14 h-8 rounded-full cursor-pointer transition-colors flex items-center ${crackEnabled ? 'bg-primary justify-end' : 'bg-secondary justify-start'}`}
+                  onClick={() => setCrackEnabled(!crackEnabled)}
+                >
+                  <div className="w-6 h-6 bg-white rounded-full shadow mx-1" />
+                </div>
+              </div>
+            </div>
+            )}
+
+            {/* Crack Percentages - show when crack is relevant */}
+            {(crackEnabled || numPositions === 3) && (
+            <>
+              <div className="space-y-2">
+                <div className="flex justify-between text-base">
+                  <span className="text-muted-foreground">{t('testSetup.crackStage1')}</span>
+                  <span className="font-mono font-bold">{crackStage1}%</span>
+                </div>
+                <Slider
+                  value={[crackStage1]}
+                  onValueChange={(v) => setCrackStage1(v[0])}
+                  min={5}
+                  max={30}
+                  step={0.5}
+                />
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between text-base">
+                  <span className="text-muted-foreground">{t('testSetup.crackStage2')}</span>
+                  <span className="font-mono font-bold">{crackStage2}%</span>
+                </div>
+                <Slider
+                  value={[crackStage2]}
+                  onValueChange={(v) => setCrackStage2(v[0])}
+                  min={10}
+                  max={35}
+                  step={0.5}
+                />
+              </div>
+            </>
+            )}
 
             {/* Target SN Class - sent to PLC for pass/fail */}
             <div className="space-y-2">

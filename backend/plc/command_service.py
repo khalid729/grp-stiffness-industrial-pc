@@ -70,6 +70,16 @@ class CommandService:
     TARE_LOADCELL = (59, 6)        # DB4.DBX59.6 - Tare_LoadCell
     HMI_TARE_POSITION = (59, 7)    # DB4.DBX59.7 - Zero position
 
+    # NEW — Operator interaction commands (DB4 byte 64)
+    HMI_USER_CONTINUE = (64, 1)      # DB4.DBX64.1 - Write pulse
+    HMI_USER_ABORT = (64, 2)         # DB4.DBX64.2 - Write pulse
+    HMI_CRACK_FOUND = (64, 3)        # DB4.DBX64.3 - Write pulse
+    HMI_CONTINUE_TO_CRACK = (64, 4)  # DB4.DBX64.4 - Write pulse
+
+    # DB1 — Test mode
+    DB_PARAMS = 1
+    PARAM_TEST_MODE = 60             # Int - 0=Stiffness, 1=Crack, 2=S+C, 3=Fracture
+
     def __init__(self, plc: PLCConnector):
         self.plc = plc
 
@@ -334,6 +344,62 @@ class CommandService:
         result = self.plc.write_bool(self.DB_SERVO, self.STEP_COMMANDS, self.BIT_STEP_BACKWARD, True)
         logger.info("Step backward (DB3.DBX36.1)")
         return {"success": result, "direction": "backward"}
+
+    # ========== Operator Interaction Commands (DB4) — NEW ==========
+
+    def user_continue(self) -> dict:
+        """Operator pressed Continue — DB4.DBX64.1 pulse"""
+        if not self._check_connection():
+            return {"success": False, "message": "PLC not connected"}
+        self.plc.write_bool(self.DB_HMI, *self.HMI_USER_CONTINUE, True)
+        time.sleep(0.1)
+        self.plc.write_bool(self.DB_HMI, *self.HMI_USER_CONTINUE, False)
+        logger.info("User Continue sent (DB4.DBX64.1)")
+        return {"success": True, "message": "Continue sent"}
+
+    def user_abort(self) -> dict:
+        """Operator pressed Abort — DB4.DBX64.2 pulse"""
+        if not self._check_connection():
+            return {"success": False, "message": "PLC not connected"}
+        self.plc.write_bool(self.DB_HMI, *self.HMI_USER_ABORT, True)
+        time.sleep(0.1)
+        self.plc.write_bool(self.DB_HMI, *self.HMI_USER_ABORT, False)
+        logger.info("User Abort sent (DB4.DBX64.2)")
+        return {"success": True, "message": "Abort sent"}
+
+    def crack_found(self) -> dict:
+        """Operator declared crack found — DB4.DBX64.3 pulse"""
+        if not self._check_connection():
+            return {"success": False, "message": "PLC not connected"}
+        self.plc.write_bool(self.DB_HMI, *self.HMI_CRACK_FOUND, True)
+        time.sleep(0.1)
+        self.plc.write_bool(self.DB_HMI, *self.HMI_CRACK_FOUND, False)
+        logger.info("Crack Found sent (DB4.DBX64.3)")
+        return {"success": True, "message": "Crack found sent"}
+
+    def continue_to_crack(self) -> dict:
+        """Extend stiffness to crack — write BOTH 64.4 AND 64.1 together"""
+        if not self._check_connection():
+            return {"success": False, "message": "PLC not connected"}
+        # Must write both bits in same operation
+        self.plc.write_bool(self.DB_HMI, *self.HMI_CONTINUE_TO_CRACK, True)
+        self.plc.write_bool(self.DB_HMI, *self.HMI_USER_CONTINUE, True)
+        time.sleep(0.1)
+        self.plc.write_bool(self.DB_HMI, *self.HMI_CONTINUE_TO_CRACK, False)
+        self.plc.write_bool(self.DB_HMI, *self.HMI_USER_CONTINUE, False)
+        logger.info("Continue to Crack sent (DB4.DBX64.4 + 64.1)")
+        return {"success": True, "message": "Continue to crack sent"}
+
+    def set_test_mode(self, mode: int) -> dict:
+        """Set test mode — DB1 offset 60 (Int)"""
+        if not self._check_connection():
+            return {"success": False, "message": "PLC not connected"}
+        if mode not in (0, 1, 2, 3):
+            return {"success": False, "message": f"Invalid mode: {mode}"}
+        result = self.plc.write_int(self.DB_PARAMS, self.PARAM_TEST_MODE, mode)
+        modes = {0: "Stiffness", 1: "Crack", 2: "Stiffness+Crack", 3: "Fracture"}
+        logger.info(f"Test mode set: {modes.get(mode, mode)} (DB1 offset 60 = {mode})")
+        return {"success": result, "message": f"Mode set to {modes.get(mode, mode)}"}
 
     def get_step_status(self) -> dict:
         if not self.plc.connected:

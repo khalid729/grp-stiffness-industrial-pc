@@ -1,5 +1,51 @@
 # سجل التغييرات | Changelog
 
+## 2026-03-28 - Crack Test + Fracture Test + PLC Upgrade
+
+### New Features
+- **4 test modes**: Stiffness Only (0), Crack Only (1), Stiffness+Crack (2), Fracture (3)
+- **Crack test**: operator visual inspection at 2 deflection stages (default 12% and 17%)
+  - Adjustable crack % in Test Setup and in Stage 5 dialog
+  - Stage 21/23 dialogs: "Is there a crack?" with Crack Found / No Crack buttons
+  - For 1-position: optional checkbox to enable crack
+  - For 3-positions: automatic Stage 5 prompt after last stiffness position
+- **Fracture test**: replaced Jaw/Clamp group with Fracture Test controls (Start/Stop + live peak force)
+- Dashboard: renamed "Test" group to "Stiffness Test"
+- Dashboard: Fracture Test group with Start/Stop + Max% keypad input (like Speed/Distance)
+- Default deflection percent changed from 3% to **5%**
+- `Max_Stroke` confirmed as display-only value — Fracture uses `Fracture_Max_Percent` as its limit, hardware limit switches provide final safety
+- PLC interaction via `waiting_user` flag and pulse commands (user_continue, user_abort, crack_found, continue_to_crack)
+
+### Backend Changes
+- data_service.py: DB1=90 bytes, DB2=126 bytes, DB4=68 bytes + all new offsets
+- command_service.py: 5 new commands (user_continue, user_abort, crack_found, continue_to_crack, set_test_mode)
+- commands.py: 5 new API endpoints
+- status.py: ParametersRequest extended with test_mode, crack %, fracture params
+
+### Frontend Changes
+- types/api.ts: CrackData, FractureData, HmiExtData interfaces + TEST_MODES + updated stages
+- useApi.ts: useTestModeControl hook
+- TestSetup.tsx: crack toggle + crack % sliders
+- Dashboard.tsx: Stage 5/21/23 crack dialogs + Fracture group + stiffness rename
+- LanguageContext.tsx: all crack/fracture translations (EN/AR)
+
+### ⚠️ DB3 Offset Note (TO VERIFY WITH PLC)
+The following DB3 offsets may differ between the current code and the new PLC program:
+- `Remote_Mode`: code uses (25,0), PLC doc says (24,7)
+- `E_Stop_Active`: code uses (25,1), PLC doc says (25,0)
+- `Upper_Limit`: code uses (25,2), PLC doc says (25,1)
+- `Lower_Limit`: code uses (25,3), PLC doc says (25,2)
+- `Home_Position`: code uses (25,4), PLC doc says (25,3)
+- `Safety_OK`: code uses (25,5), PLC doc says (25,4)
+- `Motion_Allowed`: code uses (25,6), PLC doc says (25,5)
+**Action**: Verify live with PLC connected and update if needed.
+
+### Branch
+- All changes on `feature/crack-test` branch
+- Tag `v1.0-stable` marks the pre-crack working state
+
+---
+
 ## 2026-03-26 - Multi-Position Testing (ISO 9969)
 
 ### New Features

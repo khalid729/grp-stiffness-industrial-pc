@@ -133,6 +133,26 @@ In TIA Portal, you must configure the PLC to allow Snap7 access:
 | POST | /api/clamp/lower/lock | Lock lower clamp |
 | POST | /api/clamp/unlock | Unlock all clamps |
 
+## **4.2.1 Operator Interaction Endpoints (NEW)**
+
+| Method | Endpoint | Description |
+| ----- | ----- | ----- |
+| POST | /api/command/user-continue | Operator pressed Continue during wait stage |
+| POST | /api/command/user-abort | Operator pressed Abort/Return during wait stage |
+| POST | /api/command/crack-found | Operator declared crack found |
+| POST | /api/command/continue-to-crack | Extend stiffness test to crack test (Stage 5) |
+| POST | /api/command/test-mode | Set test mode (body: {mode: 0-3}) |
+
+## **4.2.2 Test Groups Endpoints (NEW)**
+
+| Method | Endpoint | Description |
+| ----- | ----- | ----- |
+| GET | /api/groups | List test groups with pagination |
+| GET | /api/groups/active | Get current active group state |
+| GET | /api/groups/{id} | Get group with all position tests |
+| POST | /api/groups/{id}/retry/{position} | Retry a specific position |
+| POST | /api/groups/reset | Reset/cancel active group |
+
 ## **4.3 Report Endpoints**
 
 | Method | Endpoint | Description |

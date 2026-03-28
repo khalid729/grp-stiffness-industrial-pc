@@ -99,6 +99,31 @@ export interface LampsData {
   error: boolean;
 }
 
+// Crack test data
+export interface CrackData {
+  force_stage1: number;
+  force_stage2: number;
+  deflection_stage1: number;
+  deflection_stage2: number;
+  found_stage1: boolean;
+  found_stage2: boolean;
+  passed: boolean;
+}
+
+// Fracture test data
+export interface FractureData {
+  peak_force: number;
+  peak_deflection: number;
+  detected: boolean;
+}
+
+// HMI extended (operator interaction)
+export interface HmiExtData {
+  waiting_user: boolean;
+  param_error: boolean;
+  param_error_code: number;
+}
+
 // Live data from PLC - New structure
 export interface LiveData {
   // Structured data
@@ -113,6 +138,9 @@ export interface LiveData {
   mode: ModeData;
   alarm: AlarmData;
   lamps: LampsData;
+  crack: CrackData;
+  fracture: FractureData;
+  hmi_ext: HmiExtData;
   plc: PLCStatus;
   connected: boolean;
   
@@ -147,14 +175,20 @@ export interface LiveData {
 // Test Stage Names
 export const TEST_STAGE_NAMES: Record<number, string> = {
   0: 'Idle - Ready',
-  1: 'Initializing...',
-  2: 'Moving to Home...',
-  3: 'Approaching Sample...',
-  4: 'Establishing Contact...',
-  5: 'Testing in Progress...',
-  6: 'Recording Results...',
-  7: 'Returning Home...',
-  8: 'Test Complete',
+  1: 'Initialize',
+  2: 'Zero Position',
+  3: 'Stiffness Move',
+  4: 'Stiffness Record',
+  5: 'Waiting - Continue to Crack?',
+  6: 'Bridge Move (Stiffness→Crack)',
+  10: 'Returning Home',
+  11: 'Test Complete',
+  20: 'Crack Move - Stage 1',
+  21: 'Crack Wait - Stage 1 Inspection',
+  22: 'Crack Move - Stage 2',
+  23: 'Crack Wait - Stage 2 Inspection',
+  30: 'Fracture Move',
+  31: 'Fracture Record',
   99: 'ERROR - Check Alarm'
 };
 
@@ -166,7 +200,7 @@ export const ALARM_MESSAGES: Record<number, { text: string; severity: 'info' | '
   3: { text: 'Upper Limit Reached', severity: 'warning' },
   4: { text: 'Lower Limit Reached', severity: 'warning' },
   5: { text: 'Max Force Exceeded', severity: 'error' },
-  6: { text: 'No Sample Detected', severity: 'warning' },
+  6: { text: 'Parameter Error', severity: 'error' },
   7: { text: 'Test Stopped', severity: 'info' },
 };
 
@@ -184,8 +218,31 @@ export interface TestParameters {
   contact_speed: number;
   return_speed: number;
   target_sn_class: number;
+  test_mode: number;
+  crack_stage1_percent: number;
+  crack_stage2_percent: number;
+  fracture_max_percent: number;
+  fracture_drop_threshold: number;
+  crack_target_1_abs: number;
+  crack_target_2_abs: number;
+  fracture_target_abs: number;
   connected: boolean;
 }
+
+// Test Mode constants
+export const TEST_MODES = {
+  STIFFNESS: 0,
+  CRACK: 1,
+  STIFFNESS_CRACK: 2,
+  FRACTURE: 3,
+} as const;
+
+export const TEST_MODE_NAMES: Record<number, string> = {
+  0: 'Stiffness Only',
+  1: 'Crack Only',
+  2: 'Stiffness + Crack',
+  3: 'Fracture',
+};
 
 // Test record
 export interface TestRecord {
@@ -204,6 +261,9 @@ export interface TestRecord {
   test_speed: number | null;
   duration: number | null;
   notes: string | null;
+  group_id: number | null;
+  position: number | null;
+  angle: number | null;
   data_points?: TestDataPoint[];
 }
 
