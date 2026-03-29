@@ -200,6 +200,7 @@ const translations: Translations = {
   "report.groupReport": { en: "Group Report", ar: "تقرير المجموعة" },
   "report.positionReport": { en: "Position Report", ar: "تقرير الموضع" },
   "report.summary": { en: "Summary", ar: "ملخص" },
+  "report.generating": { en: "Generating Report...", ar: "جاري إنشاء التقرير..." },
   "testSetup.crackTest": { en: "Crack Test", ar: "اختبار الكراك" },
   "testSetup.crackStage1": { en: "Crack Stage 1 (%)", ar: "مرحلة الكراك 1 (%)" },
   "testSetup.crackStage2": { en: "Crack Stage 2 (%)", ar: "مرحلة الكراك 2 (%)" },

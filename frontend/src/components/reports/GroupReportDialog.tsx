@@ -184,8 +184,7 @@ export function GroupReportDialog({ groupId, open, onOpenChange }: GroupReportDi
                         <th className="border border-gray-200 px-3 py-2 text-center">{t('testSetup.angle')}</th>
                         <th className="border border-gray-200 px-3 py-2 text-center">{t('report.forceAtTarget')} ({forceUnit})</th>
                         <th className="border border-gray-200 px-3 py-2 text-center">{t('report.ringStiffness')} ({forceUnit}/m²)</th>
-                        <th className="border border-gray-200 px-3 py-2 text-center">{t('report.snClass')}</th>
-                        <th className="border border-gray-200 px-3 py-2 text-center">Target</th>
+                        <th className="border border-gray-200 px-3 py-2 text-center">Target SN</th>
                         <th className="border border-gray-200 px-3 py-2 text-center">Result</th>
                       </tr>
                     </thead>
@@ -196,7 +195,6 @@ export function GroupReportDialog({ groupId, open, onOpenChange }: GroupReportDi
                           <td className="border border-gray-200 px-3 py-2 text-center">{test.angle}°</td>
                           <td className="border border-gray-200 px-3 py-2 text-center font-mono">{displayForce(test.force_at_target)}</td>
                           <td className="border border-gray-200 px-3 py-2 text-center font-mono">{displayForce(test.ring_stiffness)}</td>
-                          <td className="border border-gray-200 px-3 py-2 text-center">SN {test.sn_class || '-'}</td>
                           <td className="border border-gray-200 px-3 py-2 text-center">SN {group.target_sn_class || '-'}</td>
                           <td className={`border border-gray-200 px-3 py-2 text-center font-bold ${test.passed ? 'text-green-700' : 'text-red-700'}`}>
                             {test.passed ? 'PASS' : 'FAIL'}
@@ -209,7 +207,6 @@ export function GroupReportDialog({ groupId, open, onOpenChange }: GroupReportDi
                         <td className="border border-gray-200 px-3 py-2 text-center font-mono text-lg">
                           {displayForce(group.avg_ring_stiffness)}
                         </td>
-                        <td className="border border-gray-200 px-3 py-2 text-center">SN {group.sn_class || '-'}</td>
                         <td className="border border-gray-200 px-3 py-2 text-center font-bold">SN {group.target_sn_class || '-'}</td>
                         <td className={`border border-gray-200 px-3 py-2 text-center text-lg ${group.passed ? 'text-green-700' : 'text-red-700'}`}>
                           {group.passed ? 'PASS' : 'FAIL'}

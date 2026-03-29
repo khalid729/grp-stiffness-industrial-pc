@@ -30,6 +30,11 @@ class SocketClient {
     });
 
     this.socket.on('test_complete', (data: unknown) => {
+      console.log('SOCKET: test_complete received', data);
+      (window as any).__lastTestComplete = data;
+      (window as any).__testCompleteCount = ((window as any).__testCompleteCount || 0) + 1;
+      // Force a visible change on the page for debugging
+      document.title = 'TEST COMPLETE #' + (window as any).__testCompleteCount;
       this.emit('test_complete', data);
     });
 

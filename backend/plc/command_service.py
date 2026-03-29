@@ -240,15 +240,26 @@ class CommandService:
     # ========== Test Control (DB3) ==========
 
     def start_test(self) -> dict:
-        """Start test - DB3.DBX0.3"""
+        """Start test - DB3.DBX0.3 (with auto-reset if in COMPLETE state)"""
         if not self._check_connection():
             return {"success": False, "message": "PLC not connected"}
         if not self._check_remote_mode():
             return {"success": False, "message": "Cannot start - LOCAL mode"}
         if not self._check_safety_ok():
             return {"success": False, "message": "Cannot start - Safety not OK"}
+        # Ensure Start bit is cleared first
+        self.plc.write_bool(self.DB_SERVO, *self.CMD_START_TEST, False)
+        # Auto-reset if PLC is in COMPLETE state (stage 11)
+        from plc.data_service import DataService
+        test_stage = self.plc.read_int(2, 72) or 0  # DB2 offset 72 = Test_Stage
+        if test_stage == 11:
+            self.plc.write_bool(self.DB_SERVO, *self.CMD_RESET, True)
+            time.sleep(0.3)
+            self.plc.write_bool(self.DB_SERVO, *self.CMD_RESET, False)
+            time.sleep(0.3)
+        # Now start
         result = self.plc.write_bool(self.DB_SERVO, *self.CMD_START_TEST, True)
-        logger.info(f"Test start (DB3.DBX0.3=True) -> {result}")
+        logger.info(f"Test start (DB3.DBX0.3=True, auto-reset={test_stage==11}) -> {result}")
         return {"success": result, "message": "Test started" if result else "Failed to start"}
 
     def stop(self) -> bool:

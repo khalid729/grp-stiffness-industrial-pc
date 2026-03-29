@@ -1,5 +1,37 @@
 # سجل التغييرات | Changelog
 
+## 2026-03-29 - Group Flow Dialogs Rewrite & Report Timing Fix
+
+### Major Rewrite
+- **Complete rewrite of group test flow dialogs** in Dashboard
+  - Single state machine (`flowDialog`) replaces 6+ conflicting states
+  - States: `null` → `summary` → `angle` → (next test) → `generating` → `report`
+  - Polling-based detection (every 2s) with `pollActiveRef` guard
+  - Only activates after user presses Start (no false triggers from old tests)
+
+### Bug Fixes
+- **Report missing last position**: replaced fixed 5s timeout with API polling — waits until all tests are actually saved before opening report
+- **Position summary dialog was deleted**: re-added after accidental removal during refactoring
+- **Dialog appearing before test started**: added `pollActiveRef` flag, only enabled on Start press
+- **Dialog appearing multiple times**: single `flowDialog` state prevents conflicts
+- **Stiffness Only abort**: report now waits for save completion before opening
+- **Old polling code remained**: cleaned up all `testStartedThisSession`, `showPositionResult`, `showAngleDialog`, `generatingReport` references
+- **Angle dialog button**: changed from "Save" to "OK"
+
+### Flow (Final)
+1. Position completes (stage 11) → **Summary dialog** (Force/Stiffness/SN + Continue/Retry/Abort)
+2. "Continue" → **Angle dialog** ("Place sample at 40°" + OK)
+3. OK → Ready for next test
+4. Last position → Stage 5 → Crack/Stiffness choice
+5. "Stiffness Only" → **Generating...** (progress bar) → **Group Report** (after save confirmed)
+
+### Files Modified
+- frontend/src/pages/Dashboard.tsx — Complete flow rewrite
+- frontend/src/api/socket.ts — Debug logging (to be cleaned)
+- frontend/src/contexts/LanguageContext.tsx — Added report.generating translation
+
+---
+
 ## 2026-03-29 - Live Testing Fixes & Position Summary Dialog
 
 ### Bug Fixes

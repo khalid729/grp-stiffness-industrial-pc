@@ -150,7 +150,6 @@ class Test(Base):
             "max_force": self.max_force,
             "ring_stiffness": self.ring_stiffness,
             "sn_class": self.sn_class,
-            "target_sn_class": self.target_sn_class,
             "passed": self.passed,
             "test_speed": self.test_speed,
             "duration": self.duration,

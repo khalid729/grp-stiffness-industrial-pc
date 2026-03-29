@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { toast } from 'sonner';
 import { TestReportDialog } from '@/components/reports/TestReportDialog';
 import { GroupReportDialog } from '@/components/reports/GroupReportDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -9,7 +10,7 @@ import { TouchButton } from '@/components/ui/TouchButton';
 import { NumericKeypad } from '@/components/ui/NumericKeypad';
 import { 
   Home, Play, Square, 
-  ChevronUp, ChevronDown, Lock, Unlock, Power, PowerOff, RotateCcw
+  ChevronUp, ChevronDown, Lock, Unlock, Power, PowerOff, RotateCcw, Loader2
 } from 'lucide-react';
 import { useLiveData, useJogControl } from '@/hooks/useLiveData';
 import { useStepControl } from '@/hooks/useStepControl';
@@ -36,6 +37,7 @@ const Dashboard = () => {
   const [keypadOpen, setKeypadOpen] = useState<'speed' | 'distance' | 'fracture' | null>(null);
 
   const [completedTestId, setCompletedTestId] = useState<number | null>(null);
+  const [completedGroupId, setCompletedGroupId] = useState<number | null>(null);
   const [groupState, setGroupState] = useState<{
     group_id: number | null;
     num_positions: number;
@@ -44,14 +46,16 @@ const Dashboard = () => {
     is_active: boolean;
     is_complete: boolean;
   } | null>(null);
-  const [showAngleDialog, setShowAngleDialog] = useState(false);
-  const [nextAngle, setNextAngle] = useState(0);
-  const [showPositionResult, setShowPositionResult] = useState(false);
-  const [positionSummary, setPositionSummary] = useState<{
-    force: number; stiffness: number; sn: number; passed: boolean;
-  } | null>(null);
-  const [showGroupReport, setShowGroupReport] = useState(false);
   const [stopCount, setStopCount] = useState(0);
+  // === Group test flow state ===
+  const [flowDialog, setFlowDialog] = useState<'summary' | 'angle' | 'generating' | 'report' | null>(null);
+  const [flowData, setFlowData] = useState<{
+    position: number; angle: number; passed: boolean;
+    force: number; stiffness: number; sn: number;
+    nextAngle: number; groupId: number | null; isLast: boolean;
+  }>({ position: 0, angle: 0, passed: false, force: 0, stiffness: 0, sn: 0, nextAngle: 0, groupId: null, isLast: false });
+  const pollKeyRef = useRef('');
+  const pollActiveRef = useRef(false);
   const [showCrackDialog, setShowCrackDialog] = useState<null | 'stage5' | 'stage21' | 'stage23'>(null);
   const [crackStage1Edit, setCrackStage1Edit] = useState(12.0);
   const [crackStage2Edit, setCrackStage2Edit] = useState(17.0);
@@ -65,16 +69,8 @@ const Dashboard = () => {
       }).catch(() => {});
     }
   }, [showCrackDialog]);
-  const [prevWaitingUser, setPrevWaitingUser] = useState(false);
+
   const [fractureMaxPercent, setFractureMaxPercent] = useState(50);
-  const [completedGroupId, setCompletedGroupId] = useState<number | null>(null);
-  const [positionResult, setPositionResult] = useState<{
-    position: number;
-    angle: number;
-    testId: number | null;
-    passed: boolean;
-    isLastPosition: boolean;
-  } | null>(null);
 
   const isLocalMode = !liveData.remote_mode;
   const controlsDisabled = isLocalMode || !isConnected;
@@ -139,13 +135,22 @@ const Dashboard = () => {
 
   // Auto-open report when test completes
   useEffect(() => {
-    const unsub = socketClient.on<{ test_id?: number; group?: any; test?: any }>('test_complete', (data) => {
+    const unsub = socketClient.on<{ test_id?: number; group?: any; test?: any; results?: any }>('test_complete', (data) => {
+      console.log('TEST_COMPLETE EVENT:', JSON.stringify(data));
+      toast.info('Test complete event received - pos: ' + (data.group?.current_position || 'N/A'));
+      
+      const summary = {
+        force: data.results?.force_at_target || 0,
+        stiffness: data.results?.ring_stiffness || 0,
+        sn: data.results?.sn_class || 0,
+        passed: data.test?.passed || false,
+      };
+
       if (data.group && data.group.is_active) {
         setGroupState(data.group);
         const completedPos = data.group.current_position - 1;
         const angles = data.group.angles || [0, 40, 80];
         
-        // Show position result dialog
         setPositionResult({
           position: completedPos,
           angle: angles[completedPos - 1] || 0,
@@ -153,6 +158,7 @@ const Dashboard = () => {
           passed: data.test?.passed || false,
           isLastPosition: data.group.is_complete,
         });
+        setPositionSummary(summary);
         setShowPositionResult(true);
 
         if (!data.group.is_complete) {
@@ -160,7 +166,6 @@ const Dashboard = () => {
           setNextAngle(angles[nextPos - 1] || 0);
         }
       } else {
-        // Single position test - show report directly
         setGroupState(null);
         if (data.test_id) setCompletedTestId(data.test_id);
       }
@@ -168,134 +173,105 @@ const Dashboard = () => {
     return unsub;
   }, []);
 
-  // Fallback: detect test completion from live_data test_status change
-  const prevStatusForGroup = useRef(liveData.test_status);
-  const prevStageForGroup = useRef(liveData.test?.stage || 0);
+
+  // Poll group state every 2 seconds to detect completion
   useEffect(() => {
-    const curr = liveData.test_status;
-    const prev = prevStatusForGroup.current;
-    prevStatusForGroup.current = curr;
-    
-    // Test just completed: status changed OR stage reached 11 (COMPLETE)
-    const stage = liveData.test?.stage || 0;
-    const justCompleted = (prev >= 2 && prev <= 4 && (curr === 5 || curr === 0) && prev !== curr) 
-                       || (curr === 5 && stage === 11 && prev === 5 && prevStageForGroup.current !== 11);
-    prevStageForGroup.current = stage;
-    if (justCompleted) {
-      // Capture results for summary
-      const summary = {
-        force: liveData.results?.force_at_target || 0,
-        stiffness: liveData.results?.ring_stiffness || 0,
-        sn: liveData.results?.sn_class || 0,
-        passed: liveData.test?.passed || false,
-      };
+    const poll = setInterval(() => {
+      if (!pollActiveRef.current) return;
+      if (flowDialog) return;
+      if (showCrackDialog) return;
       
-      fetch('/api/groups/active').then(r => r.json()).then(g => {
-        if (g.is_active && g.is_complete) {
-          // Last position done - show summary then group report
-          setGroupState(g);
-          const completedPos = g.current_position - 1;
-          const angles = g.angles || [0, 40, 80];
-          setPositionResult({
+      Promise.all([
+        fetch('/api/status').then(r => r.json()),
+        fetch('/api/groups/active').then(r => r.json()),
+      ]).then(([status, g]) => {
+        const stage = status?.test?.stage || 0;
+        if (stage > 0 && stage < 10) { pollKeyRef.current = ''; return; }
+        if (stage !== 11) return;
+        if (!g.is_active) return;
+        
+        const key = g.group_id + '-' + g.current_position;
+        if (key === pollKeyRef.current) return;
+        pollKeyRef.current = key;
+        
+        const completedPos = g.current_position - 1;
+        const angles = g.angles || [0, 40, 80];
+        setGroupState(g);
+        
+        if (g.is_complete) {
+          pollActiveRef.current = false;
+          setFlowData(prev => ({ ...prev, groupId: g.group_id, isLast: true }));
+          setFlowDialog('generating');
+          // Wait until all tests are saved
+          const waitForSave = () => {
+            fetch('/api/groups/' + g.group_id).then(r => r.json()).then(gd => {
+              if (gd.tests && gd.tests.length >= g.num_positions) {
+                setCompletedGroupId(g.group_id);
+                setFlowDialog('report');
+              } else {
+                setTimeout(waitForSave, 1000);
+              }
+            }).catch(() => setTimeout(waitForSave, 1000));
+          };
+          setTimeout(waitForSave, 2000);
+        } else {
+          setFlowData({
             position: completedPos,
             angle: angles[completedPos - 1] || 0,
-            testId: null,
-            passed: summary.passed,
-            isLastPosition: true,
+            passed: status?.test?.passed || false,
+            force: status?.results?.force_at_target || 0,
+            stiffness: status?.results?.ring_stiffness || 0,
+            sn: status?.results?.sn_class || 0,
+            nextAngle: angles[g.current_position - 1] || 0,
+            groupId: g.group_id,
+            isLast: false,
           });
-          setPositionSummary(summary);
-          setShowPositionResult(true);
-        } else if (g.is_active && !g.is_complete) {
-          // More positions - show summary with continue/retry/abort
-          setGroupState(g);
-          const completedPos = g.current_position - 1;
-          const angles = g.angles || [0, 40, 80];
-          setPositionResult({
-            position: completedPos,
-            angle: angles[completedPos - 1] || 0,
-            testId: null,
-            passed: summary.passed,
-            isLastPosition: false,
-          });
-          setPositionSummary(summary);
-          setShowPositionResult(true);
-          setNextAngle(angles[g.current_position - 1] || 0);
-        } else if (!g.is_active) {
-          // Single position - show individual report
-          fetch('/api/tests?page=1&page_size=1').then(r => r.json()).then(data => {
-            if (data.tests && data.tests.length > 0) {
-              setCompletedTestId(data.tests[0].id);
-            }
-          }).catch(() => {});
+          setFlowDialog('summary');
         }
       }).catch(() => {});
-    }
-  }, [liveData.test_status]);
-
-  // Fetch active group state on mount
-  useEffect(() => {
-    fetch('/api/groups/active').then(r => r.json()).then(data => {
-      if (data.is_active) setGroupState(data);
-    }).catch(() => {});
+    }, 2000);
+    return () => clearInterval(poll);
   }, []);
-
   // Watch PLC waiting_user flag for crack dialogs
   useEffect(() => {
     const waitingUser = (liveData as any).hmi_ext?.waiting_user || false;
     const stage = liveData.test?.stage || 0;
     
-    if (waitingUser && !prevWaitingUser) {
-      // PLC just started waiting
+    // Show dialog when PLC is waiting and no dialog is open
+    if (waitingUser && !showCrackDialog) {
       if (stage === 5) setShowCrackDialog('stage5');
       else if (stage === 21) setShowCrackDialog('stage21');
       else if (stage === 23) setShowCrackDialog('stage23');
     }
-    if (!waitingUser && prevWaitingUser) {
-      // PLC acknowledged input - close dialog
+    // Close dialog when PLC stops waiting
+    if (!waitingUser && showCrackDialog) {
       setShowCrackDialog(null);
     }
-    setPrevWaitingUser(waitingUser);
-  }, [(liveData as any).hmi_ext?.waiting_user, liveData.test?.stage]);
+  }, [(liveData as any).hmi_ext?.waiting_user, liveData.test?.stage, showCrackDialog]);
 
   const handleAcceptPosition = () => {
-    setShowPositionResult(false);
-    if (positionResult?.isLastPosition) {
-      // All done - show group report
-      if (groupState?.group_id) {
-        setCompletedGroupId(groupState.group_id);
-        setShowGroupReport(true);
-      }
-    } else {
-      // Show next angle dialog
-      setShowAngleDialog(true);
-    }
+    setFlowDialog('angle'); // Show next angle dialog
   };
 
   const handleRetryPosition = async () => {
-    if (!positionResult || !groupState?.group_id) return;
+    if (!flowData.position || !groupState?.group_id) return;
     try {
-      await fetch(`/api/groups/${groupState.group_id}/retry/${positionResult.position}`, { method: 'POST' });
-      // Refresh group state
+      await fetch('/api/groups/' + groupState.group_id + '/retry/' + flowData.position, { method: 'POST' });
       const res = await fetch('/api/groups/active');
       const data = await res.json();
       setGroupState(data);
+      pollKeyRef.current = '';
     } catch (e) {}
-    setShowPositionResult(false);
+    setFlowDialog(null);
   };
 
   const paramError = (liveData as any).hmi_ext?.param_error || false;
   const paramErrorCode = (liveData as any).hmi_ext?.param_error_code || 0;
 
   const handleStartTest = async () => {
+    pollActiveRef.current = true;
     setChartData([]);
     setLiveData(prev => ({ ...prev, test_status: 2 }));
-    
-    // Auto-reset if PLC is in COMPLETE state
-    const stage = liveData.test?.stage || 0;
-    if (stage === 11 || liveData.test_status === 5) {
-      await fetch('/api/servo/reset', { method: 'POST' }).catch(() => {});
-      await new Promise(r => setTimeout(r, 500));
-    }
     
     // For 3-position groups: switch to mode 2 on last position for crack test prompt
     if (groupState && groupState.is_active && groupState.current_position === groupState.num_positions) {
@@ -304,10 +280,8 @@ const Dashboard = () => {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ test_mode: 2 })
       });
-      startTest.mutate();
-    } else {
-      startTest.mutate();
     }
+    startTest.mutate();
   };
 
   const handleStop = () => {
@@ -317,12 +291,14 @@ const Dashboard = () => {
       setStopCount(1);
       setTimeout(() => setStopCount(0), 5000);
     } else {
-      // Second press: Abort - stop + reset group (servo stays enabled)
+      // Second press: Abort
       fetch('/api/command/stop', { method: 'POST' });
       fetch('/api/groups/reset', { method: 'POST' });
       setLiveData(prev => ({ ...prev, test_status: 0 }));
       setGroupState(null);
       setStopCount(0);
+      pollActiveRef.current = false;
+      setFlowDialog(null);
     }
   };
 
@@ -598,30 +574,12 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Next Angle Dialog */}
-      <Dialog open={showAngleDialog} onOpenChange={setShowAngleDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-center text-xl">
-              {t('testSetup.positionOf')} {groupState ? groupState.current_position : ''}/{groupState?.num_positions || 3}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="text-center py-6 space-y-4">
-            <p className="text-4xl font-bold text-primary">{nextAngle}°</p>
-            <p className="text-lg text-muted-foreground">{t('testSetup.placeAtAngle')} {nextAngle}°</p>
-          </div>
-          <DialogFooter>
-            <TouchButton variant="primary" size="sm" onClick={() => setShowAngleDialog(false)} className="w-full min-h-[52px]">
-              {t('settings.save')}
-            </TouchButton>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+
 
       {/* Auto-open Test Report on completion */}
       <TestReportDialog
         testId={completedTestId}
-        open={completedTestId !== null && !showGroupReport}
+        open={completedTestId !== null && flowDialog !== 'report'}
         onOpenChange={(open) => { if (!open) setCompletedTestId(null); }}
       />
 
@@ -656,12 +614,22 @@ const Dashboard = () => {
             <TouchButton variant="outline" size="sm" onClick={() => { 
               userAbort.mutate(); 
               setShowCrackDialog(null);
-              // After abort, show group report since all stiffness positions are done
+              pollActiveRef.current = false;
+              setFlowDialog('generating');
               if (groupState && groupState.group_id) {
-                setTimeout(() => {
-                  setCompletedGroupId(groupState.group_id);
-                  setShowGroupReport(true);
-                }, 2000);
+                const gid = groupState.group_id;
+                const np = groupState.num_positions;
+                const waitForSave = () => {
+                  fetch('/api/groups/' + gid).then(r => r.json()).then(gd => {
+                    if (gd.tests && gd.tests.length >= np) {
+                      setCompletedGroupId(gid);
+                      setFlowDialog('report');
+                    } else {
+                      setTimeout(waitForSave, 1000);
+                    }
+                  }).catch(() => setTimeout(waitForSave, 1000));
+                };
+                setTimeout(waitForSave, 2000);
               }
             }} className="flex-1 min-h-[52px]">
               {t('testSetup.stiffnessOnly')}
@@ -727,10 +695,100 @@ const Dashboard = () => {
         </DialogContent>
       </Dialog>
 
+
+
+
+      {/* === FLOW DIALOGS === */}
+      
+      {/* Summary after each position */}
+      <Dialog open={flowDialog === 'summary'} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="text-center text-lg">
+              {t('testSetup.positionOf')} {flowData.position}/{groupState?.num_positions || 3} — {flowData.angle}°
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="text-center">
+              <span className={cn(
+                'inline-block px-5 py-2 rounded-lg text-lg font-bold',
+                flowData.passed ? 'bg-success/20 text-success' : 'bg-destructive/20 text-destructive'
+              )}>
+                {flowData.passed ? 'PASS' : 'FAIL'}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="bg-secondary/30 rounded-lg p-2">
+                <p className="text-xs text-muted-foreground">Force</p>
+                <p className="text-base font-bold font-mono">{(flowData.force / 1000).toFixed(2)} kN</p>
+              </div>
+              <div className="bg-secondary/30 rounded-lg p-2">
+                <p className="text-xs text-muted-foreground">Stiffness</p>
+                <p className="text-base font-bold font-mono">{flowData.stiffness.toFixed(0)} N/m\u00b2</p>
+              </div>
+              <div className="bg-secondary/30 rounded-lg p-2">
+                <p className="text-xs text-muted-foreground">SN</p>
+                <p className="text-base font-bold font-mono">SN {flowData.sn}</p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="flex flex-col gap-2">
+            <TouchButton variant="primary" size="sm" onClick={handleAcceptPosition} className="w-full min-h-[48px]">
+              {t('testSetup.nextPosition')}
+            </TouchButton>
+            <div className="flex gap-2">
+              <TouchButton variant="outline" size="sm" onClick={handleRetryPosition} className="flex-1 min-h-[44px] text-sm">
+                {t('testSetup.retryPosition')}
+              </TouchButton>
+              <TouchButton variant="destructive" size="sm" onClick={() => {
+                fetch('/api/command/stop', { method: 'POST' });
+                fetch('/api/groups/reset', { method: 'POST' });
+                setFlowDialog(null); setGroupState(null); pollActiveRef.current = false;
+              }} className="flex-1 min-h-[44px] text-sm">
+                {t('actions.abort')}
+              </TouchButton>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Next angle instruction */}
+      <Dialog open={flowDialog === 'angle'} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl">
+              {t('testSetup.positionOf')} {groupState?.current_position || ''}/{groupState?.num_positions || 3}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="text-center py-6 space-y-4">
+            <p className="text-4xl font-bold text-primary">{flowData.nextAngle}°</p>
+            <p className="text-lg text-muted-foreground">{t('testSetup.placeAtAngle')} {flowData.nextAngle}°</p>
+          </div>
+          <DialogFooter>
+            <TouchButton variant="primary" size="sm" onClick={() => setFlowDialog(null)} className="w-full min-h-[52px]">
+              OK
+            </TouchButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Generating report progress */}
+      <Dialog open={flowDialog === 'generating'} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-sm" onPointerDownOutside={(e) => e.preventDefault()}>
+          <div className="flex flex-col items-center justify-center py-8 space-y-4">
+            <Loader2 className="w-12 h-12 animate-spin text-primary" />
+            <p className="text-lg font-semibold">{t('report.generating')}</p>
+            <div className="w-full bg-secondary/30 rounded-full h-2 overflow-hidden">
+              <div className="bg-primary h-full rounded-full animate-pulse" style={{ width: '100%' }} />
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <GroupReportDialog
         groupId={completedGroupId}
-        open={showGroupReport}
-        onOpenChange={(open) => { if (!open) { setShowGroupReport(false); setCompletedGroupId(null); setGroupState(null); } }}
+        open={flowDialog === 'report'}
+        onOpenChange={(open) => { if (!open) { setFlowDialog(null); setCompletedGroupId(null); setGroupState(null); } }}
       />
     </div>
   );
