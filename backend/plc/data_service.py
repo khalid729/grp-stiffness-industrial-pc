@@ -30,8 +30,8 @@ class DataService:
     DB_HMI = 4
 
     # Block sizes for reading
-    DB2_SIZE = 126
-    DB3_SIZE = 37
+    DB2_SIZE = 130
+    DB3_SIZE = 37  # PLC doc says 40 — change to 40 AFTER uploading new PLC program
     DB4_SIZE = 68
 
     # ═══════════════════════════════════════════════════════════════════
@@ -97,6 +97,7 @@ class DataService:
     RES_FRACTURE_PEAK_FORCE = 112      # Real - N
     RES_FRACTURE_PEAK_DEFLECTION = 116  # Real - mm
     RES_FRACTURE_DETECTED = (120, 0)    # Bool
+    RES_TOTAL_DISTANCE_MOVED = 126    # Real - mm (total distance moved during test)
 
     # ═══════════════════════════════════════════════════════════════════
     # DB3 - SERVO CONTROL OFFSETS
@@ -112,13 +113,13 @@ class DataService:
     STATUS_MC_POWER = (20, 0)
     STATUS_MC_BUSY = (20, 1)
     STATUS_MC_ERROR = (20, 2)
-    STATUS_REMOTE_MODE = (25, 0)
-    STATUS_ESTOP_ACTIVE = (25, 1)
-    STATUS_UPPER_LIMIT = (25, 2)
-    STATUS_LOWER_LIMIT = (25, 3)
-    STATUS_HOME_POSITION = (25, 4)
-    STATUS_SAFETY_OK = (25, 5)
-    STATUS_MOTION_ALLOWED = (25, 6)
+    STATUS_REMOTE_MODE = (24, 7)
+    STATUS_ESTOP_ACTIVE = (25, 0)
+    STATUS_UPPER_LIMIT = (25, 1)
+    STATUS_LOWER_LIMIT = (25, 2)
+    STATUS_HOME_POSITION = (25, 3)
+    STATUS_SAFETY_OK = (25, 4)
+    STATUS_MOTION_ALLOWED = (25, 5)
     VAL_JOG_VELOCITY_SP = 26
     STATUS_MODE_CHANGE_OK = (30, 0)
     STEP_DISTANCE = 32
@@ -132,9 +133,9 @@ class DataService:
     # ═══════════════════════════════════════════════════════════════════
     HMI_ALARM_ACTIVE = (2, 2)
     HMI_ALARM_CODE = 4
-    HMI_LAMP_READY = (59, 3)
-    HMI_LAMP_RUNNING = (59, 4)
-    HMI_LAMP_ERROR = (59, 5)
+    HMI_LAMP_READY = (59, 0)
+    HMI_LAMP_RUNNING = (59, 1)
+    HMI_LAMP_ERROR = (59, 2)
     HMI_TEST_PROGRESS = 62
 
     # NEW — HMI extended (operator interaction)
@@ -195,6 +196,7 @@ class DataService:
                     "sn_class": get_int(db2, self.RES_SN_CLASS),
                     "contact_position": get_real(db2, self.RES_CONTACT_POSITION),
                     "data_points": get_int(db2, self.RES_DATA_POINT_COUNT),
+                    "total_distance": safe_float(get_real(db2, self.RES_TOTAL_DISTANCE_MOVED)),
                 },
                 "servo": {
                     "ready": get_bool(db3, self.STATUS_SERVO_READY[0], self.STATUS_SERVO_READY[1]),

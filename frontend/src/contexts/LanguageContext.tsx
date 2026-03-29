@@ -36,6 +36,7 @@ const translations: Translations = {
   "actions.home": { en: "HOME", ar: "الرجوع" },
   "actions.start": { en: "START", ar: "بدء" },
   "actions.stop": { en: "STOP", ar: "إيقاف" },
+  "actions.abort": { en: "ABORT TEST", ar: "إلغاء الاختبار" },
   "actions.tare": { en: "TARE", ar: "تصفير" },
   "actions.zero": { en: "ZERO", ar: "صفر" },
   "actions.eStop": { en: "E-STOP", ar: "طوارئ" },

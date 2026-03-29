@@ -1,5 +1,58 @@
 # سجل التغييرات | Changelog
 
+## 2026-03-29 - Live Testing Fixes & Position Summary Dialog
+
+### Bug Fixes
+- **DB3 Offsets Fixed** (verified live with PLC):
+  - Remote_Mode: (25,0)→(24,7), E_Stop: (25,1)→(25,0)
+  - Upper/Lower/Home/Safety/Motion shifted by 1 bit
+  - Tare_LoadCell: (59,6)→(59,3), Tare_Position: (59,7)→(59,4)
+  - Lamp_Ready/Running/Error: (59,3-5)→(59,0-2)
+  - DB2_SIZE: 126→130 (new Total_Distance_Moved at offset 126)
+  - DB3_SIZE: remains 37 (PLC program not yet updated to 40)
+- **E-Stop button** was display-only — now sends Stop + Disable Servo on press
+- **Stop button** (test stop) no longer disables servo — only E-Stop does that
+- **Start button** was disabled after test complete (PLC stays status=5) — now allows start when stage=11
+- **Start button** auto-sends Reset before Start if PLC in COMPLETE state
+- **isTestRunning** fixed to include RETURN stage (10) — Start disabled during return
+- **Parameters API** was failing on partial updates (None values) — now sends only non-None fields
+- **Metadata not persisting**: num_positions/angles added to _METADATA_FIELDS, metadata no longer cleared after test
+- **Test mode for 3 positions**: first 2 positions use mode 0 (stiffness), 3rd switches to mode 2 for crack prompt
+- **Crack % in Stage 5 dialog** now reads saved values from PLC instead of hardcoded 12/17
+- **Default deflection** changed from 3% to 5%
+- **Default num_positions** changed from 3 to 1
+
+### New Features
+- **Position Summary Dialog** between stages with test results:
+  - Shows Force, Ring Stiffness, SN Class for completed position
+  - PASS/FAIL badge
+  - 3 buttons: Continue (next position) / Retry (redo position) / Abort (cancel all)
+  - Appears during RETURN phase (no wait needed)
+- **Two-stage Stop button**: first press = Stop test, second press (within 5s) = Abort (reset group)
+- **target_sn_class** saved with test group — Pass/Fail based on operator's target, not PLC-calculated SN
+- **Target column** added to group report table
+- **Group report** shows automatically after choosing "Stiffness Only" in Stage 5 dialog
+
+### Database Changes
+- Added `target_sn_class` column to `test_groups` table
+
+### Files Modified
+- backend/plc/data_service.py — DB sizes, offset fixes, Total_Distance_Moved
+- backend/plc/command_service.py — Offset fixes, tare fixes, stop no longer disables servo
+- backend/api/routes/status.py — Parameters API sends only non-None kwargs
+- backend/api/websocket.py — Metadata fields extended, target_sn_class saved with group
+- backend/db/models.py — target_sn_class on TestGroup
+- frontend/src/pages/Dashboard.tsx — Position summary dialog, start/stop logic, crack dialog fixes
+- frontend/src/pages/TestSetup.tsx — Default values, sync crack % from PLC
+- frontend/src/components/layout/PortraitLayout.tsx — E-Stop onClick
+- frontend/src/components/reports/GroupReportDialog.tsx — Target SN column
+
+### ⚠️ Note
+- DB3_SIZE remains 37 (PLC program not yet uploaded with 40-byte DB3)
+- Change to 40 after uploading new PLC program
+
+---
+
 ## 2026-03-28 - Crack Test + Fracture Test + PLC Upgrade
 
 ### New Features

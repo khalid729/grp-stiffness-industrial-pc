@@ -106,15 +106,9 @@ async def set_parameters(params: ParametersRequest):
     if data_service is None:
         raise HTTPException(status_code=503, detail="Service not initialized")
 
-    success = data_service.set_parameters(
-        pipe_diameter=params.pipe_diameter,
-        pipe_length=params.pipe_length,
-        deflection_percent=params.deflection_percent,
-        test_speed=params.test_speed,
-        max_stroke=params.max_stroke,
-        max_force=params.max_force,
-        target_sn_class=params.target_sn_class,
-    )
+    # Only send non-None params to PLC
+    kwargs = {k: v for k, v in params.model_dump().items() if v is not None}
+    success = data_service.set_parameters(**kwargs)
 
     if not success:
         raise HTTPException(status_code=500, detail="Failed to write parameters to PLC")

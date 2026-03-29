@@ -47,6 +47,7 @@ _METADATA_FIELDS = [
     'lot_number', 'nominal_diameter', 'pressure_class', 'stiffness_class',
     'product_id', 'thickness', 'nominal_weight',
     'project_name', 'customer_name', 'po_number',
+    'num_positions', 'angles',
 ]
 
 _GROUP_FIELDS = ['num_positions', 'angles']
@@ -83,7 +84,11 @@ def reset_group():
 
 def set_pending_metadata(data: dict):
     global _pending_metadata
-    _pending_metadata = {field: data.get(field, '') for field in _METADATA_FIELDS}
+    _pending_metadata = {}
+    for field in _METADATA_FIELDS:
+        val = data.get(field)
+        if val is not None:
+            _pending_metadata[field] = val
 
 
 def get_pending_metadata() -> dict:
@@ -264,6 +269,7 @@ async def _save_test_result(data: dict):
                         angles=_group_angles,
                         current_position=1,
                         status='in_progress',
+                        target_sn_class=params.get('target_sn_class', 0),
                         lot_number=_pending_metadata.get('lot_number', ''),
                         nominal_diameter=_pending_metadata.get('nominal_diameter'),
                         pressure_class=_pending_metadata.get('pressure_class', ''),
@@ -321,12 +327,14 @@ async def _save_test_result(data: dict):
                         if stiffness_values:
                             group.avg_ring_stiffness = sum(stiffness_values) / len(stiffness_values)
                             group.sn_class = test_record.sn_class
-                            group.passed = all(t.passed for t in group_tests)
+                            # Pass/fail based on target SN class
+                            target = group.target_sn_class or test_record.sn_class or 0
+                            group.passed = group.avg_ring_stiffness >= target if group.avg_ring_stiffness else False
                         group.status = 'completed'
                         logger.info(f"Test group {_active_group_id} completed: avg RS={group.avg_ring_stiffness}")
                     await session.commit()
             
-            if _group_num_positions <= 1 or _group_current_position > _group_num_positions:
+            if False:  # Never clear metadata - operator manages it manually
                 _pending_metadata = {}
             return test_record.id
     except Exception as e:

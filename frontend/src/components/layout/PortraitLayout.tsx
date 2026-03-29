@@ -153,6 +153,10 @@ export function PortraitLayout({ children }: PortraitLayoutProps) {
             label={t('actions.eStop')}
             activeLabel={t('estop.active')}
             className="w-32 h-32 flex-shrink-0 self-center"
+            onClick={() => {
+              fetch('/api/command/stop', { method: 'POST' });
+              fetch('/api/servo/disable', { method: 'POST' });
+            }}
           />
         </div>
 

@@ -47,10 +47,24 @@ const Dashboard = () => {
   const [showAngleDialog, setShowAngleDialog] = useState(false);
   const [nextAngle, setNextAngle] = useState(0);
   const [showPositionResult, setShowPositionResult] = useState(false);
+  const [positionSummary, setPositionSummary] = useState<{
+    force: number; stiffness: number; sn: number; passed: boolean;
+  } | null>(null);
   const [showGroupReport, setShowGroupReport] = useState(false);
+  const [stopCount, setStopCount] = useState(0);
   const [showCrackDialog, setShowCrackDialog] = useState<null | 'stage5' | 'stage21' | 'stage23'>(null);
   const [crackStage1Edit, setCrackStage1Edit] = useState(12.0);
   const [crackStage2Edit, setCrackStage2Edit] = useState(17.0);
+
+  // Load crack % from PLC when Stage 5 dialog opens
+  useEffect(() => {
+    if (showCrackDialog === 'stage5') {
+      fetch('/api/parameters').then(r => r.json()).then(p => {
+        if (p.crack_stage1_percent) setCrackStage1Edit(p.crack_stage1_percent);
+        if (p.crack_stage2_percent) setCrackStage2Edit(p.crack_stage2_percent);
+      }).catch(() => {});
+    }
+  }, [showCrackDialog]);
   const [prevWaitingUser, setPrevWaitingUser] = useState(false);
   const [fractureMaxPercent, setFractureMaxPercent] = useState(50);
   const [completedGroupId, setCompletedGroupId] = useState<number | null>(null);
@@ -64,7 +78,8 @@ const Dashboard = () => {
 
   const isLocalMode = !liveData.remote_mode;
   const controlsDisabled = isLocalMode || !isConnected;
-  const isTestRunning = liveData.test_status >= 2 && liveData.test_status <= 5;
+  const testStage = liveData.test?.stage || 0;
+  const isTestRunning = liveData.test_status >= 2 && liveData.test_status <= 5 && testStage > 0 && testStage < 11;
   const forceN = (liveData.actual_force || 0) * 1000;
   
   const safety = liveData.safety || {
@@ -153,6 +168,70 @@ const Dashboard = () => {
     return unsub;
   }, []);
 
+  // Fallback: detect test completion from live_data test_status change
+  const prevStatusForGroup = useRef(liveData.test_status);
+  const prevStageForGroup = useRef(liveData.test?.stage || 0);
+  useEffect(() => {
+    const curr = liveData.test_status;
+    const prev = prevStatusForGroup.current;
+    prevStatusForGroup.current = curr;
+    
+    // Test just completed: status changed OR stage reached 11 (COMPLETE)
+    const stage = liveData.test?.stage || 0;
+    const justCompleted = (prev >= 2 && prev <= 4 && (curr === 5 || curr === 0) && prev !== curr) 
+                       || (curr === 5 && stage === 11 && prev === 5 && prevStageForGroup.current !== 11);
+    prevStageForGroup.current = stage;
+    if (justCompleted) {
+      // Capture results for summary
+      const summary = {
+        force: liveData.results?.force_at_target || 0,
+        stiffness: liveData.results?.ring_stiffness || 0,
+        sn: liveData.results?.sn_class || 0,
+        passed: liveData.test?.passed || false,
+      };
+      
+      fetch('/api/groups/active').then(r => r.json()).then(g => {
+        if (g.is_active && g.is_complete) {
+          // Last position done - show summary then group report
+          setGroupState(g);
+          const completedPos = g.current_position - 1;
+          const angles = g.angles || [0, 40, 80];
+          setPositionResult({
+            position: completedPos,
+            angle: angles[completedPos - 1] || 0,
+            testId: null,
+            passed: summary.passed,
+            isLastPosition: true,
+          });
+          setPositionSummary(summary);
+          setShowPositionResult(true);
+        } else if (g.is_active && !g.is_complete) {
+          // More positions - show summary with continue/retry/abort
+          setGroupState(g);
+          const completedPos = g.current_position - 1;
+          const angles = g.angles || [0, 40, 80];
+          setPositionResult({
+            position: completedPos,
+            angle: angles[completedPos - 1] || 0,
+            testId: null,
+            passed: summary.passed,
+            isLastPosition: false,
+          });
+          setPositionSummary(summary);
+          setShowPositionResult(true);
+          setNextAngle(angles[g.current_position - 1] || 0);
+        } else if (!g.is_active) {
+          // Single position - show individual report
+          fetch('/api/tests?page=1&page_size=1').then(r => r.json()).then(data => {
+            if (data.tests && data.tests.length > 0) {
+              setCompletedTestId(data.tests[0].id);
+            }
+          }).catch(() => {});
+        }
+      }).catch(() => {});
+    }
+  }, [liveData.test_status]);
+
   // Fetch active group state on mount
   useEffect(() => {
     fetch('/api/groups/active').then(r => r.json()).then(data => {
@@ -207,15 +286,44 @@ const Dashboard = () => {
   const paramError = (liveData as any).hmi_ext?.param_error || false;
   const paramErrorCode = (liveData as any).hmi_ext?.param_error_code || 0;
 
-  const handleStartTest = () => {
+  const handleStartTest = async () => {
     setChartData([]);
     setLiveData(prev => ({ ...prev, test_status: 2 }));
-    startTest.mutate();
+    
+    // Auto-reset if PLC is in COMPLETE state
+    const stage = liveData.test?.stage || 0;
+    if (stage === 11 || liveData.test_status === 5) {
+      await fetch('/api/servo/reset', { method: 'POST' }).catch(() => {});
+      await new Promise(r => setTimeout(r, 500));
+    }
+    
+    // For 3-position groups: switch to mode 2 on last position for crack test prompt
+    if (groupState && groupState.is_active && groupState.current_position === groupState.num_positions) {
+      await fetch('/api/parameters', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ test_mode: 2 })
+      });
+      startTest.mutate();
+    } else {
+      startTest.mutate();
+    }
   };
 
   const handleStop = () => {
-    setLiveData(prev => ({ ...prev, test_status: 0 }));
-    stopTest.mutate();
+    if (stopCount === 0) {
+      // First press: Stop test only (servo stays enabled for jog)
+      fetch('/api/command/stop', { method: 'POST' });
+      setStopCount(1);
+      setTimeout(() => setStopCount(0), 5000);
+    } else {
+      // Second press: Abort - stop + reset group (servo stays enabled)
+      fetch('/api/command/stop', { method: 'POST' });
+      fetch('/api/groups/reset', { method: 'POST' });
+      setLiveData(prev => ({ ...prev, test_status: 0 }));
+      setGroupState(null);
+      setStopCount(0);
+    }
   };
 
   const handleJogUpStart = useCallback((e: React.PointerEvent) => {
@@ -267,11 +375,11 @@ const Dashboard = () => {
             variant="destructive"
             size="sm"
             onClick={handleStop}
-            disabled={controlsDisabled}
-            className="flex items-center justify-center gap-1.5 w-full min-h-[80px]"
+            disabled={!isConnected}
+            className={cn("flex items-center justify-center gap-1.5 w-full min-h-[80px]", stopCount > 0 && "animate-pulse")}
           >
             <Square className="w-6 h-6" />
-            <span className="text-sm">{t('actions.stop')}</span>
+            <span className="text-sm">{stopCount > 0 ? t('actions.abort') : t('actions.stop')}</span>
           </TouchButton>
         </div>
 
@@ -389,11 +497,11 @@ const Dashboard = () => {
             variant="destructive"
             size="sm"
             onClick={handleStop}
-            disabled={controlsDisabled}
-            className="flex items-center justify-center gap-1.5 w-full min-h-[80px]"
+            disabled={!isConnected}
+            className={cn("flex items-center justify-center gap-1.5 w-full min-h-[80px]", stopCount > 0 && "animate-pulse")}
           >
             <Square className="w-6 h-6" />
-            <span className="text-sm">{t('actions.stop')}</span>
+            <span className="text-sm">{stopCount > 0 ? t('actions.abort') : t('actions.stop')}</span>
           </TouchButton>
           <button
             onClick={() => !controlsDisabled && setKeypadOpen('fracture')}
@@ -545,7 +653,17 @@ const Dashboard = () => {
             </div>
           </div>
           <DialogFooter className="flex gap-2">
-            <TouchButton variant="outline" size="sm" onClick={() => { userAbort.mutate(); setShowCrackDialog(null); }} className="flex-1 min-h-[52px]">
+            <TouchButton variant="outline" size="sm" onClick={() => { 
+              userAbort.mutate(); 
+              setShowCrackDialog(null);
+              // After abort, show group report since all stiffness positions are done
+              if (groupState && groupState.group_id) {
+                setTimeout(() => {
+                  setCompletedGroupId(groupState.group_id);
+                  setShowGroupReport(true);
+                }, 2000);
+              }
+            }} className="flex-1 min-h-[52px]">
               {t('testSetup.stiffnessOnly')}
             </TouchButton>
             <TouchButton variant="primary" size="sm" onClick={() => {

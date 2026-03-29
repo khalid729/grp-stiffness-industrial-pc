@@ -31,6 +31,7 @@ class TestGroup(Base):
     # Aggregated results
     avg_ring_stiffness = Column(Float, nullable=True)
     sn_class = Column(Integer, nullable=True)
+    target_sn_class = Column(Integer, nullable=True)
     passed = Column(Boolean, default=False)
 
     # Product Information
@@ -69,6 +70,7 @@ class TestGroup(Base):
             "current_position": self.current_position,
             "avg_ring_stiffness": self.avg_ring_stiffness,
             "sn_class": self.sn_class,
+            "target_sn_class": self.target_sn_class,
             "passed": self.passed,
             "lot_number": self.lot_number,
             "nominal_diameter": self.nominal_diameter,
@@ -148,6 +150,7 @@ class Test(Base):
             "max_force": self.max_force,
             "ring_stiffness": self.ring_stiffness,
             "sn_class": self.sn_class,
+            "target_sn_class": self.target_sn_class,
             "passed": self.passed,
             "test_speed": self.test_speed,
             "duration": self.duration,

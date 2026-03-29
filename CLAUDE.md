@@ -77,17 +77,13 @@ If the hard refresh does not work, clear the cache manually:
 - Tag `v1.0-stable` marks the pre-crack stable release
 - To revert: `git checkout main` or `git checkout v1.0-stable`
 
-## ⚠️ DB3 Offset Verification Pending
+✅ DB3 Offsets Verified (2026-03-29)
 
-The following DB3 servo offsets need live verification when PLC is connected:
-- Remote_Mode: code=(25,0) vs PLC doc=(24,7)
-- E_Stop: code=(25,1) vs doc=(25,0)
-- Upper_Limit: code=(25,2) vs doc=(25,1)
-- Lower_Limit: code=(25,3) vs doc=(25,2)
-- Home_Position: code=(25,4) vs doc=(25,3)
-- Safety_OK: code=(25,5) vs doc=(25,4)
-- Motion_Allowed: code=(25,6) vs doc=(25,5)
+All DB3 offsets verified live with PLC and corrected:
+- Remote_Mode=(24,7), E_Stop=(25,0), limits/safety=(25,1-5)
+- Tare_LoadCell=(59,3), Tare_Position=(59,4)
+- Lamps=(59,0-2)
 
-Files to update if offsets change:
-- backend/plc/data_service.py (STATUS_* constants)
-- backend/plc/command_service.py (CMD_REMOTE_MODE, STATUS_* constants)
+⚠️ DB3_SIZE Note
+- Currently 37 bytes (PLC program not yet updated)
+- Change to 40 after uploading new PLC program with Fracture_Stop bit

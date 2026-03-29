@@ -41,13 +41,13 @@ class CommandService:
     # ═══════════════════════════════════════════════════════════════════
     # DB3 - MODE & STATUS (Byte 25)
     # ═══════════════════════════════════════════════════════════════════
-    CMD_REMOTE_MODE = (25, 0)      # DB3.DBX25.0 - Remote Mode
-    STATUS_ESTOP = (25, 1)         # DB3.DBX25.1 - E-Stop Active (Read)
-    STATUS_UPPER_LIMIT = (25, 2)   # DB3.DBX25.2 - Upper Limit (Read)
-    STATUS_LOWER_LIMIT = (25, 3)   # DB3.DBX25.3 - Lower Limit (Read)
-    STATUS_HOME_POS = (25, 4)      # DB3.DBX25.4 - Home Position (Read)
-    STATUS_SAFETY_OK = (25, 5)     # DB3.DBX25.5 - Safety OK (Read)
-    STATUS_MOTION_OK = (25, 6)     # DB3.DBX25.6 - Motion Allowed (Read)
+    CMD_REMOTE_MODE = (24, 7)      # DB3.DBX25.0 - Remote Mode
+    STATUS_ESTOP = (25, 0)         # DB3.DBX25.1 - E-Stop Active (Read)
+    STATUS_UPPER_LIMIT = (25, 1)   # DB3.DBX25.2 - Upper Limit (Read)
+    STATUS_LOWER_LIMIT = (25, 2)   # DB3.DBX25.3 - Lower Limit (Read)
+    STATUS_HOME_POS = (25, 3)      # DB3.DBX25.4 - Home Position (Read)
+    STATUS_SAFETY_OK = (25, 4)     # DB3.DBX25.5 - Safety OK (Read)
+    STATUS_MOTION_OK = (25, 5)     # DB3.DBX25.6 - Motion Allowed (Read)
 
     # ═══════════════════════════════════════════════════════════════════
     # DB3 - REAL VALUES
@@ -67,8 +67,8 @@ class CommandService:
     # ═══════════════════════════════════════════════════════════════════
     # DB4 - HMI COMMANDS (tare/zero only)
     # ═══════════════════════════════════════════════════════════════════
-    TARE_LOADCELL = (59, 6)        # DB4.DBX59.6 - Tare_LoadCell
-    HMI_TARE_POSITION = (59, 7)    # DB4.DBX59.7 - Zero position
+    TARE_LOADCELL = (59, 3)        # DB4.DBX59.6 - Tare_LoadCell
+    HMI_TARE_POSITION = (59, 4)    # DB4.DBX59.7 - Zero position
 
     # NEW — Operator interaction commands (DB4 byte 64)
     HMI_USER_CONTINUE = (64, 1)      # DB4.DBX64.1 - Write pulse
@@ -148,7 +148,6 @@ class CommandService:
         if not self._check_connection():
             return False
         self.stop_all_jog()
-        result = self.plc.write_bool(self.DB_SERVO, *self.CMD_ENABLE, False)
         logger.info(f"Servo disable (DB3.DBX0.0=False) -> {result}")
         return result
 

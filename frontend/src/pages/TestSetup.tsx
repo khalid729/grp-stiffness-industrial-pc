@@ -47,7 +47,7 @@ const STIFFNESS_CLASS_OPTIONS = ['SN1250', 'SN2500', 'SN5000', 'SN10000', 'SN125
 
 const TestSetup = () => {
   const { t } = useLanguage();
-  const [numPositions, setNumPositions] = useState(3);
+  const [numPositions, setNumPositions] = useState(1);
   const [crackEnabled, setCrackEnabled] = useState(false);
   const [crackStage1, setCrackStage1] = useState(12.0);
   const [crackStage2, setCrackStage2] = useState(17.0);
@@ -68,6 +68,10 @@ const TestSetup = () => {
         ...prev,
         ...savedParams,
       }));
+      // Sync crack settings from PLC
+      if (savedParams.crack_stage1_percent) setCrackStage1(savedParams.crack_stage1_percent);
+      if (savedParams.crack_stage2_percent) setCrackStage2(savedParams.crack_stage2_percent);
+      if (savedParams.test_mode === 2) setCrackEnabled(true);
     }
   }, [savedParams]);
 
@@ -88,6 +92,10 @@ const TestSetup = () => {
         customer_name: metadata.customer_name || '',
         po_number: metadata.po_number || '',
       });
+      // Sync numPositions from saved metadata
+      if (metadata.num_positions) {
+        setNumPositions(metadata.num_positions);
+      }
     }
   }, [metadata]);
 
@@ -97,7 +105,8 @@ const TestSetup = () => {
 
   const handleSave = () => {
     // Determine test_mode: 1-position+crack=2, 3-positions always=2 (Stage5 asks), else=0
-    const testMode = (numPositions === 1 && crackEnabled) ? 2 : (numPositions === 3 ? 2 : 0);
+    // Mode 0 for all cases initially. Dashboard switches to mode 2 for last position if 3-positions.
+    const testMode = (numPositions === 1 && crackEnabled) ? 2 : 0;
     const updatedParams = {
       ...parameters,
       test_mode: testMode,
