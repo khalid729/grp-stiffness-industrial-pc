@@ -107,7 +107,7 @@ const History = () => {
                     </div>
                     <div>
                       <span className="text-muted-foreground">SN: </span>
-                      <span className="font-mono font-bold">{test.sn_class || '-'}</span>
+                      <span className="font-mono font-bold">{test.target_sn_class || test.sn_class || '-'}</span>
                     </div>
                     <div>
                       <span className="text-muted-foreground">{t('history.force')} </span>

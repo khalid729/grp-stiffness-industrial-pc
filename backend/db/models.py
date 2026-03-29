@@ -128,6 +128,7 @@ class Test(Base):
     max_force = Column(Float, nullable=True)  # kN
     ring_stiffness = Column(Float, nullable=True)  # kN/m²
     sn_class = Column(Integer, nullable=True)  # SN classification (2500, 5000, 10000)
+    target_sn_class = Column(Integer, nullable=True)  # Target SN from operator
     passed = Column(Boolean, default=False)
 
     # Test metadata
@@ -186,6 +187,7 @@ class Test(Base):
             "max_force": self.max_force,
             "ring_stiffness": self.ring_stiffness,
             "sn_class": self.sn_class,
+            "target_sn_class": self.target_sn_class,
             "passed": self.passed,
             "test_speed": self.test_speed,
             "duration": self.duration,
