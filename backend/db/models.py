@@ -34,6 +34,19 @@ class TestGroup(Base):
     target_sn_class = Column(Integer, nullable=True)
     passed = Column(Boolean, default=False)
 
+    # Crack test results
+    crack_tested = Column(Boolean, default=False)
+    crack_stage1_percent = Column(Float, nullable=True)
+    crack_stage2_percent = Column(Float, nullable=True)
+    crack_force_stage1 = Column(Float, nullable=True)  # N
+    crack_force_stage2 = Column(Float, nullable=True)  # N
+    crack_deflection_stage1 = Column(Float, nullable=True)  # mm
+    crack_deflection_stage2 = Column(Float, nullable=True)  # mm
+    crack_found_stage1 = Column(Boolean, default=False)
+    crack_found_stage2 = Column(Boolean, default=False)
+    crack_passed = Column(Boolean, nullable=True)
+    linked_test_id = Column(Integer, nullable=True)  # For standalone crack linked to previous test
+
     # Product Information
     lot_number = Column(String(50), nullable=True)
     nominal_diameter = Column(Float, nullable=True)
@@ -72,6 +85,17 @@ class TestGroup(Base):
             "sn_class": self.sn_class,
             "target_sn_class": self.target_sn_class,
             "passed": self.passed,
+            "crack_tested": self.crack_tested,
+            "crack_stage1_percent": self.crack_stage1_percent,
+            "crack_stage2_percent": self.crack_stage2_percent,
+            "crack_force_stage1": self.crack_force_stage1,
+            "crack_force_stage2": self.crack_force_stage2,
+            "crack_deflection_stage1": self.crack_deflection_stage1,
+            "crack_deflection_stage2": self.crack_deflection_stage2,
+            "crack_found_stage1": self.crack_found_stage1,
+            "crack_found_stage2": self.crack_found_stage2,
+            "crack_passed": self.crack_passed,
+            "linked_test_id": self.linked_test_id,
             "lot_number": self.lot_number,
             "nominal_diameter": self.nominal_diameter,
             "pressure_class": self.pressure_class,
@@ -116,6 +140,18 @@ class Test(Base):
     position = Column(Integer, nullable=True)  # 1, 2, 3
     angle = Column(Float, nullable=True)  # degrees (0, 40, 80)
 
+    # Crack test results
+    crack_tested = Column(Boolean, default=False)
+    crack_stage1_percent = Column(Float, nullable=True)
+    crack_stage2_percent = Column(Float, nullable=True)
+    crack_force_stage1 = Column(Float, nullable=True)
+    crack_force_stage2 = Column(Float, nullable=True)
+    crack_deflection_stage1 = Column(Float, nullable=True)
+    crack_deflection_stage2 = Column(Float, nullable=True)
+    crack_found_stage1 = Column(Boolean, default=False)
+    crack_found_stage2 = Column(Boolean, default=False)
+    crack_passed = Column(Boolean, nullable=True)
+
     # Product Information
     lot_number = Column(String(50), nullable=True)
     nominal_diameter = Column(Float, nullable=True)
@@ -157,6 +193,16 @@ class Test(Base):
             "group_id": self.group_id,
             "position": self.position,
             "angle": self.angle,
+            "crack_tested": self.crack_tested,
+            "crack_stage1_percent": self.crack_stage1_percent,
+            "crack_stage2_percent": self.crack_stage2_percent,
+            "crack_force_stage1": self.crack_force_stage1,
+            "crack_force_stage2": self.crack_force_stage2,
+            "crack_deflection_stage1": self.crack_deflection_stage1,
+            "crack_deflection_stage2": self.crack_deflection_stage2,
+            "crack_found_stage1": self.crack_found_stage1,
+            "crack_found_stage2": self.crack_found_stage2,
+            "crack_passed": self.crack_passed,
             "lot_number": self.lot_number,
             "nominal_diameter": self.nominal_diameter,
             "pressure_class": self.pressure_class,

@@ -201,6 +201,31 @@ export function GroupReportDialog({ groupId, open, onOpenChange }: GroupReportDi
                           </td>
                         </tr>
                       ))}
+                      {/* Crack Test Rows */}
+                      {group.crack_tested && (
+                        <>
+                          <tr className="bg-orange-50">
+                            <td className="border border-gray-200 px-3 py-2">Crack Stage 1</td>
+                            <td className="border border-gray-200 px-3 py-2 text-center">{group.crack_stage1_percent || 12}%</td>
+                            <td className="border border-gray-200 px-3 py-2 text-center font-mono">{displayForce(group.crack_force_stage1)}</td>
+                            <td className="border border-gray-200 px-3 py-2 text-center font-mono">{group.crack_deflection_stage1?.toFixed(1) || '-'} mm</td>
+                            <td className="border border-gray-200 px-3 py-2 text-center">-</td>
+                            <td className={`border border-gray-200 px-3 py-2 text-center font-bold ${!group.crack_found_stage1 ? 'text-green-700' : 'text-red-700'}`}>
+                              {group.crack_found_stage1 ? 'CRACK' : 'OK'}
+                            </td>
+                          </tr>
+                          <tr className="bg-orange-50">
+                            <td className="border border-gray-200 px-3 py-2">Crack Stage 2</td>
+                            <td className="border border-gray-200 px-3 py-2 text-center">{group.crack_stage2_percent || 17}%</td>
+                            <td className="border border-gray-200 px-3 py-2 text-center font-mono">{displayForce(group.crack_force_stage2)}</td>
+                            <td className="border border-gray-200 px-3 py-2 text-center font-mono">{group.crack_deflection_stage2?.toFixed(1) || '-'} mm</td>
+                            <td className="border border-gray-200 px-3 py-2 text-center">-</td>
+                            <td className={`border border-gray-200 px-3 py-2 text-center font-bold ${!group.crack_found_stage2 ? 'text-green-700' : 'text-red-700'}`}>
+                              {group.crack_found_stage2 ? 'CRACK' : 'OK'}
+                            </td>
+                          </tr>
+                        </>
+                      )}
                       {/* Average Row */}
                       <tr className="bg-gray-50 font-bold">
                         <td className="border border-gray-200 px-3 py-2" colSpan={3}>{t('testSetup.avgStiffness')}</td>

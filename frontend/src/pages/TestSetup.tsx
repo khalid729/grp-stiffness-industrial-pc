@@ -48,7 +48,11 @@ const STIFFNESS_CLASS_OPTIONS = ['SN1250', 'SN2500', 'SN5000', 'SN10000', 'SN125
 const TestSetup = () => {
   const { t } = useLanguage();
   const [numPositions, setNumPositions] = useState(1);
-  const [testType, setTestType] = useState<'stiffness1' | 'stiffness3' | 'fracture'>('stiffness1');
+  const [testType, setTestType] = useState<'stiffness1' | 'stiffness3' | 'crack' | 'fracture'>('stiffness1');
+  const [crackMode, setCrackMode] = useState<'standalone' | 'linked'>('standalone');
+  const [linkedTestId, setLinkedTestId] = useState<number | null>(null);
+  const [showLinkPicker, setShowLinkPicker] = useState(false);
+  const [historyTests, setHistoryTests] = useState<any[]>([]);
   const [crackEnabled, setCrackEnabled] = useState(false);
   const [crackStage1, setCrackStage1] = useState(12.0);
   const [crackStage2, setCrackStage2] = useState(17.0);
@@ -109,7 +113,7 @@ const TestSetup = () => {
 
   const handleSave = () => {
     // Determine test_mode: 1-position+crack=2, 3-positions always=2 (Stage5 asks), else=0
-    const testMode = testType === 'fracture' ? 3 : (numPositions === 1 && crackEnabled) ? 2 : 0;
+    const testMode = testType === 'fracture' ? 3 : testType === 'crack' ? 1 : (numPositions === 1 && crackEnabled) ? 2 : 0;
     const updatedParams = {
       ...parameters,
       test_mode: testMode,
@@ -319,6 +323,14 @@ const TestSetup = () => {
                   3 {t('testSetup.positions')}
                 </TouchButton>
                 <TouchButton
+                  variant={testType === 'crack' ? "primary" : "outline"}
+                  size="sm"
+                  onClick={() => { setTestType('crack'); setNumPositions(1); }}
+                  className="flex-1 min-h-[48px]"
+                >
+                  {t('testSetup.crackTest')}
+                </TouchButton>
+                <TouchButton
                   variant={testType === 'fracture' ? "warning" : "outline"}
                   size="sm"
                   onClick={() => { setTestType('fracture'); setNumPositions(1); }}
@@ -330,8 +342,57 @@ const TestSetup = () => {
             </div>
 
 
+            {/* Crack Mode: Standalone or Linked */}
+            {testType === 'crack' && (
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <TouchButton
+                  variant={crackMode === 'standalone' ? "primary" : "outline"}
+                  size="sm"
+                  onClick={() => { setCrackMode('standalone'); setLinkedTestId(null); }}
+                  className="flex-1 min-h-[48px]"
+                >
+                  {t('testSetup.crackStandalone')}
+                </TouchButton>
+                <TouchButton
+                  variant={crackMode === 'linked' ? "primary" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    setCrackMode('linked');
+                    fetch('/api/tests?page=1&page_size=20').then(r => r.json()).then(d => {
+                      setHistoryTests(d.tests || []);
+                      setShowLinkPicker(true);
+                    });
+                  }}
+                  className="flex-1 min-h-[48px]"
+                >
+                  {t('testSetup.crackLinked')}
+                </TouchButton>
+              </div>
+              {linkedTestId && (
+                <div className="p-2 bg-success/10 border border-success/30 rounded text-sm text-center">
+                  {t('testSetup.crackLinkedTo')} #{linkedTestId}
+                </div>
+              )}
+              {showLinkPicker && (
+                <div className="max-h-40 overflow-y-auto space-y-1 border rounded p-2">
+                  {historyTests.map((t: any) => (
+                    <div
+                      key={t.id}
+                      className="p-2 bg-secondary/30 rounded text-sm cursor-pointer hover:bg-secondary/50 flex justify-between"
+                      onClick={() => { setLinkedTestId(t.id); setShowLinkPicker(false); }}
+                    >
+                      <span>#{t.id} {t.sample_id || ''}</span>
+                      <span className="font-mono">{t.pipe_diameter}mm SN{t.sn_class}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            )}
+
             {/* Crack Test Option - only for 1 position */}
-            {numPositions === 1 && testType !== 'fracture' && (
+            {numPositions === 1 && testType !== 'fracture' && testType !== 'crack' && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground text-base">{t('testSetup.crackTest')}</span>
@@ -346,7 +407,7 @@ const TestSetup = () => {
             )}
 
             {/* Crack Percentages - show when crack is relevant */}
-            {(crackEnabled || numPositions === 3) && testType !== 'fracture' && (
+            {(((crackEnabled || numPositions === 3) && testType !== 'fracture') || testType === 'crack') && (
             <>
               <div className="space-y-2">
                 <div className="flex justify-between text-base">

@@ -199,10 +199,12 @@ const Dashboard = () => {
         setGroupState(g);
         
         if (g.is_complete) {
+          // If crack test was done (mode 2), the crack/abort flow handles the report
+          // Only show report from polling if no crack dialog was shown
+          if (showCrackDialog) return;
           pollActiveRef.current = false;
           setFlowData(prev => ({ ...prev, groupId: g.group_id, isLast: true }));
           setFlowDialog('generating');
-          // Wait until all tests are saved
           const waitForSave = () => {
             fetch('/api/groups/' + g.group_id).then(r => r.json()).then(gd => {
               if (gd.tests && gd.tests.length >= g.num_positions) {
@@ -332,7 +334,7 @@ const Dashboard = () => {
       <div className="grid grid-cols-5 gap-2">
         {/* Group 1: Stiffness Test Control */}
         <div className={cn("flex flex-col justify-between gap-1.5 p-2 bg-card rounded-lg border border-border", activeTestMode === 3 && "opacity-40")}>
-          <span className="text-sm font-bold text-muted-foreground text-center uppercase tracking-wide">{t('dashboard.group.stiffness')}</span>
+          <span className="text-sm font-bold text-muted-foreground text-center uppercase tracking-wide">{activeTestMode === 1 ? t('testSetup.crackTest') : t('dashboard.group.stiffness')}</span>
           <TouchButton
             variant="outline"
             size="sm"

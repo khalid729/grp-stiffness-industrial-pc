@@ -247,6 +247,20 @@ async def _save_test_result(data: dict):
 
         test_record.test_date = datetime.now(SAUDI_TZ)
 
+        # Save crack test results if available
+        crack_data = data.get('crack', {})
+        if crack_data.get('force_stage1', 0) > 0 or crack_data.get('force_stage2', 0) > 0:
+            test_record.crack_tested = True
+            test_record.crack_force_stage1 = crack_data.get('force_stage1', 0)
+            test_record.crack_force_stage2 = crack_data.get('force_stage2', 0)
+            test_record.crack_deflection_stage1 = crack_data.get('deflection_stage1', 0)
+            test_record.crack_deflection_stage2 = crack_data.get('deflection_stage2', 0)
+            test_record.crack_found_stage1 = crack_data.get('found_stage1', False)
+            test_record.crack_found_stage2 = crack_data.get('found_stage2', False)
+            test_record.crack_passed = crack_data.get('passed', False)
+            test_record.crack_stage1_percent = params.get('crack_stage1_percent', 12.0)
+            test_record.crack_stage2_percent = params.get('crack_stage2_percent', 17.0)
+
         # Set position/angle for multi-position tests
         if _group_num_positions > 1:
             current_angle = _group_angles[_group_current_position - 1] if _group_current_position <= len(_group_angles) else 0
@@ -330,6 +344,20 @@ async def _save_test_result(data: dict):
                             # Pass/fail based on target SN class
                             target = group.target_sn_class or test_record.sn_class or 0
                             group.passed = group.avg_ring_stiffness >= target if group.avg_ring_stiffness else False
+                        # Save crack data to group if crack was tested
+                        crack_tests = [t for t in group_tests if t.crack_tested]
+                        if crack_tests:
+                            ct = crack_tests[-1]  # Last crack test
+                            group.crack_tested = True
+                            group.crack_stage1_percent = ct.crack_stage1_percent
+                            group.crack_stage2_percent = ct.crack_stage2_percent
+                            group.crack_force_stage1 = ct.crack_force_stage1
+                            group.crack_force_stage2 = ct.crack_force_stage2
+                            group.crack_deflection_stage1 = ct.crack_deflection_stage1
+                            group.crack_deflection_stage2 = ct.crack_deflection_stage2
+                            group.crack_found_stage1 = ct.crack_found_stage1
+                            group.crack_found_stage2 = ct.crack_found_stage2
+                            group.crack_passed = ct.crack_passed
                         group.status = 'completed'
                         logger.info(f"Test group {_active_group_id} completed: avg RS={group.avg_ring_stiffness}")
                     await session.commit()
