@@ -1,5 +1,39 @@
 # سجل التغييرات | Changelog
 
+## 2026-03-29 - Crack Test Type, History Fixes & Touch Scroll Fix
+
+### New Features
+- **Crack Test as standalone test type** — 4th button in Test Setup (1 Position / 3 Positions / Crack / Fracture)
+- Crack test: standalone or linked to previous test via History picker
+- Crack results saved to DB (force, deflection, found, passed for both stages)
+- Group report shows crack rows (Stage 1/2 with %, force, deflection, OK/CRACK)
+- Dashboard group label shows "Crack Test" when mode=1
+
+### Bug Fixes
+- **History shows target SN** instead of PLC-calculated SN — backfilled all old tests
+- **History groups 3-position tests** as single entry with "3 Positions" badge
+- **History count matches visible items** — filtering moved to backend API
+- **Touch scroll in History** no longer opens test report — detects scroll vs tap (10px threshold)
+- **Summary dialog not appearing after crack** — skipped when crack dialog is active
+- **Kiosk refresh**: use `sudo reboot` instead of ctrl+shift+r for reliable cache clear
+
+### Database Changes
+- Added `target_sn_class` to tests table (backfilled from groups)
+- Added crack fields to tests and test_groups (crack_tested, crack_force/deflection/found for both stages, crack_passed)
+- Added `linked_test_id` to test_groups for linked crack tests
+
+### Files Modified
+- backend/db/models.py — crack fields + target_sn_class on Test
+- backend/api/websocket.py — save crack results + target_sn_class
+- backend/api/routes/reports.py — filter tests API (position 1 or no group)
+- frontend/src/pages/TestSetup.tsx — 4 test type buttons + crack mode selector
+- frontend/src/pages/History.tsx — group display + target SN + touch scroll fix
+- frontend/src/pages/Dashboard.tsx — crack mode label + skip summary for crack
+- frontend/src/components/reports/GroupReportDialog.tsx — crack rows in table
+- frontend/src/contexts/LanguageContext.tsx — crack translations
+
+---
+
 ## 2026-03-29 - Group Flow Dialogs Rewrite & Report Timing Fix
 
 ### Major Rewrite

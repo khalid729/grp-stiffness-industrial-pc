@@ -35,8 +35,8 @@ After making any frontend changes, follow these steps exactly to deploy:
 ### Step 3. Restart the backend service
     sudo systemctl restart grp-backend
 
-### Step 4. Hard refresh the browser (CRITICAL)
-    export DISPLAY=:0 XAUTHORITY=/tmp/serverauth.* && xdotool key ctrl+shift+r
+### Step 4. Reboot to reload (CRITICAL)
+    sudo reboot
 
 WARNING: The Chromium kiosk browser aggressively caches frontend files.
 A normal refresh (F5) or just restarting the backend service is NOT enough.

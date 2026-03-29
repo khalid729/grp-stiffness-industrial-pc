@@ -44,6 +44,9 @@ async def get_tests(
     """Get test history with pagination and filters"""
     query = select(Test).order_by(desc(Test.test_date))
 
+    # Only show first position per group (or standalone tests)
+    query = query.where((Test.group_id == None) | (Test.position == 1) | (Test.position == None))
+
     # Apply filters
     if sample_id:
         query = query.where(Test.sample_id.contains(sample_id))
@@ -52,8 +55,8 @@ async def get_tests(
     if passed is not None:
         query = query.where(Test.passed == passed)
 
-    # Count total
-    count_query = select(Test)
+    # Count total (filtered)
+    count_query = select(Test).where((Test.group_id == None) | (Test.position == 1) | (Test.position == None))
     if sample_id:
         count_query = count_query.where(Test.sample_id.contains(sample_id))
     if operator:

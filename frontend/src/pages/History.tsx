@@ -17,6 +17,7 @@ import { GroupReportDialog } from '@/components/reports/GroupReportDialog';
 const History = () => {
   const { t, language } = useLanguage();
   const { tests, total, isLoading, refetch, deleteTest, downloadPdf, downloadExcel } = useTestHistory();
+  
   const [selectedTestId, setSelectedTestId] = useState<number | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [forceUnit, setForceUnit] = useState<'N' | 'kN'>(() => {
@@ -75,8 +76,19 @@ const History = () => {
               style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
               role='button'
               tabIndex={0}
-              onClick={() => { if (test.group_id) { setSelectedGroupId(test.group_id); } else { setSelectedTestId(test.id); } }}
-              onTouchEnd={(e) => { if (!(e.target as HTMLElement).closest('button') && !(e.target as HTMLElement).closest('[role="menu"]')) { e.preventDefault(); if (test.group_id) { setSelectedGroupId(test.group_id); } else { setSelectedTestId(test.id); } } }}
+              onPointerDown={(e) => {
+                const el = e.currentTarget;
+                const startY = e.clientY;
+                const handler = (ev: PointerEvent) => {
+                  el.removeEventListener('pointerup', handler as any);
+                  if (Math.abs(ev.clientY - startY) < 10) {
+                    if (!(ev.target as HTMLElement).closest('button') && !(ev.target as HTMLElement).closest('[role="menu"]')) {
+                      if (test.group_id) { setSelectedGroupId(test.group_id); } else { setSelectedTestId(test.id); }
+                    }
+                  }
+                };
+                el.addEventListener('pointerup', handler as any, { once: true });
+              }}
             >
               <div className="flex items-start gap-3">
                 <div className={cn(
@@ -88,14 +100,14 @@ const History = () => {
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="font-mono text-base font-bold">#{test.id}</span>
+                    <span className="font-mono text-base font-bold">#{test.group_id ? 'G' + test.group_id : test.id}</span>
                     {test.sample_id && (
                       <span className="text-base text-muted-foreground">{test.sample_id}</span>
                     )}
-                    {test.group_id && test.position && (
+                    {test.group_id && (
                       <Badge variant="outline" className="text-xs px-1.5 py-0 bg-primary/10 text-primary border-primary/30">
                         <Layers className="w-3 h-3 mr-0.5" />
-                        P{test.position} · {test.angle}°
+                        3 {t('testSetup.positions')}
                       </Badge>
                     )}
                   </div>
