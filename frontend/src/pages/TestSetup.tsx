@@ -48,6 +48,7 @@ const STIFFNESS_CLASS_OPTIONS = ['SN1250', 'SN2500', 'SN5000', 'SN10000', 'SN125
 const TestSetup = () => {
   const { t } = useLanguage();
   const [numPositions, setNumPositions] = useState(1);
+  const [testType, setTestType] = useState<'stiffness1' | 'stiffness3' | 'fracture'>('stiffness1');
   const [crackEnabled, setCrackEnabled] = useState(false);
   const [crackStage1, setCrackStage1] = useState(12.0);
   const [crackStage2, setCrackStage2] = useState(17.0);
@@ -72,6 +73,7 @@ const TestSetup = () => {
       if (savedParams.crack_stage1_percent) setCrackStage1(savedParams.crack_stage1_percent);
       if (savedParams.crack_stage2_percent) setCrackStage2(savedParams.crack_stage2_percent);
       if (savedParams.test_mode === 2) setCrackEnabled(true);
+      if (savedParams.test_mode === 3) setTestType('fracture');
     }
   }, [savedParams]);
 
@@ -95,6 +97,8 @@ const TestSetup = () => {
       // Sync numPositions from saved metadata
       if (metadata.num_positions) {
         setNumPositions(metadata.num_positions);
+        if (metadata.num_positions === 3) setTestType('stiffness3');
+        else setTestType('stiffness1');
       }
     }
   }, [metadata]);
@@ -105,8 +109,7 @@ const TestSetup = () => {
 
   const handleSave = () => {
     // Determine test_mode: 1-position+crack=2, 3-positions always=2 (Stage5 asks), else=0
-    // Mode 0 for all cases initially. Dashboard switches to mode 2 for last position if 3-positions.
-    const testMode = (numPositions === 1 && crackEnabled) ? 2 : 0;
+    const testMode = testType === 'fracture' ? 3 : (numPositions === 1 && crackEnabled) ? 2 : 0;
     const updatedParams = {
       ...parameters,
       test_mode: testMode,
@@ -290,35 +293,45 @@ const TestSetup = () => {
               />
             </div>
 
-            {/* Number of Test Positions */}
+            {/* Test Type Selection */}
             <div className="space-y-2">
               <div className="flex justify-between text-base">
-                <span className="text-muted-foreground">{t('testSetup.numPositions')}</span>
-                <span className="font-mono font-bold">{numPositions === 3 ? '3 (0°, 40°, 80°)' : '1'}</span>
+                <span className="text-muted-foreground">{t('testSetup.testType')}</span>
+                <span className="font-mono font-bold">
+                  {testType === 'stiffness1' ? '1 Position' : testType === 'stiffness3' ? '3 Positions (0°, 40°, 80°)' : 'Fracture'}
+                </span>
               </div>
               <div className="flex gap-2">
                 <TouchButton
-                  variant={numPositions === 1 ? "primary" : "outline"}
+                  variant={testType === 'stiffness1' ? "primary" : "outline"}
                   size="sm"
-                  onClick={() => setNumPositions(1)}
+                  onClick={() => { setTestType('stiffness1'); setNumPositions(1); }}
                   className="flex-1 min-h-[48px]"
                 >
                   1 {t('testSetup.position')}
                 </TouchButton>
                 <TouchButton
-                  variant={numPositions === 3 ? "primary" : "outline"}
+                  variant={testType === 'stiffness3' ? "primary" : "outline"}
                   size="sm"
-                  onClick={() => setNumPositions(3)}
+                  onClick={() => { setTestType('stiffness3'); setNumPositions(3); }}
                   className="flex-1 min-h-[48px]"
                 >
-                  3 {t('testSetup.positions')} (ISO 9969)
+                  3 {t('testSetup.positions')}
+                </TouchButton>
+                <TouchButton
+                  variant={testType === 'fracture' ? "warning" : "outline"}
+                  size="sm"
+                  onClick={() => { setTestType('fracture'); setNumPositions(1); }}
+                  className="flex-1 min-h-[48px]"
+                >
+                  {t('dashboard.group.fracture')}
                 </TouchButton>
               </div>
             </div>
 
 
             {/* Crack Test Option - only for 1 position */}
-            {numPositions === 1 && (
+            {numPositions === 1 && testType !== 'fracture' && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground text-base">{t('testSetup.crackTest')}</span>
@@ -333,7 +346,7 @@ const TestSetup = () => {
             )}
 
             {/* Crack Percentages - show when crack is relevant */}
-            {(crackEnabled || numPositions === 3) && (
+            {(crackEnabled || numPositions === 3) && testType !== 'fracture' && (
             <>
               <div className="space-y-2">
                 <div className="flex justify-between text-base">

@@ -266,6 +266,12 @@ const Dashboard = () => {
   };
 
   const paramError = (liveData as any).hmi_ext?.param_error || false;
+  const [activeTestMode, setActiveTestMode] = useState(0);
+  useEffect(() => {
+    fetch('/api/parameters').then(r => r.json()).then(p => {
+      setActiveTestMode(p.test_mode || 0);
+    }).catch(() => {});
+  }, []);
   const paramErrorCode = (liveData as any).hmi_ext?.param_error_code || 0;
 
   const handleStartTest = async () => {
@@ -325,7 +331,7 @@ const Dashboard = () => {
       {/* Control Groups - Horizontal Layout - Equal Width */}
       <div className="grid grid-cols-5 gap-2">
         {/* Group 1: Stiffness Test Control */}
-        <div className="flex flex-col justify-between gap-1.5 p-2 bg-card rounded-lg border border-border">
+        <div className={cn("flex flex-col justify-between gap-1.5 p-2 bg-card rounded-lg border border-border", activeTestMode === 3 && "opacity-40")}>
           <span className="text-sm font-bold text-muted-foreground text-center uppercase tracking-wide">{t('dashboard.group.stiffness')}</span>
           <TouchButton
             variant="outline"
@@ -341,7 +347,7 @@ const Dashboard = () => {
             variant="success"
             size="sm"
             onClick={handleStartTest}
-            disabled={controlsDisabled || isTestRunning || !safety.ok}
+            disabled={controlsDisabled || isTestRunning || !safety.ok || activeTestMode === 3}
             className="flex items-center justify-center gap-1.5 w-full min-h-[80px]"
           >
             <Play className="w-6 h-6" />
@@ -448,7 +454,7 @@ const Dashboard = () => {
         </div>
 
         {/* Group 4: Fracture Test Control */}
-        <div className="flex flex-col justify-between gap-1.5 p-2 bg-card rounded-lg border border-border">
+        <div className={cn("flex flex-col justify-between gap-1.5 p-2 bg-card rounded-lg border border-border", activeTestMode !== 3 && "opacity-40")}>
           <span className="text-sm font-bold text-muted-foreground text-center uppercase tracking-wide">{t('dashboard.group.fracture')}</span>
           <TouchButton
             variant="warning"
@@ -463,7 +469,7 @@ const Dashboard = () => {
                 handleStartTest();
               });
             }}
-            disabled={controlsDisabled || isTestRunning || !safety.ok}
+            disabled={controlsDisabled || isTestRunning || !safety.ok || activeTestMode !== 3}
             className="flex items-center justify-center gap-1.5 w-full min-h-[80px]"
           >
             <Play className="w-6 h-6" />
@@ -473,7 +479,7 @@ const Dashboard = () => {
             variant="destructive"
             size="sm"
             onClick={handleStop}
-            disabled={!isConnected}
+            disabled={!isConnected || activeTestMode !== 3}
             className={cn("flex items-center justify-center gap-1.5 w-full min-h-[80px]", stopCount > 0 && "animate-pulse")}
           >
             <Square className="w-6 h-6" />
@@ -565,14 +571,7 @@ const Dashboard = () => {
         label={t('dashboard.fractureMax')}
         unit="%"
       />
-      {/* Position Indicator */}
-      {groupState && groupState.is_active && !groupState.is_complete && (
-        <div className="fixed top-2 right-2 z-50 bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 text-sm font-bold">
-          <span>{t('testSetup.positionOf')} {Math.min(groupState.current_position, groupState.num_positions)}/{groupState.num_positions}</span>
-          <span className="text-primary-foreground/70">|</span>
-          <span>{t('testSetup.angle')}: {groupState.angles[(groupState.current_position > groupState.num_positions ? groupState.num_positions : groupState.current_position) - 1]}°</span>
-        </div>
-      )}
+      {/* Position indicator moved to header (PortraitLayout) */}
 
 
 

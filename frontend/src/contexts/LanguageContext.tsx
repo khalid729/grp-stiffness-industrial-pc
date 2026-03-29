@@ -133,6 +133,7 @@ const translations: Translations = {
   "settings.lan": { en: "LAN Network", ar: "شبكة LAN" },
   "settings.plcNetwork": { en: "PLC Network", ar: "شبكة PLC" },
   "test.status": { en: "Test Status", ar: "حالة الاختبار" },
+  "header.testMode": { en: "Test Mode", ar: "نوع الاختبار" },
   // Dashboard Groups
   "dashboard.group.test": { en: "Test", ar: "اختبار" },
   "dashboard.group.stiffness": { en: "Stiffness Test", ar: "اختبار الصلابة" },
@@ -188,6 +189,7 @@ const translations: Translations = {
   "settings.printerNoFound": { en: "No printers found", ar: "لم يتم العثور على طابعات" },
   "settings.printerSetAsDefault": { en: "Set as default", ar: "تعيين كافتراضية" },
   "testSetup.numPositions": { en: "Test Positions", ar: "مواضع الاختبار" },
+  "testSetup.testType": { en: "Test Type", ar: "نوع الاختبار" },
   "testSetup.position": { en: "Position", ar: "موضع" },
   "testSetup.positions": { en: "Positions", ar: "مواضع" },
   "testSetup.positionOf": { en: "Position", ar: "الموضع" },

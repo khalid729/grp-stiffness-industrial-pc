@@ -16,6 +16,7 @@ import {
   Scale
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Layers } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLiveData } from "@/hooks/useLiveData";
 import { useTareControl, useModeControl } from "@/hooks/useApi";
@@ -63,6 +64,29 @@ export function PortraitLayout({ children }: PortraitLayoutProps) {
   const [isPowerLoading, setIsPowerLoading] = useState(false);
   
   const { liveData, isConnected } = useLiveData();
+  
+  // Test mode and group info
+  const [testInfo, setTestInfo] = useState<{ mode: number; groupId: number | null; position: number; numPositions: number; angle: number; angles: number[] }>({
+    mode: 0, groupId: null, position: 0, numPositions: 1, angle: 0, angles: []
+  });
+  useEffect(() => {
+    const poll = setInterval(() => {
+      Promise.all([
+        fetch('/api/parameters').then(r => r.json()).catch(() => ({})),
+        fetch('/api/groups/active').then(r => r.json()).catch(() => ({})),
+      ]).then(([params, group]) => {
+        setTestInfo({
+          mode: params.test_mode || 0,
+          groupId: group.group_id || null,
+          position: group.is_active ? Math.min(group.current_position, group.num_positions) : 0,
+          numPositions: group.num_positions || 1,
+          angle: group.is_active ? (group.angles?.[Math.min(group.current_position, group.num_positions) - 1] || 0) : 0,
+          angles: group.angles || [],
+        });
+      });
+    }, 3000);
+    return () => clearInterval(poll);
+  }, []);
   const { setMode } = useModeControl();
   const { tareLoadCell, zeroPosition } = useTareControl();
   
@@ -137,6 +161,25 @@ export function PortraitLayout({ children }: PortraitLayoutProps) {
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">{t('test.status')}:</span>
               <TestStatusBadge status={liveData.test_status as 0 | 1 | 2 | 3 | 4 | 5 | -1} />
+            </div>
+
+            {/* Row 4: Test Mode & Position */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">{t('header.testMode')}:</span>
+              <span className="px-2 py-0.5 rounded text-sm font-medium bg-primary/10 text-primary">
+                {testInfo.mode === 0 ? 'Stiffness' : testInfo.mode === 1 ? 'Crack' : testInfo.mode === 2 ? 'Stiffness+Crack' : testInfo.mode === 3 ? 'Fracture' : 'Stiffness'}
+              </span>
+              {testInfo.numPositions > 1 && testInfo.position > 0 && (
+                <span className="px-2 py-0.5 rounded text-sm font-medium bg-info/10 text-info flex items-center gap-1">
+                  <Layers className="w-3.5 h-3.5" />
+                  {t('testSetup.positionOf')} {testInfo.position}/{testInfo.numPositions} · {testInfo.angle}°
+                </span>
+              )}
+              {testInfo.numPositions > 1 && testInfo.position === 0 && (
+                <span className="px-2 py-0.5 rounded text-sm font-medium bg-secondary/50">
+                  {testInfo.numPositions} {t('testSetup.positions')}
+                </span>
+              )}
             </div>
           </div>
           
