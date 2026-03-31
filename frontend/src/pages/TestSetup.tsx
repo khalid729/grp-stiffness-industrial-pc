@@ -84,7 +84,11 @@ const TestSetup = () => {
       if (savedParams.crack_stage1_percent) setCrackStage1(savedParams.crack_stage1_percent);
       if (savedParams.crack_stage2_percent) setCrackStage2(savedParams.crack_stage2_percent);
       if (savedParams.test_mode === 2) setCrackEnabled(true);
-      if (savedParams.test_mode === 3) setTestType('fracture');
+      if (savedParams.test_mode === 3) { setTestType('fracture'); setNumPositions(1); }
+      else if (savedParams.test_mode === 1) { setTestType('crack'); setNumPositions(1); }
+      else if (savedParams.test_mode === 0 || savedParams.test_mode === 2) {
+        // Stiffness - check num_positions from metadata later
+      }
     }
   }, [savedParams]);
 
@@ -108,14 +112,35 @@ const TestSetup = () => {
       // Sync numPositions from saved metadata
       if (metadata.num_positions) {
         setNumPositions(metadata.num_positions);
-        if (metadata.num_positions === 3) setTestType('stiffness3');
-        else setTestType('stiffness1');
+        // Set stiffness type based on positions (only if not crack/fracture)
+        if (metadata.num_positions === 3) setTestType(prev => prev === 'crack' || prev === 'fracture' ? prev : 'stiffness3');
+        else setTestType(prev => prev === 'crack' || prev === 'fracture' ? prev : 'stiffness1');
       }
     }
   }, [metadata]);
 
   const handleSliderChange = (field: keyof TestParameters, values: number[]) => {
     setLocalParameters(prev => ({ ...prev, [field]: values[0] }));
+    // Auto-save PLC param
+    setTimeout(() => { const p = {...parameters, [field]: values[0]}; setParameters.mutate(p); }, 500);
+  };
+
+  const quickSave = () => {
+    // Lightweight save - metadata only, no PLC write
+    const updatedMeta = {
+      ...meta,
+      stiffness_class: `SN${parameters.target_sn_class || 2500}`,
+      num_positions: numPositions,
+      angles: numPositions === 3 ? [0, 40, 80] : [0],
+    } as any;
+    const positions: any[] = [];
+    const posCount = testType === 'stiffness3' ? 3 : (testType === 'stiffness1' ? 1 : 0);
+    for (let i = 1; i <= posCount; i++) {
+      const m = measurements[i];
+      if (m) positions.push({ position: i, angle: updatedMeta.angles?.[i-1] || 0, ...m });
+    }
+    updatedMeta.positions = positions;
+    saveMetadata.mutate(updatedMeta);
   };
 
   const handleSave = () => {
@@ -175,6 +200,7 @@ const TestSetup = () => {
   const handleKeypadConfirm = (value: number) => {
     if (activeKeypad) {
       setMeta(prev => ({ ...prev, [activeKeypad.field]: value || null }));
+      setTimeout(quickSave, 500);
     }
   };
 
@@ -326,7 +352,7 @@ const TestSetup = () => {
                 <TouchButton
                   variant={testType === 'stiffness1' ? "primary" : "outline"}
                   size="sm"
-                  onClick={() => { setTestType('stiffness1'); setNumPositions(1); }}
+                  onClick={() => { setTestType('stiffness1'); setNumPositions(1); fetch('/api/parameters', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({test_mode:0})}); }}
                   className="flex-1 min-h-[48px]"
                 >
                   1 {t('testSetup.position')}
@@ -334,7 +360,7 @@ const TestSetup = () => {
                 <TouchButton
                   variant={testType === 'stiffness3' ? "primary" : "outline"}
                   size="sm"
-                  onClick={() => { setTestType('stiffness3'); setNumPositions(3); }}
+                  onClick={() => { setTestType('stiffness3'); setNumPositions(3); fetch('/api/parameters', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({test_mode:0})}); }}
                   className="flex-1 min-h-[48px]"
                 >
                   3 {t('testSetup.positions')}
@@ -342,7 +368,7 @@ const TestSetup = () => {
                 <TouchButton
                   variant={testType === 'crack' ? "primary" : "outline"}
                   size="sm"
-                  onClick={() => { setTestType('crack'); setNumPositions(1); }}
+                  onClick={() => { setTestType('crack'); setNumPositions(1); fetch('/api/parameters', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({test_mode:1})}); }}
                   className="flex-1 min-h-[48px]"
                 >
                   {t('testSetup.crackTest')}
@@ -350,7 +376,7 @@ const TestSetup = () => {
                 <TouchButton
                   variant={testType === 'fracture' ? "warning" : "outline"}
                   size="sm"
-                  onClick={() => { setTestType('fracture'); setNumPositions(1); }}
+                  onClick={() => { setTestType('fracture'); setNumPositions(1); fetch('/api/parameters', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({test_mode:3})}); }}
                   className="flex-1 min-h-[48px]"
                 >
                   {t('dashboard.group.fracture')}
@@ -817,6 +843,7 @@ const TestSetup = () => {
               ...prev,
               [measKeypad.pos]: { ...prev[measKeypad.pos], [measKeypad.field]: value }
             }));
+            setTimeout(quickSave, 500);
           }
           setMeasKeypad(null);
         }}
