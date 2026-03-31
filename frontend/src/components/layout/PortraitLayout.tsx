@@ -92,7 +92,7 @@ export function PortraitLayout({ children }: PortraitLayoutProps) {
           targetDeflection: target,
         });
       });
-    }, 3000);
+    }, 10000);
     return () => clearInterval(poll);
   }, []);
   const { setMode } = useModeControl();
@@ -274,7 +274,7 @@ export function PortraitLayout({ children }: PortraitLayoutProps) {
           />
           <StatusCard
             title={t('dashboard.position')}
-            value={liveData.actual_position.toFixed(2)}
+            value={((liveData as any).calculated_deflection || 0).toFixed(2)}
             unit="mm"
             icon={<Target className="w-4 h-4" />}
             compact

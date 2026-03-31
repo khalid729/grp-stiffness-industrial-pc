@@ -26,6 +26,7 @@ broadcast_task: Optional[asyncio.Task] = None
 
 # Last good test results (saved before PLC clears them)
 _last_good_results: dict = {}
+_test_actually_started: bool = False
 
 # Calculated deflection state
 _test_start_time: Optional[float] = None
@@ -375,7 +376,7 @@ async def _save_test_result(data: dict):
 
 async def broadcast_live_data():
     """Background task to broadcast live data every 100ms"""
-    global _test_start_time, _test_speed, _test_data_points, _test_duration, _last_good_results
+    global _test_start_time, _test_speed, _test_data_points, _test_duration, _last_good_results, _test_actually_started
 
     logger.info("Starting live data broadcast task")
     reconnect_interval = 0
@@ -413,6 +414,7 @@ async def broadcast_live_data():
 
                 # Detect test start: start deflection timer when test_status becomes 2 (testing)
                 if current_test_status == 2 and last_test_status != 2:
+                    _test_actually_started = True
                     _test_start_time = time.monotonic()
                     _test_duration = None
                     params = data_service.get_parameters()
@@ -457,8 +459,9 @@ async def broadcast_live_data():
                 # Detect test completion: only save when stage reaches 11 (COMPLETE)
                 if last_test_status >= 2 and last_test_status <= 5 and (current_test_status == 0 or current_test_status >= 5):
                     if last_test_status != current_test_status:
-                        if current_test_stage == 11 or last_test_stage == 11:
+                        if (current_test_stage == 11 or last_test_stage == 11) and _test_actually_started:
                             logger.info(f"Test completed (stage 11) - saving results")
+                            _test_actually_started = False
                             save_data = dict(data)
                             if _last_good_results:
                                 save_data['results'] = _last_good_results.get('results', data.get('results', {}))
@@ -471,6 +474,7 @@ async def broadcast_live_data():
                             _test_start_time = None
                             _test_data_points = []
                             _last_good_results = {}
+                            _test_actually_started = False
                         await emit_test_complete({
                             'results': data.get('results', {}),
                             'test': data.get('test', {}),

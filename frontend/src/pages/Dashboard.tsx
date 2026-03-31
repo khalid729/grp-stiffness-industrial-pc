@@ -119,9 +119,10 @@ const Dashboard = () => {
     }
     prevTestStatus.current = testStatus;
 
-    // Only add data points during active test (status 2-5), not during return
+    // Only add data points during active test, not during return/complete/idle
     const isActiveTest = testStatus >= 2 && testStatus <= 5;
-    if (!isActiveTest || testStage >= 7) return;
+    const isReturnOrDone = testStage === 0 || testStage === 10 || testStage === 11;
+    if (!isActiveTest || isReturnOrDone) return;
 
     // Use calculated deflection from backend (speed x time)
     const deflection = (liveData as any).calculated_deflection ?? 0;
@@ -231,7 +232,7 @@ const Dashboard = () => {
           setFlowDialog('summary');
         }
       }).catch(() => {});
-    }, 2000);
+    }, 10000);
     return () => clearInterval(poll);
   }, []);
   // Watch PLC waiting_user flag for crack dialogs
