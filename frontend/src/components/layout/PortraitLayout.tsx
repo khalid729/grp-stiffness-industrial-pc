@@ -66,8 +66,8 @@ export function PortraitLayout({ children }: PortraitLayoutProps) {
   const { liveData, isConnected } = useLiveData();
   
   // Test mode and group info
-  const [testInfo, setTestInfo] = useState<{ mode: number; groupId: number | null; position: number; numPositions: number; angle: number; angles: number[] }>({
-    mode: 0, groupId: null, position: 0, numPositions: 1, angle: 0, angles: []
+  const [testInfo, setTestInfo] = useState<{ mode: number; groupId: number | null; position: number; numPositions: number; angle: number; angles: number[]; targetDeflection: number }>({
+    mode: 0, groupId: null, position: 0, numPositions: 1, angle: 0, angles: [], targetDeflection: 0
   });
   useEffect(() => {
     const poll = setInterval(() => {
@@ -75,13 +75,21 @@ export function PortraitLayout({ children }: PortraitLayoutProps) {
         fetch('/api/parameters').then(r => r.json()).catch(() => ({})),
         fetch('/api/groups/active').then(r => r.json()).catch(() => ({})),
       ]).then(([params, group]) => {
+        const mode = params.test_mode || 0;
+        const stage = liveData.test?.stage || 0;
+        let target = params.deflection_target || 0;
+        if (mode === 3) target = params.fracture_target_abs || 0;
+        else if (mode === 1 || (mode === 2 && stage >= 20)) {
+          target = stage >= 22 ? (params.crack_target_2_abs || 0) : (params.crack_target_1_abs || 0);
+        }
         setTestInfo({
-          mode: params.test_mode || 0,
+          mode,
           groupId: group.group_id || null,
           position: group.is_active ? Math.min(group.current_position, group.num_positions) : 0,
           numPositions: group.num_positions || 1,
           angle: group.is_active ? (group.angles?.[Math.min(group.current_position, group.num_positions) - 1] || 0) : 0,
           angles: group.angles || [],
+          targetDeflection: target,
         });
       });
     }, 3000);
@@ -284,7 +292,7 @@ export function PortraitLayout({ children }: PortraitLayoutProps) {
           />
           <StatusCard
             title={t('dashboard.deflection')}
-            value={liveData.actual_deflection.toFixed(2)}
+            value={testInfo.targetDeflection.toFixed(2)}
             unit="mm"
             icon={<Move className="w-4 h-4" />}
             variant="warning"

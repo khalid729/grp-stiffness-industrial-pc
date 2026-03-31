@@ -299,8 +299,9 @@ const Dashboard = () => {
       setStopCount(1);
       setTimeout(() => setStopCount(0), 5000);
     } else {
-      // Second press: Abort
+      // Second press: Abort - stop + reset PLC + reset group
       fetch('/api/command/stop', { method: 'POST' });
+      setTimeout(() => fetch('/api/servo/reset', { method: 'POST' }), 500);
       fetch('/api/groups/reset', { method: 'POST' });
       setLiveData(prev => ({ ...prev, test_status: 0 }));
       setGroupState(null);
@@ -568,7 +569,7 @@ const Dashboard = () => {
       <NumericKeypad
         isOpen={keypadOpen === 'fracture'}
         onClose={() => setKeypadOpen(null)}
-        onConfirm={(value) => setFractureMaxPercent(value)}
+        onConfirm={(value) => { setFractureMaxPercent(value); fetch("/api/parameters", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ fracture_max_percent: value }) }); }}
         initialValue={fractureMaxPercent}
         label={t('dashboard.fractureMax')}
         unit="%"

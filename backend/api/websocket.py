@@ -24,6 +24,9 @@ plc_connector = None  # PLC connector for reconnection
 # Background task handle
 broadcast_task: Optional[asyncio.Task] = None
 
+# Last good test results (saved before PLC clears them)
+_last_good_results: dict = {}
+
 # Calculated deflection state
 _test_start_time: Optional[float] = None
 _test_speed: float = 0.0
@@ -372,7 +375,7 @@ async def _save_test_result(data: dict):
 
 async def broadcast_live_data():
     """Background task to broadcast live data every 100ms"""
-    global _test_start_time, _test_speed, _test_data_points, _test_duration
+    global _test_start_time, _test_speed, _test_data_points, _test_duration, _last_good_results
 
     logger.info("Starting live data broadcast task")
     reconnect_interval = 0
@@ -443,11 +446,31 @@ async def broadcast_live_data():
 
                 await sio.emit('live_data', data, room='live_data')
 
-                # Detect test completion: active -> complete/idle
+                # Cache results while test is active (before PLC clears them)
+                if 2 <= current_test_status <= 5:
+                    _last_good_results = {
+                        'results': dict(data.get('results', {})),
+                        'test': dict(data.get('test', {})),
+                        'crack': dict(data.get('crack', {})),
+                    }
+
+                # Detect test completion: only save when stage reaches 11 (COMPLETE)
                 if last_test_status >= 2 and last_test_status <= 5 and (current_test_status == 0 or current_test_status >= 5):
                     if last_test_status != current_test_status:
-                        logger.info(f"Test completed (status {last_test_status} -> {current_test_status}) - saving results")
-                        saved_test_id = await _save_test_result(data)
+                        if current_test_stage == 11 or last_test_stage == 11:
+                            logger.info(f"Test completed (stage 11) - saving results")
+                            save_data = dict(data)
+                            if _last_good_results:
+                                save_data['results'] = _last_good_results.get('results', data.get('results', {}))
+                                save_data['test'] = _last_good_results.get('test', data.get('test', {}))
+                                save_data['crack'] = _last_good_results.get('crack', data.get('crack', {}))
+                            saved_test_id = await _save_test_result(save_data)
+                        else:
+                            logger.info(f"Test stopped/aborted (stage {current_test_stage}) - NOT saving")
+                            saved_test_id = None
+                            _test_start_time = None
+                            _test_data_points = []
+                            _last_good_results = {}
                         await emit_test_complete({
                             'results': data.get('results', {}),
                             'test': data.get('test', {}),
