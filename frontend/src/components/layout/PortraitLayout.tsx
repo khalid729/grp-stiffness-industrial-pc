@@ -71,10 +71,16 @@ export function PortraitLayout({ children }: PortraitLayoutProps) {
   });
   useEffect(() => {
     const poll = setInterval(() => {
-      Promise.all([
-        fetch('/api/parameters').then(r => r.json()).catch(() => ({})),
-        fetch('/api/groups/active').then(r => r.json()).catch(() => ({})),
-      ]).then(([params, group]) => {
+      // Skip polling during active test to prevent UI lag
+      fetch('/api/status').then(r => r.json()).then(s => {
+        if (s.test && s.test.status >= 2 && s.test.status <= 5) return;
+        return Promise.all([
+          fetch('/api/parameters').then(r => r.json()).catch(() => ({})),
+          fetch('/api/groups/active').then(r => r.json()).catch(() => ({})),
+        ]);
+      }).then(result => {
+        if (!result) return;
+        const [params, group] = result;
         const mode = params.test_mode || 0;
         const stage = liveData.test?.stage || 0;
         let target = params.deflection_target || 0;
@@ -91,8 +97,8 @@ export function PortraitLayout({ children }: PortraitLayoutProps) {
           angles: group.angles || [],
           targetDeflection: target,
         });
-      });
-    }, 10000);
+      }).catch(() => {});
+    }, 3000);
     return () => clearInterval(poll);
   }, []);
   const { setMode } = useModeControl();

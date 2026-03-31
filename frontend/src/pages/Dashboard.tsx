@@ -182,10 +182,14 @@ const Dashboard = () => {
       if (flowDialog) return;
       if (showCrackDialog) return;
       
-      Promise.all([
-        fetch('/api/status').then(r => r.json()),
-        fetch('/api/groups/active').then(r => r.json()),
-      ]).then(([status, g]) => {
+      // Quick check - skip if test is running
+      fetch('/api/status').then(r => r.json()).then(status => {
+        if (status.test && status.test.status >= 2 && status.test.status <= 5 
+            && status.test.stage > 0 && status.test.stage !== 11) return null;
+        return fetch('/api/groups/active').then(r => r.json()).then(g => ({status, g}));
+      }).then(result => {
+        if (!result) return;
+        const {status, g} = result;
         const stage = status?.test?.stage || 0;
         if (stage > 0 && stage < 10) { pollKeyRef.current = ''; return; }
         if (stage !== 11) return;
@@ -232,7 +236,7 @@ const Dashboard = () => {
           setFlowDialog('summary');
         }
       }).catch(() => {});
-    }, 10000);
+    }, 3000);
     return () => clearInterval(poll);
   }, []);
   // Watch PLC waiting_user flag for crack dialogs
@@ -583,7 +587,7 @@ const Dashboard = () => {
       <TestReportDialog
         testId={completedTestId}
         open={completedTestId !== null && flowDialog !== 'report'}
-        onOpenChange={(open) => { if (!open) setCompletedTestId(null); }}
+        onOpenChange={(open) => { if (!open) { setCompletedTestId(null); fetch('/api/servo/reset', { method: 'POST' }); } }}
       />
 
       {/* Stage 5 Dialog — Continue to Crack? (after stiffness complete in Mode 2) */}
@@ -791,7 +795,7 @@ const Dashboard = () => {
       <GroupReportDialog
         groupId={completedGroupId}
         open={flowDialog === 'report'}
-        onOpenChange={(open) => { if (!open) { setFlowDialog(null); setCompletedGroupId(null); setGroupState(null); } }}
+        onOpenChange={(open) => { if (!open) { setFlowDialog(null); setCompletedGroupId(null); setGroupState(null); fetch('/api/servo/reset', { method: 'POST' }); } }}
       />
     </div>
   );
