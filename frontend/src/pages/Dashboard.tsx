@@ -667,7 +667,7 @@ const Dashboard = () => {
           <div className="text-center py-4 space-y-3">
             <p className="text-4xl font-bold text-primary">{(liveData as any).crack?.deflection_stage1?.toFixed(1) || '-'} mm</p>
             <p className="text-sm text-muted-foreground">{t('testSetup.forceAt')}: {(liveData as any).crack?.force_stage1?.toFixed(0) || '-'} N</p>
-            <p className="text-lg font-semibold">هل يوجد كراك؟</p>
+            <p className="text-lg font-semibold">{t("testSetup.crackQuestion")}</p>
           </div>
           <DialogFooter className="flex gap-2">
             <TouchButton variant="destructive" size="sm" onClick={() => { crackFound.mutate(); setShowCrackDialog(null); }} className="flex-1 min-h-[52px]">
@@ -689,7 +689,7 @@ const Dashboard = () => {
           <div className="text-center py-4 space-y-3">
             <p className="text-4xl font-bold text-primary">{(liveData as any).crack?.deflection_stage2?.toFixed(1) || '-'} mm</p>
             <p className="text-sm text-muted-foreground">{t('testSetup.forceAt')}: {(liveData as any).crack?.force_stage2?.toFixed(0) || '-'} N</p>
-            <p className="text-lg font-semibold">هل يوجد كراك؟</p>
+            <p className="text-lg font-semibold">{t("testSetup.crackQuestion")}</p>
           </div>
           <DialogFooter className="flex gap-2">
             <TouchButton variant="destructive" size="sm" onClick={() => { crackFound.mutate(); setShowCrackDialog(null); }} className="flex-1 min-h-[52px]">

@@ -211,6 +211,7 @@ const translations: Translations = {
   "testSetup.crackStage2": { en: "Crack Stage 2 (%)", ar: "مرحلة الكراك 2 (%)" },
   "testSetup.continueToCrack": { en: "Continue to Crack Test?", ar: "هل تريد اختبار الكراك؟" },
   "testSetup.crackInspection": { en: "Crack Inspection", ar: "فحص الكراك" },
+  "testSetup.crackQuestion": { en: "Is there a crack?", ar: "هل يوجد كراك؟" },
   "testSetup.crackFound": { en: "Crack Found - Fail", ar: "يوجد كراك - فشل" },
   "testSetup.noCrack": { en: "No Crack - Continue", ar: "لا يوجد كراك - كمّل" },
   "testSetup.noCrackPass": { en: "No Crack - PASS", ar: "لا يوجد كراك - ناجح" },
