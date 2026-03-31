@@ -318,7 +318,7 @@ class DataService:
                 "pipe_length": self.plc.read_real(self.DB_PARAMS, self.PARAM_PIPE_LENGTH) or 300.0,
                 "deflection_percent": self.plc.read_real(self.DB_PARAMS, self.PARAM_DEFLECTION_PERCENT) or 5.0,
                 "deflection_target": self.plc.read_real(self.DB_PARAMS, self.PARAM_DEFLECTION_TARGET) or 0.0,
-                "test_speed": self.plc.read_real(self.DB_PARAMS, self.PARAM_TEST_SPEED) or 12.0,
+                "test_speed": self.plc.read_real(self.DB_PARAMS, self.PARAM_TEST_SPEED) or 12.5,
                 "max_stroke": self.plc.read_real(self.DB_PARAMS, self.PARAM_MAX_STROKE) or 300.0,
                 "max_force": self.plc.read_real(self.DB_PARAMS, self.PARAM_MAX_FORCE) or 200000.0,
                 "preload_force": self.plc.read_real(self.DB_PARAMS, self.PARAM_PRELOAD_FORCE) or 10.0,
@@ -327,7 +327,7 @@ class DataService:
                 "return_speed": self.plc.read_real(self.DB_PARAMS, self.PARAM_RETURN_SPEED) or 300.0,
                 "target_sn_class": self.plc.read_int(self.DB_PARAMS, self.PARAM_TARGET_SN_CLASS) or 2500,
                 "test_mode": self.plc.read_int(self.DB_PARAMS, self.PARAM_TEST_MODE) or 0,
-                "crack_stage1_percent": self.plc.read_real(self.DB_PARAMS, self.PARAM_CRACK_STAGE1_PERCENT) or 12.0,
+                "crack_stage1_percent": self.plc.read_real(self.DB_PARAMS, self.PARAM_CRACK_STAGE1_PERCENT) or 12.5,
                 "crack_stage2_percent": self.plc.read_real(self.DB_PARAMS, self.PARAM_CRACK_STAGE2_PERCENT) or 17.0,
                 "fracture_max_percent": self.plc.read_real(self.DB_PARAMS, self.PARAM_FRACTURE_MAX_PERCENT) or 50.0,
                 "fracture_drop_threshold": self.plc.read_real(self.DB_PARAMS, self.PARAM_FRACTURE_DROP_THRESHOLD) or 10.0,
@@ -343,7 +343,7 @@ class DataService:
     def _get_default_parameters(self) -> Dict[str, Any]:
         return {
             "pipe_diameter": 0.0, "pipe_length": 300.0, "deflection_percent": 5.0,
-            "deflection_target": 0.0, "test_speed": 12.0, "max_stroke": 300.0,
+            "deflection_target": 0.0, "test_speed": 12.5, "max_stroke": 300.0,
             "max_force": 200000.0, "preload_force": 10.0, "approach_speed": 50.0,
             "contact_speed": 2.0, "return_speed": 100.0, "target_sn_class": 2500,
             "test_mode": 0, "crack_stage1_percent": 12.0, "crack_stage2_percent": 17.0,

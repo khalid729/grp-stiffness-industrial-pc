@@ -75,7 +75,7 @@ export const NumericKeypad = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-card border border-border rounded-xl shadow-2xl p-4 w-[300px] animate-scale-in">
+      <div className="bg-card border border-border rounded-xl shadow-2xl p-4 w-[340px] animate-scale-in">
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <span className="text-sm font-semibold text-foreground">{label}</span>
@@ -95,7 +95,7 @@ export const NumericKeypad = ({
             value={inputValue}
             readOnly
             className={cn(
-              "flex-1 text-2xl font-mono font-bold text-primary bg-transparent border-none outline-none text-center",
+              "flex-1 text-xl font-mono font-bold text-primary bg-transparent border-none outline-none text-center",
               isFirstInput && "bg-primary/10 rounded"
             )}
           />

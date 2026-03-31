@@ -569,11 +569,11 @@ const Settings = () => {
           </div>
           <div className="flex justify-between p-1.5 bg-secondary/30 rounded">
             <span className="text-muted-foreground">Standard</span>
-            <span className="font-mono">ISO 9969</span>
+            <span className="font-mono">ASTM D2412</span>
           </div>
           <div className="flex justify-between p-1.5 bg-secondary/30 rounded">
             <span className="text-muted-foreground">Machine</span>
-            <span className="font-mono">GRP Ring Stiffness</span>
+            <span className="font-mono">GRP Pipe Stiffness</span>
           </div>
           <TouchButton
             variant={cursorHidden ? "outline" : "primary"}

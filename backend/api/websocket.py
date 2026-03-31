@@ -6,6 +6,8 @@ from config import settings
 from datetime import datetime, timezone, timedelta
 import time
 
+from services.astm_d2412 import calculate_position_results, calculate_group_averages, classify_sn
+
 logger = logging.getLogger(__name__)
 
 # Create Socket.IO server
@@ -56,6 +58,9 @@ _METADATA_FIELDS = [
 
 _GROUP_FIELDS = ['num_positions', 'angles']
 
+# Position measurements for ASTM D2412
+_position_measurements: dict = {}  # {1: {h_id, v_id, wall_thickness, ring_length}, 2: {...}, 3: {...}}
+
 
 def set_group_config(data: dict):
     """Set multi-position group config from frontend"""
@@ -84,6 +89,26 @@ def reset_group():
     _active_group_id = None
     _group_num_positions = 1
     _group_current_position = 1
+
+
+def set_position_measurements(data: dict):
+    """Set per-position sample measurements from frontend"""
+    global _position_measurements
+    positions = data.get('positions', [])
+    for p in positions:
+        pos_num = p.get('position', 0)
+        if pos_num > 0:
+            _position_measurements[pos_num] = {
+                'h_id': p.get('h_id', 0),
+                'v_id': p.get('v_id', 0),
+                'wall_thickness': p.get('wall_thickness', 0),
+                'ring_length': p.get('ring_length', 300),
+            }
+    logger.info(f"Position measurements set: {list(_position_measurements.keys())}")
+
+
+def get_position_measurements() -> dict:
+    return dict(_position_measurements)
 
 
 def set_pending_metadata(data: dict):
@@ -362,6 +387,25 @@ async def _save_test_result(data: dict):
                             group.crack_found_stage1 = ct.crack_found_stage1
                             group.crack_found_stage2 = ct.crack_found_stage2
                             group.crack_passed = ct.crack_passed
+                        # D2412 averages
+                        d2412_results = []
+                        for t in group_tests:
+                            if t.stis and t.stis > 0:
+                                d2412_results.append({
+                                    'stis': t.stis, 'ei_over_r3': t.ei_over_r3 or 0,
+                                    'e_modulus': t.e_modulus or 0,
+                                })
+                        if d2412_results:
+                            avgs = calculate_group_averages(d2412_results)
+                            group.avg_stis = avgs.get('avg_stis', 0)
+                            group.avg_ei_over_r3 = avgs.get('avg_ei_over_r3', 0)
+                            group.avg_e_modulus = avgs.get('avg_e_modulus', 0)
+                            group.avg_thickness = sum(t.wall_thickness or 0 for t in group_tests) / len(group_tests)
+                            group.avg_v_id = sum(t.v_id or 0 for t in group_tests) / len(group_tests)
+                            group.sn_class = classify_sn(group.avg_stis)
+                            group.passed = group.avg_stis >= (group.target_sn_class or 0)
+                            logger.info(f"D2412 group: avg_STIS={group.avg_stis}, SN={group.sn_class}")
+                        group.test_standard = 'ASTM_D2412'
                         group.status = 'completed'
                         logger.info(f"Test group {_active_group_id} completed: avg RS={group.avg_ring_stiffness}")
                     await session.commit()

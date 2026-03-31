@@ -80,7 +80,7 @@ export function Sidebar({ children }: SidebarProps) {
           </div>
           <div>
             <h1 className="font-bold text-sidebar-foreground">Stiffness Test</h1>
-            <p className="text-xs text-sidebar-foreground/60">ISO 9969</p>
+            <p className="text-xs text-sidebar-foreground/60">ASTM D2412</p>
           </div>
         </div>
 

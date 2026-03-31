@@ -74,7 +74,7 @@ export function GroupReportDialog({ groupId, open, onOpenChange }: GroupReportDi
                     <img src="/logo.png" alt="Logo" className="h-14 w-auto object-contain" />
                     <div>
                       <h1 className="text-2xl font-bold text-gray-900">{t('report.title')}</h1>
-                      <p className="text-sm text-gray-500">ISO 9969 — {t('report.summary')}</p>
+                      <p className="text-sm text-gray-500">ASTM D2412 — {t('report.summary')}</p>
                     </div>
                   </div>
                   <div className={`px-5 py-2 rounded-md text-lg font-bold ${

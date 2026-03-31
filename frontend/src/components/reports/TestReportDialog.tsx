@@ -98,7 +98,7 @@ export function TestReportDialog({ testId, open, onOpenChange }: TestReportDialo
                     <h1 className="text-2xl font-bold text-gray-900 leading-tight">
                       {t('report.title')}
                     </h1>
-                    <p className="text-sm text-gray-500 mt-0.5">ISO 9969</p>
+                    <p className="text-sm text-gray-500 mt-0.5">ASTM D2412</p>
                   </div>
                 </div>
                 <div

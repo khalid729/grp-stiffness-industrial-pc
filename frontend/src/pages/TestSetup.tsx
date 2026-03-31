@@ -54,6 +54,13 @@ const TestSetup = () => {
   const [showLinkPicker, setShowLinkPicker] = useState(false);
   const [historyTests, setHistoryTests] = useState<any[]>([]);
   const [crackEnabled, setCrackEnabled] = useState(false);
+  const [activeTab, setActiveTab] = useState(1);
+  const [measurements, setMeasurements] = useState<{[key: number]: {h_id: number; v_id: number; wall_thickness: number; ring_length: number}}>({
+    1: { h_id: 0, v_id: 0, wall_thickness: 0, ring_length: 300 },
+    2: { h_id: 0, v_id: 0, wall_thickness: 0, ring_length: 300 },
+    3: { h_id: 0, v_id: 0, wall_thickness: 0, ring_length: 300 },
+  });
+  const [measKeypad, setMeasKeypad] = useState<{ pos: number; field: string; label: string } | null>(null);
   const [crackStage1, setCrackStage1] = useState(12.0);
   const [crackStage2, setCrackStage2] = useState(17.0);
   const { parameters: savedParams, isLoading, setParameters } = useParametersControl();
@@ -127,6 +134,16 @@ const TestSetup = () => {
       num_positions: numPositions,
       angles: numPositions === 3 ? [0, 40, 80] : [0],
     };
+    // Add position measurements
+    const positions = [];
+    const posCount = testType === 'stiffness3' ? 3 : (testType === 'stiffness1' ? 1 : 0);
+    for (let i = 1; i <= posCount; i++) {
+      const m = measurements[i];
+      if (m && m.v_id > 0) {
+        positions.push({ position: i, angle: updatedMeta.angles?.[i-1] || 0, ...m });
+      }
+    }
+    updatedMeta.positions = positions;
     saveMetadata.mutate(updatedMeta);
   };
 
@@ -341,6 +358,65 @@ const TestSetup = () => {
               </div>
             </div>
 
+
+            {/* Sample Measurements - for stiffness tests */}
+            {(testType === 'stiffness1' || testType === 'stiffness3') && (
+            <div className="space-y-2 mt-2 p-3 bg-secondary/20 rounded-lg">
+              <div className="flex items-center justify-between">
+                <span className="text-base font-semibold">{t('testSetup.sampleMeasurements')}</span>
+                {testType === 'stiffness1' && (
+                  <span className="text-xs text-muted-foreground">ASTM D2412</span>
+                )}
+              </div>
+              {/* Position Tabs */}
+              {testType === 'stiffness3' && (
+                <div className="flex gap-1">
+                  {[1,2,3].map(pos => (
+                    <TouchButton
+                      key={pos}
+                      variant={activeTab === pos ? "primary" : "outline"}
+                      size="sm"
+                      onClick={() => setActiveTab(pos)}
+                      className="flex-1 min-h-[36px] text-sm"
+                    >
+                      {t('testSetup.position')} {pos} ({[0,40,80][pos-1]}°)
+                    </TouchButton>
+                  ))}
+                </div>
+              )}
+              {/* Measurement Fields */}
+              {(() => {
+                const pos = testType === 'stiffness1' ? 1 : activeTab;
+                const m = measurements[pos] || { h_id: 0, v_id: 0, wall_thickness: 0, ring_length: 300 };
+                const initialDefl = m.h_id > 0 && m.v_id > 0 ? (((m.h_id - m.v_id) / ((m.h_id + m.v_id) / 2)) * 100).toFixed(3) : '0';
+                return (
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={() => setMeasKeypad({ pos, field: 'h_id', label: `${t('testSetup.horizontalId')} — P${pos} (${[0,40,80][pos-1]}°)` })} className="flex items-center justify-between p-2 bg-background rounded border border-border text-sm">
+                      <span className="text-muted-foreground text-xs">{t('testSetup.horizontalId')}</span>
+                      <span className="font-mono font-bold">{m.h_id || '-'} <span className="text-xs text-muted-foreground">mm</span></span>
+                    </button>
+                    <button onClick={() => setMeasKeypad({ pos, field: 'v_id', label: `${t('testSetup.verticalId')} — P${pos} (${[0,40,80][pos-1]}°)` })} className="flex items-center justify-between p-2 bg-background rounded border border-border text-sm">
+                      <span className="text-muted-foreground text-xs">{t('testSetup.verticalId')}</span>
+                      <span className="font-mono font-bold">{m.v_id || '-'} <span className="text-xs text-muted-foreground">mm</span></span>
+                    </button>
+                    <button onClick={() => setMeasKeypad({ pos, field: 'wall_thickness', label: `${t('testSetup.wallThickness')} — P${pos} (${[0,40,80][pos-1]}°)` })} className="flex items-center justify-between p-2 bg-background rounded border border-border text-sm">
+                      <span className="text-muted-foreground text-xs">{t('testSetup.wallThickness')}</span>
+                      <span className="font-mono font-bold">{m.wall_thickness || '-'} <span className="text-xs text-muted-foreground">mm</span></span>
+                    </button>
+                    <button onClick={() => setMeasKeypad({ pos, field: 'ring_length', label: `${t('testSetup.ringLength')} — P${pos} (${[0,40,80][pos-1]}°)` })} className="flex items-center justify-between p-2 bg-background rounded border border-border text-sm">
+                      <span className="text-muted-foreground text-xs">{t('testSetup.ringLength')}</span>
+                      <span className="font-mono font-bold">{m.ring_length || '-'} <span className="text-xs text-muted-foreground">mm</span></span>
+                    </button>
+                    {m.h_id > 0 && m.v_id > 0 && (
+                      <div className="col-span-2 text-center text-xs text-muted-foreground">
+                        {t('testSetup.initialDeflection')}: <span className="font-mono font-bold">{initialDefl}%</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+            )}
 
             {/* Crack Mode: Standalone or Linked */}
             {testType === 'crack' && (
@@ -732,6 +808,22 @@ const TestSetup = () => {
       </div>
 
       {/* Numeric Keypad Modal */}
+      <NumericKeypad
+        isOpen={measKeypad !== null}
+        onClose={() => setMeasKeypad(null)}
+        onConfirm={(value) => {
+          if (measKeypad) {
+            setMeasurements(prev => ({
+              ...prev,
+              [measKeypad.pos]: { ...prev[measKeypad.pos], [measKeypad.field]: value }
+            }));
+          }
+          setMeasKeypad(null);
+        }}
+        initialValue={measKeypad ? (measurements[measKeypad.pos]?.[measKeypad.field as keyof typeof measurements[1]] || 0) : 0}
+        label={measKeypad?.label || ''}
+        unit="mm"
+      />
       <NumericKeypad
         isOpen={activeKeypad !== null}
         onClose={() => setActiveKeypad(null)}

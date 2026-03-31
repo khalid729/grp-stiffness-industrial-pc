@@ -45,6 +45,15 @@ class TestGroup(Base):
     crack_found_stage1 = Column(Boolean, default=False)
     crack_found_stage2 = Column(Boolean, default=False)
     crack_passed = Column(Boolean, nullable=True)
+
+    # ASTM D2412 averaged results
+    avg_stis = Column(Float, nullable=True)          # Average STIS (N/m²)
+    avg_ei_over_r3 = Column(Float, nullable=True)    # Average EI/R³ (N/mm²)
+    avg_e_modulus = Column(Float, nullable=True)      # Average E-modulus (N/mm²)
+    avg_thickness = Column(Float, nullable=True)      # Average wall thickness (mm)
+    avg_v_id = Column(Float, nullable=True)           # Average vertical ID (mm)
+    test_standard = Column(String(20), default="ASTM_D2412")
+
     linked_test_id = Column(Integer, nullable=True)  # For standalone crack linked to previous test
 
     # Product Information
@@ -95,6 +104,12 @@ class TestGroup(Base):
             "crack_found_stage1": self.crack_found_stage1,
             "crack_found_stage2": self.crack_found_stage2,
             "crack_passed": self.crack_passed,
+            "avg_stis": self.avg_stis,
+            "avg_ei_over_r3": self.avg_ei_over_r3,
+            "avg_e_modulus": self.avg_e_modulus,
+            "avg_thickness": self.avg_thickness,
+            "avg_v_id": self.avg_v_id,
+            "test_standard": self.test_standard,
             "linked_test_id": self.linked_test_id,
             "lot_number": self.lot_number,
             "nominal_diameter": self.nominal_diameter,
@@ -153,6 +168,20 @@ class Test(Base):
     crack_found_stage2 = Column(Boolean, default=False)
     crack_passed = Column(Boolean, nullable=True)
 
+    # ASTM D2412 measurements and results
+    h_id = Column(Float, nullable=True)              # Horizontal Inside Diameter (mm)
+    v_id = Column(Float, nullable=True)              # Vertical Inside Diameter (mm)
+    wall_thickness = Column(Float, nullable=True)     # Average wall thickness (mm)
+    ring_length = Column(Float, nullable=True)        # Sample ring length (mm)
+    initial_deflection = Column(Float, nullable=True) # Calculated initial deflection (%)
+    c_factor = Column(Float, nullable=True)           # Correction factor
+    ei_over_r3 = Column(Float, nullable=True)         # EI/R³ (N/mm²)
+    stis = Column(Float, nullable=True)               # STIS - primary result (N/m²)
+    e_modulus = Column(Float, nullable=True)           # Flexural modulus (N/mm²)
+    pipe_stiffness_ps = Column(Float, nullable=True)  # Simple pipe stiffness PS (N/mm/mm)
+    stiffness_factor_sf = Column(Float, nullable=True) # Stiffness factor SF
+    test_standard = Column(String(20), default="ASTM_D2412")
+
     # Product Information
     lot_number = Column(String(50), nullable=True)
     nominal_diameter = Column(Float, nullable=True)
@@ -205,6 +234,18 @@ class Test(Base):
             "crack_found_stage1": self.crack_found_stage1,
             "crack_found_stage2": self.crack_found_stage2,
             "crack_passed": self.crack_passed,
+            "h_id": self.h_id,
+            "v_id": self.v_id,
+            "wall_thickness": self.wall_thickness,
+            "ring_length": self.ring_length,
+            "initial_deflection": self.initial_deflection,
+            "c_factor": self.c_factor,
+            "ei_over_r3": self.ei_over_r3,
+            "stis": self.stis,
+            "e_modulus": self.e_modulus,
+            "pipe_stiffness_ps": self.pipe_stiffness_ps,
+            "stiffness_factor_sf": self.stiffness_factor_sf,
+            "test_standard": self.test_standard,
             "lot_number": self.lot_number,
             "nominal_diameter": self.nominal_diameter,
             "pressure_class": self.pressure_class,
