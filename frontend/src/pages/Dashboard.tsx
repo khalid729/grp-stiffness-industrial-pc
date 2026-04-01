@@ -716,17 +716,31 @@ const Dashboard = () => {
               if (groupState && groupState.group_id) {
                 const gid = groupState.group_id;
                 const np = groupState.num_positions;
-                const waitForSave = () => {
-                  fetch('/api/groups/' + gid).then(r => r.json()).then(gd => {
-                    if (gd.tests && gd.tests.length >= np) {
-                      setCompletedGroupId(gid);
-                      setFlowDialog('report');
+                const waitForComplete = () => {
+                  // Wait for PLC to finish (stage 0 or 11) AND all tests saved
+                  Promise.all([
+                    fetch('/api/status').then(r => r.json()),
+                    fetch('/api/groups/' + gid).then(r => r.json()),
+                  ]).then(([status, gd]) => {
+                    const stage = status?.test?.stage || 0;
+                    const isDone = stage === 0 || stage === 11;
+                    const allSaved = gd.tests && gd.tests.length >= np;
+                    if (isDone && allSaved) {
+                      setTimeout(() => {
+                        setCompletedGroupId(gid);
+                        setFlowDialog('report');
+                        briefShownRef.current = false;
+                        // Restore test mode
+                        const savedType = localStorage.getItem('testType') || 'stiffness1';
+                        const modeMap: Record<string, number> = { stiffness1: 0, stiffness3: 0, crack: 1, fracture: 3 };
+                        fetch('/api/parameters', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ test_mode: modeMap[savedType] || 0 }) });
+                      }, 2000);
                     } else {
-                      setTimeout(waitForSave, 1000);
+                      setTimeout(waitForComplete, 1000);
                     }
-                  }).catch(() => setTimeout(waitForSave, 1000));
+                  }).catch(() => setTimeout(waitForComplete, 1000));
                 };
-                setTimeout(waitForSave, 2000);
+                setTimeout(waitForComplete, 1000);
               }
             }} className="flex-1 min-h-[52px]">
               {t('testSetup.stiffnessOnly')}
