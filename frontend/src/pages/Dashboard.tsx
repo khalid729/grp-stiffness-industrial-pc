@@ -334,27 +334,32 @@ const Dashboard = () => {
     }, 5000);
     return () => { document.removeEventListener('visibilitychange', onVisible); clearInterval(poll); };
   }, []);
-  const [activeTestMode, setActiveTestMode] = useState(0);
+  const [activeTestMode, setActiveTestMode] = useState(() => {
+    const saved = localStorage.getItem('testType') || 'stiffness1';
+    const map: Record<string, number> = { stiffness1: 0, stiffness3: 0, crack: 1, fracture: 3 };
+    return map[saved] || 0;
+  });
   useEffect(() => {
-    // Restore test_mode from localStorage to PLC on mount
+    // Restore test_mode to PLC on mount
     const savedType = localStorage.getItem('testType') || 'stiffness1';
     const modeMap: Record<string, number> = { stiffness1: 0, stiffness3: 0, crack: 1, fracture: 3 };
-    const mode = modeMap[savedType] || 0;
-    setActiveTestMode(mode);
-    fetch('/api/parameters', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ test_mode: mode }) });
-    // Also restore num_positions
     const npMap: Record<string, number> = { stiffness1: 1, stiffness3: 3, crack: 1, fracture: 1 };
+    fetch('/api/parameters', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ test_mode: modeMap[savedType] || 0 }) });
     fetch('/api/test-metadata', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ num_positions: npMap[savedType] || 1, angles: npMap[savedType] === 3 ? [0,40,80] : [0] }) });
 
-    const load = () => {
-      // Check from API, not stale closure
-      fetch('/api/status').then(r => r.json()).then(s => {
-        if (s.test && s.test.status >= 2 && s.test.status <= 5 && s.test.stage > 0 && s.test.stage < 10) return;
-        fetch('/api/parameters').then(r => r.json()).then((p: any) => setActiveTestMode(p.test_mode || 0)).catch(() => {});
-      }).catch(() => {});
+    // Listen for test type changes from TestSetup
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'testType' && e.newValue) {
+        setActiveTestMode(modeMap[e.newValue] || 0);
+      }
     };
-    const interval = setInterval(load, 3000);
-    return () => clearInterval(interval);
+    window.addEventListener('storage', onStorage);
+
+    // Periodic sync (slower - only for PLC changes)
+    const interval = setInterval(() => {
+      fetch('/api/parameters').then(r => r.json()).then((p: any) => setActiveTestMode(p.test_mode || 0)).catch(() => {});
+    }, 10000);
+    return () => { window.removeEventListener('storage', onStorage); clearInterval(interval); };
   }, []);
   const paramErrorCode = (liveData as any).hmi_ext?.param_error_code || 0;
 
