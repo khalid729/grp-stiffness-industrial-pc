@@ -119,6 +119,51 @@ async def list_samples(project_id: int, db: AsyncSession = Depends(get_db)):
         out.append(d)
     return {"samples": out}
 
+
+# === Active Sample (for Dashboard) ===
+
+_ACTIVE_FILE = '/home/khalid/grp-stiffness-test-machine/backend/.active_sample'
+
+def _load_active() -> Optional[int]:
+    try:
+        with open(_ACTIVE_FILE, 'r') as f:
+            return int(f.read().strip())
+    except:
+        return None
+
+def _save_active(sid: Optional[int]):
+    try:
+        if sid is not None:
+            with open(_ACTIVE_FILE, 'w') as f:
+                f.write(str(sid))
+        else:
+            import os
+            os.remove(_ACTIVE_FILE)
+    except:
+        pass
+
+_active_sample_id: Optional[int] = _load_active()
+
+@router.get("/active")
+async def get_active_sample():
+    return {"sample_id": _active_sample_id}
+
+@router.post("/active/{sample_id}")
+async def set_active_sample(sample_id: int, db: AsyncSession = Depends(get_db)):
+    global _active_sample_id
+    sample = await db.get(Sample, sample_id)
+    if not sample: raise HTTPException(404, "Sample not found")
+    _active_sample_id = sample_id
+    _save_active(sample_id)
+    return {"success": True, "sample_id": sample_id}
+
+@router.post("/active/clear")
+async def clear_active_sample():
+    global _active_sample_id
+    _active_sample_id = None
+    _save_active(None)
+    return {"success": True}
+
 @router.get("/{sample_id}")
 async def get_sample(sample_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
@@ -183,26 +228,4 @@ async def delete_sample(sample_id: int, db: AsyncSession = Depends(get_db)):
     if not sample: raise HTTPException(404, "Sample not found")
     await db.delete(sample)
     await db.commit()
-    return {"success": True}
-
-# === Active Sample (for Dashboard) ===
-
-_active_sample_id: Optional[int] = None
-
-@router.get("/active")
-async def get_active_sample():
-    return {"sample_id": _active_sample_id}
-
-@router.post("/active/{sample_id}")
-async def set_active_sample(sample_id: int, db: AsyncSession = Depends(get_db)):
-    global _active_sample_id
-    sample = await db.get(Sample, sample_id)
-    if not sample: raise HTTPException(404, "Sample not found")
-    _active_sample_id = sample_id
-    return {"success": True, "sample_id": sample_id}
-
-@router.post("/active/clear")
-async def clear_active_sample():
-    global _active_sample_id
-    _active_sample_id = None
     return {"success": True}

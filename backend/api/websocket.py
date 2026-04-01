@@ -236,9 +236,9 @@ async def _save_test_result(data: dict):
             pipe_length=params.get('pipe_length', 300),
             deflection_percent=params.get('deflection_percent', 3),
             force_at_target=results.get('force_at_target', 0),
-            ring_stiffness=results.get('ring_stiffness', 0),
-            sn_class=results.get('sn_class', 0),
-            passed=test_info.get('passed', False),
+            ring_stiffness=0,  # Calculated by D2412, not PLC
+            sn_class=0,  # Calculated by D2412, not PLC
+            passed=False,  # Calculated by D2412, not PLC
             test_speed=params.get('test_speed', 12),
             max_force=results.get('force_at_target', 0),
             duration=_test_duration,
@@ -290,8 +290,62 @@ async def _save_test_result(data: dict):
             test_record.crack_stage1_percent = params.get('crack_stage1_percent', 12.0)
             test_record.crack_stage2_percent = params.get('crack_stage2_percent', 17.0)
 
-        # Set position/angle for multi-position tests
-        if _group_num_positions > 1:
+
+        # === ASTM D2412 Calculations ===
+        test_record.test_standard = 'ASTM_D2412'
+        test_record.target_sn_class = params.get('target_sn_class', 0)
+        
+        # Get measurements from active sample
+        current_pos = _group_current_position if _group_num_positions > 1 else 1
+        pos_meas = {}
+        try:
+            from api.routes.samples import _active_sample_id
+            if _active_sample_id:
+                import sqlite3
+                conn = sqlite3.connect('/home/khalid/grp-stiffness-test-machine/backend/grp_test.db')
+                row = conn.execute(
+                    'SELECT h_id, v_id, wall_thickness, ring_length FROM sample_positions WHERE sample_id=? AND position=?',
+                    (_active_sample_id, current_pos)
+                ).fetchone()
+                if row:
+                    pos_meas = {'h_id': row[0], 'v_id': row[1], 'wall_thickness': row[2], 'ring_length': row[3]}
+                    logger.info(f"D2412: Loaded measurements from sample {_active_sample_id} pos {current_pos}: {pos_meas}")
+                conn.close()
+        except Exception as e:
+            logger.warning(f"D2412: Could not load measurements: {e}")
+        
+        if pos_meas.get('v_id', 0) > 0:
+            d2412 = calculate_position_results(
+                force_n=results.get('force_at_target', 0),
+                h_id=pos_meas.get('h_id', 0),
+                v_id=pos_meas.get('v_id', 0),
+                wall_thickness=pos_meas.get('wall_thickness', 0),
+                ring_length=pos_meas.get('ring_length', 300),
+                deflection_percent=params.get('deflection_percent', 5.0),
+            )
+            test_record.h_id = pos_meas.get('h_id')
+            test_record.v_id = pos_meas.get('v_id')
+            test_record.wall_thickness = pos_meas.get('wall_thickness')
+            test_record.ring_length = pos_meas.get('ring_length')
+            test_record.initial_deflection = d2412['initial_deflection']
+            test_record.c_factor = d2412['c_factor']
+            test_record.ei_over_r3 = d2412['ei_over_r3']
+            test_record.stis = d2412['stis']
+            test_record.e_modulus = d2412['e_modulus']
+            test_record.pipe_stiffness_ps = d2412['pipe_stiffness_ps']
+            test_record.stiffness_factor_sf = d2412['stiffness_factor_sf']
+            logger.info(f"D2412 results: STIS={d2412['stis']}, EI/R3={d2412['ei_over_r3']}, E={d2412['e_modulus']}")
+            # Override PLC pass/fail with ASTM D2412 calculation
+            target = params.get('target_sn_class', 0) or 0
+            test_record.passed = d2412['stis'] >= target if d2412['stis'] > 0 else False
+            test_record.ring_stiffness = d2412['stis']
+            from services.astm_d2412 import classify_sn as _classify
+            test_record.sn_class = _classify(d2412['stis'])
+        else:
+            logger.warning(f"D2412: No measurements for pos {current_pos}, skipping calculations")
+
+        # Set position/angle
+        if _group_num_positions >= 1:
             current_angle = _group_angles[_group_current_position - 1] if _group_current_position <= len(_group_angles) else 0
             test_record.position = _group_current_position
             test_record.angle = current_angle
@@ -366,13 +420,13 @@ async def _save_test_result(data: dict):
                             sa_select(Test).where(Test.group_id == _active_group_id)
                         )
                         group_tests = result.scalars().all()
-                        stiffness_values = [t.ring_stiffness for t in group_tests if t.ring_stiffness]
+                        stiffness_values = [t.stis or t.ring_stiffness for t in group_tests if (t.stis or t.ring_stiffness)]
                         if stiffness_values:
                             group.avg_ring_stiffness = sum(stiffness_values) / len(stiffness_values)
                             group.sn_class = test_record.sn_class
                             # Pass/fail based on target SN class
                             target = group.target_sn_class or test_record.sn_class or 0
-                            group.passed = group.avg_ring_stiffness >= target if group.avg_ring_stiffness else False
+                            group.passed = group.avg_ring_stiffness >= (group.target_sn_class or 0) if group.avg_ring_stiffness else False
                         # Save crack data to group if crack was tested
                         crack_tests = [t for t in group_tests if t.crack_tested]
                         if crack_tests:

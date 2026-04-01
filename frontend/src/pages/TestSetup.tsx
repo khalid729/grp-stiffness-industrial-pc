@@ -23,8 +23,8 @@ const TestSetup = () => {
   const { setParameters } = useParametersControl();
 
   // Navigation: clients → projects → samples → detail
-  const [level, setLevel] = useState<'clients' | 'projects' | 'samples' | 'detail' | 'wizard'>('clients');
-  const [testType, setTestType] = useState<'stiffness1' | 'stiffness3' | 'crack' | 'fracture'>('stiffness1');
+  const [level, setLevel] = useState<'clients' | 'projects' | 'samples' | 'detail' | 'wizard'>(() => (localStorage.getItem('ts_level') as any) || 'clients');
+  const [testType, setTestType] = useState<'stiffness1' | 'stiffness3' | 'crack' | 'fracture'>(() => (localStorage.getItem('testType') as any) || 'stiffness1');
   const [wizardStep, setWizardStep] = useState(1);
   const [editingSampleId, setEditingSampleId] = useState<number | null>(null);
 
@@ -61,8 +61,21 @@ const TestSetup = () => {
   const [textKb, setTextKb] = useState<{ field: string; value: string } | null>(null);
   const kbValueRef = useRef('');
 
+  // Persist navigation state
+  useEffect(() => { localStorage.setItem('ts_level', level); }, [level]);
+  useEffect(() => { if (selectedClient) localStorage.setItem('ts_client', JSON.stringify(selectedClient)); }, [selectedClient]);
+  useEffect(() => { if (selectedProject) localStorage.setItem('ts_project', JSON.stringify(selectedProject)); }, [selectedProject]);
+
   // === Load ===
   useEffect(() => {
+    // Restore saved selections
+    try {
+      const savedClient = localStorage.getItem('ts_client');
+      const savedProject = localStorage.getItem('ts_project');
+      if (savedClient) { const c = JSON.parse(savedClient); setSelectedClient(c); loadProjects(c.id); }
+      if (savedProject) { const p = JSON.parse(savedProject); setSelectedProject(p); loadSamples(p.id); }
+    } catch(e) {}
+
     fetch('/api/samples/clients').then(r => r.json()).then(d => {
       const list = d.clients || [];
       // Ensure QC Internal always exists
@@ -75,10 +88,13 @@ const TestSetup = () => {
         setClients(sorted);
       }
     });
-    fetch('/api/parameters').then(r => r.json()).then(p => {
-      if (p.test_mode === 3) setTestType('fracture');
-      else if (p.test_mode === 1) setTestType('crack');
-    }).catch(() => {});
+    // Restore test_mode to PLC from localStorage
+    const savedType = localStorage.getItem('testType') || 'stiffness1';
+    setTestType(savedType as any);
+    const modeMap: Record<string, number> = { stiffness1: 0, stiffness3: 0, crack: 1, fracture: 3 };
+    const npMap: Record<string, number> = { stiffness1: 1, stiffness3: 3, crack: 1, fracture: 1 };
+    fetch('/api/parameters', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ test_mode: modeMap[savedType] || 0 }) });
+    fetch('/api/test-metadata', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ num_positions: npMap[savedType] || 1, angles: npMap[savedType] === 3 ? [0,40,80] : [0] }) });
     fetch('/api/samples/active').then(r => r.json()).then(d => {
       if (d.sample_id) fetch(`/api/samples/${d.sample_id}`).then(r => r.json()).then(setSelectedSample).catch(() => {});
     });
@@ -154,6 +170,7 @@ const TestSetup = () => {
 
   const setTestMode = (type: typeof testType) => {
     setTestType(type);
+    localStorage.setItem('testType', type);
     const mode = type === 'fracture' ? 3 : type === 'crack' ? 1 : 0;
     const np = type === 'stiffness3' ? 3 : 1;
     fetch('/api/parameters', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ test_mode: mode }) });
@@ -291,7 +308,7 @@ const TestSetup = () => {
       {/* Breadcrumb Path */}
       {level !== 'wizard' && (
         <div className="flex items-center gap-1 text-sm px-1 flex-wrap">
-          <button onClick={() => { setLevel("clients"); setSelectedClient(null); setSelectedProject(null); }} className={`px-2 py-1 rounded ${level === 'clients' ? 'font-bold text-primary' : 'text-muted-foreground hover:text-foreground'}`}>QC Internal</button>
+          <button onClick={() => { setLevel("clients"); setSelectedClient(null); setSelectedProject(null); localStorage.removeItem("ts_client"); localStorage.removeItem("ts_project"); }} className={`px-2 py-1 rounded ${level === 'clients' ? 'font-bold text-primary' : 'text-muted-foreground hover:text-foreground'}`}>QC Internal</button>
           {selectedClient && (
             <>
               <ChevronRight className="w-4 h-4 text-muted-foreground" />
@@ -352,7 +369,7 @@ const TestSetup = () => {
       {level === 'projects' && selectedClient && (
         <div className="flex-1 flex flex-col gap-2 overflow-y-auto">
           <div className="flex items-center justify-between">
-            <TouchButton variant="ghost" size="sm" onClick={() => { setLevel("clients"); setSelectedClient(null); setSelectedProject(null); }} className="px-3 min-h-[40px] text-base"><ChevronLeft className="w-5 h-5 mr-1" /> Back</TouchButton>
+            <TouchButton variant="ghost" size="sm" onClick={() => { setLevel("clients"); setSelectedClient(null); setSelectedProject(null); localStorage.removeItem("ts_client"); localStorage.removeItem("ts_project"); }} className="px-3 min-h-[40px] text-base"><ChevronLeft className="w-5 h-5 mr-1" /> Back</TouchButton>
             <TouchButton variant="outline" size="sm" onClick={() => setShowNewDialog('project')} className="px-4 min-h-[44px]"><Plus className="w-5 h-5 mr-1" /> Add Project</TouchButton>
           </div>
           {projects.map(p => (

@@ -47,6 +47,10 @@ const Dashboard = () => {
     is_complete: boolean;
   } | null>(null);
   const [stopCount, setStopCount] = useState(0);
+  const [showBrief, setShowBrief] = useState(false);
+  const briefShownRef = useRef(false);
+  const [showNoSample, setShowNoSample] = useState(false);
+  const [activeSample, setActiveSample] = useState<any>(null);
   // === Group test flow state ===
   const [flowDialog, setFlowDialog] = useState<'summary' | 'angle' | 'generating' | 'report' | null>(null);
   const [flowData, setFlowData] = useState<{
@@ -213,8 +217,12 @@ const Dashboard = () => {
           const waitForSave = () => {
             fetch('/api/groups/' + g.group_id).then(r => r.json()).then(gd => {
               if (gd.tests && gd.tests.length >= g.num_positions) {
-                setCompletedGroupId(g.group_id);
-                setFlowDialog('report');
+                // Extra wait to ensure data points are fully saved
+                setTimeout(() => {
+                  setCompletedGroupId(g.group_id);
+                  setFlowDialog('report');
+                  briefShownRef.current = false;
+                }, 2000);
               } else {
                 setTimeout(waitForSave, 1000);
               }
@@ -222,18 +230,37 @@ const Dashboard = () => {
           };
           setTimeout(waitForSave, 2000);
         } else {
-          setFlowData({
-            position: completedPos,
-            angle: angles[completedPos - 1] || 0,
-            passed: status?.test?.passed || false,
-            force: status?.results?.force_at_target || 0,
-            stiffness: status?.results?.ring_stiffness || 0,
-            sn: status?.results?.sn_class || 0,
-            nextAngle: angles[g.current_position - 1] || 0,
-            groupId: g.group_id,
-            isLast: false,
+          // Get pass/fail from backend - read the specific group's tests
+          fetch('/api/groups/' + g.group_id).then(r => r.json()).then(groupData => {
+            const groupTests = groupData?.tests || [];
+            const lastTest = groupTests[completedPos - 1] || groupTests[groupTests.length - 1];
+            setFlowData({
+              position: completedPos,
+              angle: angles[completedPos - 1] || 0,
+              passed: lastTest?.passed ?? (status?.test?.passed || false),
+              force: lastTest?.force_at_target ?? (status?.results?.force_at_target || 0),
+              stiffness: lastTest?.stis ?? (status?.results?.ring_stiffness || 0),
+              sn: lastTest?.sn_class ?? (status?.results?.sn_class || 0),
+              nextAngle: angles[g.current_position - 1] || 0,
+              groupId: g.group_id,
+              isLast: false,
+            });
+            setFlowDialog('summary');
+          }).catch(() => {
+            // Fallback to PLC values
+            setFlowData({
+              position: completedPos,
+              angle: angles[completedPos - 1] || 0,
+              passed: status?.test?.passed || false,
+              force: status?.results?.force_at_target || 0,
+              stiffness: status?.results?.ring_stiffness || 0,
+              sn: status?.results?.sn_class || 0,
+              nextAngle: angles[g.current_position - 1] || 0,
+              groupId: g.group_id,
+              isLast: false,
+            });
+            setFlowDialog('summary');
           });
-          setFlowDialog('summary');
         }
       }).catch(() => {});
     }, 3000);
@@ -273,20 +300,72 @@ const Dashboard = () => {
   };
 
   const paramError = (liveData as any).hmi_ext?.param_error || false;
+
+  // Load active sample - refresh when page becomes visible (user returns from TestSetup)
+  const loadActiveSample = () => {
+    fetch('/api/samples/active').then(r => r.json()).then(d => {
+      if (d.sample_id) fetch('/api/samples/' + d.sample_id).then(r => r.json()).then(setActiveSample).catch(() => {});
+      else setActiveSample(null);
+    }).catch(() => {});
+  };
+  useEffect(() => {
+    loadActiveSample();
+    const onVisible = () => { if (document.visibilityState === 'visible') loadActiveSample(); };
+    document.addEventListener('visibilitychange', onVisible);
+    // Also poll every 5 seconds in case user switches tabs
+    const poll = setInterval(() => {
+      // Check test status from API, not stale closure
+      fetch('/api/status').then(r => r.json()).then(s => {
+        if (!s.test || s.test.status < 2) loadActiveSample();
+      }).catch(() => {});
+    }, 5000);
+    return () => { document.removeEventListener('visibilitychange', onVisible); clearInterval(poll); };
+  }, []);
   const [activeTestMode, setActiveTestMode] = useState(0);
   useEffect(() => {
-    fetch('/api/parameters').then(r => r.json()).then(p => {
-      setActiveTestMode(p.test_mode || 0);
-    }).catch(() => {});
+    // Restore test_mode from localStorage to PLC on mount
+    const savedType = localStorage.getItem('testType') || 'stiffness1';
+    const modeMap: Record<string, number> = { stiffness1: 0, stiffness3: 0, crack: 1, fracture: 3 };
+    const mode = modeMap[savedType] || 0;
+    setActiveTestMode(mode);
+    fetch('/api/parameters', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ test_mode: mode }) });
+    // Also restore num_positions
+    const npMap: Record<string, number> = { stiffness1: 1, stiffness3: 3, crack: 1, fracture: 1 };
+    fetch('/api/test-metadata', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ num_positions: npMap[savedType] || 1, angles: npMap[savedType] === 3 ? [0,40,80] : [0] }) });
+
+    const load = () => {
+      // Check from API, not stale closure
+      fetch('/api/status').then(r => r.json()).then(s => {
+        if (s.test && s.test.status >= 2 && s.test.status <= 5 && s.test.stage > 0 && s.test.stage < 10) return;
+        fetch('/api/parameters').then(r => r.json()).then((p: any) => setActiveTestMode(p.test_mode || 0)).catch(() => {});
+      }).catch(() => {});
+    };
+    const interval = setInterval(load, 3000);
+    return () => clearInterval(interval);
   }, []);
   const paramErrorCode = (liveData as any).hmi_ext?.param_error_code || 0;
 
   const handleStartTest = async () => {
+    // Show brief dialog only for first test start (not between positions)
+    if (activeSample && !briefShownRef.current) {
+      briefShownRef.current = true;
+      setShowBrief(true);
+      return;
+    }
+    // If no sample, warn
+    if (!activeSample) {
+      setShowNoSample(true);
+      return;
+    }
+    doStartTest();
+  };
+
+  const doStartTest = async () => {
+    setShowBrief(false);
     pollActiveRef.current = true;
     setChartData([]);
     setLiveData(prev => ({ ...prev, test_status: 2 }));
     
-    // For 3-position groups: switch to mode 2 on last position for crack test prompt
     if (groupState && groupState.is_active && groupState.current_position === groupState.num_positions) {
       await fetch('/api/parameters', {
         method: 'POST',
@@ -306,13 +385,24 @@ const Dashboard = () => {
     } else {
       // Second press: Abort - stop + reset PLC + reset group
       fetch('/api/command/stop', { method: 'POST' });
-      setTimeout(() => fetch('/api/servo/reset', { method: 'POST' }), 500);
+      setTimeout(() => {
+        fetch('/api/servo/reset', { method: 'POST' });
+        // Restore test_mode after reset
+        setTimeout(() => {
+          const savedType = localStorage.getItem('testType') || 'stiffness1';
+          const modeMap: Record<string, number> = { stiffness1: 0, stiffness3: 0, crack: 1, fracture: 3 };
+          const npMap: Record<string, number> = { stiffness1: 1, stiffness3: 3, crack: 1, fracture: 1 };
+          fetch('/api/parameters', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ test_mode: modeMap[savedType] || 0 }) });
+          fetch('/api/test-metadata', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ num_positions: npMap[savedType] || 1, angles: npMap[savedType] === 3 ? [0,40,80] : [0] }) });
+        }, 1000);
+      }, 500);
       fetch('/api/groups/reset', { method: 'POST' });
       setLiveData(prev => ({ ...prev, test_status: 0 }));
       setGroupState(null);
       setStopCount(0);
       pollActiveRef.current = false;
       setFlowDialog(null);
+      briefShownRef.current = false;
     }
   };
 
@@ -705,6 +795,42 @@ const Dashboard = () => {
 
 
 
+      {/* No Sample Warning */}
+      {showNoSample && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60" onClick={() => setShowNoSample(false)}>
+          <div className="bg-card w-full max-w-sm p-6 rounded-xl border shadow-2xl text-center space-y-4">
+            <div className="text-5xl">⚠️</div>
+            <h2 className="text-xl font-bold">No Sample Selected</h2>
+            <p className="text-muted-foreground">Go to Test Setup and select a sample first</p>
+            <TouchButton variant="primary" size="sm" onClick={() => setShowNoSample(false)} className="w-full min-h-[52px] text-base">OK</TouchButton>
+          </div>
+        </div>
+      )}
+
+      {/* Sample Brief before Start */}
+      {showBrief && activeSample && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60">
+          <div className="bg-card w-full max-w-md p-5 rounded-xl border shadow-2xl space-y-4">
+            <h2 className="text-xl font-bold text-center">Confirm Test</h2>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="p-2 bg-secondary/20 rounded"><span className="text-muted-foreground">Sample:</span> <span className="font-bold">{activeSample.sample_id}</span></div>
+              <div className="p-2 bg-secondary/20 rounded"><span className="text-muted-foreground">Client:</span> <span className="font-bold">{activeSample.client_name || '-'}</span></div>
+              <div className="p-2 bg-secondary/20 rounded"><span className="text-muted-foreground">Project:</span> <span className="font-bold">{activeSample.project_name || '-'}</span></div>
+              <div className="p-2 bg-secondary/20 rounded"><span className="text-muted-foreground">Operator:</span> <span className="font-bold">{activeSample.operator || '-'}</span></div>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="p-2 bg-primary/10 rounded"><p className="text-xs text-muted-foreground">Diameter</p><p className="font-mono font-bold text-lg">{activeSample.pipe_diameter} mm</p></div>
+              <div className="p-2 bg-primary/10 rounded"><p className="text-xs text-muted-foreground">Target SN</p><p className="font-mono font-bold text-lg">SN {activeSample.target_sn_class}</p></div>
+              <div className="p-2 bg-primary/10 rounded"><p className="text-xs text-muted-foreground">Positions</p><p className="font-mono font-bold text-lg">{activeSample.num_positions}P</p></div>
+            </div>
+            <div className="flex gap-3">
+              <TouchButton variant="outline" size="sm" onClick={() => setShowBrief(false)} className="flex-1 min-h-[52px] text-base">Cancel</TouchButton>
+              <TouchButton variant="success" size="sm" onClick={doStartTest} className="flex-1 min-h-[52px] text-base">Start Test</TouchButton>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* === FLOW DIALOGS === */}
       
       {/* Summary after each position */}
@@ -780,22 +906,34 @@ const Dashboard = () => {
       </Dialog>
 
       {/* Generating report progress */}
-      <Dialog open={flowDialog === 'generating'} onOpenChange={() => {}}>
-        <DialogContent className="sm:max-w-sm" onPointerDownOutside={(e) => e.preventDefault()}>
-          <div className="flex flex-col items-center justify-center py-8 space-y-4">
-            <Loader2 className="w-12 h-12 animate-spin text-primary" />
-            <p className="text-lg font-semibold">{t('report.generating')}</p>
-            <div className="w-full bg-secondary/30 rounded-full h-2 overflow-hidden">
-              <div className="bg-primary h-full rounded-full animate-pulse" style={{ width: '100%' }} />
+      {flowDialog === 'generating' && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60">
+          <div className="bg-card w-full max-w-sm p-6 rounded-xl border shadow-2xl">
+            <div className="flex flex-col items-center justify-center py-6 space-y-4">
+              <Loader2 className="w-12 h-12 animate-spin text-primary" />
+              <p className="text-lg font-semibold">{t('report.generating')}</p>
+              <div className="w-full bg-secondary/30 rounded-full h-2 overflow-hidden">
+                <div className="bg-primary h-full rounded-full animate-pulse" style={{ width: '100%' }} />
+              </div>
             </div>
+            <TouchButton variant="outline" size="sm" onClick={() => { setFlowDialog(null); pollActiveRef.current = false; briefShownRef.current = false; }} className="w-full min-h-[44px] mt-2">Cancel</TouchButton>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
 
       <GroupReportDialog
         groupId={completedGroupId}
         open={flowDialog === 'report'}
-        onOpenChange={(open) => { if (!open) { setFlowDialog(null); setCompletedGroupId(null); setGroupState(null); fetch('/api/servo/reset', { method: 'POST' }); } }}
+        onOpenChange={(open) => { if (!open) { 
+          setFlowDialog(null); setCompletedGroupId(null); setGroupState(null); 
+          fetch('/api/servo/reset', { method: 'POST' });
+          // Restore test_mode from localStorage
+          const savedType = localStorage.getItem('testType');
+          const modeMap: Record<string, number> = { stiffness1: 0, stiffness3: 0, crack: 1, fracture: 3 };
+          if (savedType && savedType in modeMap) {
+            fetch('/api/parameters', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ test_mode: modeMap[savedType] }) });
+          }
+        } }}
       />
     </div>
   );

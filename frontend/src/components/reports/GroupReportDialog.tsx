@@ -27,10 +27,19 @@ export function GroupReportDialog({ groupId, open, onOpenChange }: GroupReportDi
   useEffect(() => {
     if (open && groupId) {
       setIsLoading(true);
-      fetch(`/api/groups/${groupId}`)
-        .then(r => r.json())
-        .then(data => { setGroup(data); setIsLoading(false); })
-        .catch(() => setIsLoading(false));
+      // Load with retry to ensure data_points are available
+      const loadGroup = () => {
+        fetch(`/api/groups/${groupId}`)
+          .then(r => r.json())
+          .then(data => {
+            setGroup(data);
+            setIsLoading(false);
+
+          })
+          .catch(() => setIsLoading(false));
+      };
+      // Initial delay to let backend finish saving
+      setTimeout(loadGroup, 3000);
     }
   }, [open, groupId]);
 
@@ -165,22 +174,26 @@ export function GroupReportDialog({ groupId, open, onOpenChange }: GroupReportDi
               {test1.v_id && (
                 <div className="mb-3">
                   <h2 className="text-xs font-semibold text-gray-400 uppercase mb-2">{t('testSetup.sampleMeasurements')}</h2>
-                  <div className="grid grid-cols-5 gap-2 text-center text-xs">
+                  <div className="grid grid-cols-6 gap-2 text-center text-xs">
                     <div className="bg-gray-50 border border-gray-200 rounded p-2">
                       <p className="text-gray-500">{t('testSetup.horizontalId')}</p>
-                      <p className="font-mono font-bold">{test1.h_id?.toFixed(1) || '-'} mm</p>
+                      <p className="font-mono font-bold">{test1.h_id?.toFixed(2) || '-'} mm</p>
                     </div>
                     <div className="bg-gray-50 border border-gray-200 rounded p-2">
                       <p className="text-gray-500">{t('testSetup.verticalId')}</p>
-                      <p className="font-mono font-bold">{test1.v_id?.toFixed(1) || '-'} mm</p>
+                      <p className="font-mono font-bold">{test1.v_id?.toFixed(2) || '-'} mm</p>
                     </div>
                     <div className="bg-gray-50 border border-gray-200 rounded p-2">
                       <p className="text-gray-500">{t('testSetup.wallThickness')}</p>
-                      <p className="font-mono font-bold">{test1.wall_thickness?.toFixed(1) || '-'} mm</p>
+                      <p className="font-mono font-bold">{test1.wall_thickness?.toFixed(2) || '-'} mm</p>
                     </div>
                     <div className="bg-gray-50 border border-gray-200 rounded p-2">
                       <p className="text-gray-500">{t('testSetup.ringLength')}</p>
                       <p className="font-mono font-bold">{test1.ring_length || '-'} mm</p>
+                    </div>
+                    <div className="bg-gray-50 border border-gray-200 rounded p-2">
+                      <p className="text-gray-500">Init Defl (mm)</p>
+                      <p className="font-mono font-bold">{test1.h_id && test1.v_id ? (test1.h_id - test1.v_id).toFixed(2) : '-'} mm</p>
                     </div>
                     <div className="bg-gray-50 border border-gray-200 rounded p-2">
                       <p className="text-gray-500">{t('testSetup.initialDeflection')}</p>
@@ -264,7 +277,7 @@ export function GroupReportDialog({ groupId, open, onOpenChange }: GroupReportDi
                         <tr key={test.id}>
                           <td className="border border-gray-200 px-2 py-1.5 text-center">{test.angle}°</td>
                           <td className="border border-gray-200 px-2 py-1.5 text-center font-mono">{displayForce(test.force_at_target)}</td>
-                          <td className="border border-gray-200 px-2 py-1.5 text-center font-mono font-bold">{test.stis?.toFixed(0) || displayForce(test.ring_stiffness)}</td>
+                          <td className="border border-gray-200 px-2 py-1.5 text-center font-mono font-bold">{test.stis?.toFixed(0) || '-'}</td>
                           <td className="border border-gray-200 px-2 py-1.5 text-center font-mono">{test.ei_over_r3?.toFixed(4) || '-'}</td>
                           <td className="border border-gray-200 px-2 py-1.5 text-center font-mono">{test.e_modulus?.toFixed(0) || '-'}</td>
                           <td className="border border-gray-200 px-2 py-1.5 text-center">SN {group.target_sn_class || '-'}</td>
@@ -300,6 +313,7 @@ export function GroupReportDialog({ groupId, open, onOpenChange }: GroupReportDi
                           <th className="border border-gray-200 px-2 py-1.5 text-center">V_ID (mm)</th>
                           <th className="border border-gray-200 px-2 py-1.5 text-center">Thickness (mm)</th>
                           <th className="border border-gray-200 px-2 py-1.5 text-center">Length (mm)</th>
+                          <th className="border border-gray-200 px-2 py-1.5 text-center">Init Defl (mm)</th>
                           <th className="border border-gray-200 px-2 py-1.5 text-center">Init Defl %</th>
                         </tr>
                       </thead>
@@ -307,10 +321,11 @@ export function GroupReportDialog({ groupId, open, onOpenChange }: GroupReportDi
                         {tests.map((test: any) => (
                           <tr key={test.id}>
                             <td className="border border-gray-200 px-2 py-1.5 text-center">{test.angle}°</td>
-                            <td className="border border-gray-200 px-2 py-1.5 text-center font-mono">{test.h_id?.toFixed(1) || '-'}</td>
-                            <td className="border border-gray-200 px-2 py-1.5 text-center font-mono">{test.v_id?.toFixed(1) || '-'}</td>
-                            <td className="border border-gray-200 px-2 py-1.5 text-center font-mono">{test.wall_thickness?.toFixed(1) || '-'}</td>
+                            <td className="border border-gray-200 px-2 py-1.5 text-center font-mono">{test.h_id?.toFixed(2) || '-'}</td>
+                            <td className="border border-gray-200 px-2 py-1.5 text-center font-mono">{test.v_id?.toFixed(2) || '-'}</td>
+                            <td className="border border-gray-200 px-2 py-1.5 text-center font-mono">{test.wall_thickness?.toFixed(2) || '-'}</td>
                             <td className="border border-gray-200 px-2 py-1.5 text-center font-mono">{test.ring_length || '-'}</td>
+                            <td className="border border-gray-200 px-2 py-1.5 text-center font-mono">{test.h_id && test.v_id ? (test.h_id - test.v_id).toFixed(2) : '-'}</td>
                             <td className="border border-gray-200 px-2 py-1.5 text-center font-mono">{test.initial_deflection?.toFixed(3) || '-'}</td>
                           </tr>
                         ))}
@@ -337,7 +352,7 @@ export function GroupReportDialog({ groupId, open, onOpenChange }: GroupReportDi
                         <tr>
                           <td className="border border-gray-200 px-2 py-1.5 text-center">Stage 1</td>
                           <td className="border border-gray-200 px-2 py-1.5 text-center font-mono">{group.crack_stage1_percent || 12}%</td>
-                          <td className="border border-gray-200 px-2 py-1.5 text-center font-mono">{group.crack_deflection_stage1?.toFixed(1) || '-'}</td>
+                          <td className="border border-gray-200 px-2 py-1.5 text-center font-mono">{group.crack_deflection_stage1?.toFixed(2) || '-'}</td>
                           <td className="border border-gray-200 px-2 py-1.5 text-center font-mono">{displayForce(group.crack_force_stage1)}</td>
                           <td className={`border border-gray-200 px-2 py-1.5 text-center font-bold ${!group.crack_found_stage1 ? 'text-green-700' : 'text-red-700'}`}>
                             {group.crack_found_stage1 ? 'CRACK' : 'OK'}
@@ -346,7 +361,7 @@ export function GroupReportDialog({ groupId, open, onOpenChange }: GroupReportDi
                         <tr>
                           <td className="border border-gray-200 px-2 py-1.5 text-center">Stage 2</td>
                           <td className="border border-gray-200 px-2 py-1.5 text-center font-mono">{group.crack_stage2_percent || 17}%</td>
-                          <td className="border border-gray-200 px-2 py-1.5 text-center font-mono">{group.crack_deflection_stage2?.toFixed(1) || '-'}</td>
+                          <td className="border border-gray-200 px-2 py-1.5 text-center font-mono">{group.crack_deflection_stage2?.toFixed(2) || '-'}</td>
                           <td className="border border-gray-200 px-2 py-1.5 text-center font-mono">{displayForce(group.crack_force_stage2)}</td>
                           <td className={`border border-gray-200 px-2 py-1.5 text-center font-bold ${!group.crack_found_stage2 ? 'text-green-700' : 'text-red-700'}`}>
                             {group.crack_found_stage2 ? 'CRACK' : 'OK'}
@@ -378,7 +393,7 @@ export function GroupReportDialog({ groupId, open, onOpenChange }: GroupReportDi
                     <div className="p-3">
                       <h2 className="text-xs font-semibold text-gray-400 uppercase mb-2">{t('report.results')}</h2>
                       <div className="space-y-1 text-xs">
-                        <div className="flex justify-between"><span className="text-gray-500">{t('results.stis')}</span><span className="font-bold text-base">{test.stis?.toFixed(0) || displayForce(test.ring_stiffness)} N/m²</span></div>
+                        <div className="flex justify-between"><span className="text-gray-500">{t('results.stis')}</span><span className="font-bold text-base">{test.stis?.toFixed(0) || '-'} N/m²</span></div>
                         <div className="flex justify-between"><span className="text-gray-500">{t('report.forceAtTarget')}</span><span className="font-medium">{displayForce(test.force_at_target)} {forceUnit}</span></div>
                         <div className="flex justify-between"><span className="text-gray-500">{t('results.eiOverR3')}</span><span className="font-medium">{test.ei_over_r3?.toFixed(4) || '-'} N/mm²</span></div>
                         <div className="flex justify-between"><span className="text-gray-500">{t('results.eModulus')}</span><span className="font-medium">{test.e_modulus?.toFixed(0) || '-'} N/mm²</span></div>
@@ -389,9 +404,9 @@ export function GroupReportDialog({ groupId, open, onOpenChange }: GroupReportDi
                   {/* Sample measurements for this position */}
                   {test.v_id && (
                     <div className="grid grid-cols-5 gap-2 text-center text-xs mb-3">
-                      <div className="bg-gray-50 border border-gray-200 rounded p-1.5"><p className="text-gray-500">H_ID</p><p className="font-mono font-bold">{test.h_id?.toFixed(1)} mm</p></div>
-                      <div className="bg-gray-50 border border-gray-200 rounded p-1.5"><p className="text-gray-500">V_ID</p><p className="font-mono font-bold">{test.v_id?.toFixed(1)} mm</p></div>
-                      <div className="bg-gray-50 border border-gray-200 rounded p-1.5"><p className="text-gray-500">Thickness</p><p className="font-mono font-bold">{test.wall_thickness?.toFixed(1)} mm</p></div>
+                      <div className="bg-gray-50 border border-gray-200 rounded p-1.5"><p className="text-gray-500">H_ID</p><p className="font-mono font-bold">{test.h_id?.toFixed(2)} mm</p></div>
+                      <div className="bg-gray-50 border border-gray-200 rounded p-1.5"><p className="text-gray-500">V_ID</p><p className="font-mono font-bold">{test.v_id?.toFixed(2)} mm</p></div>
+                      <div className="bg-gray-50 border border-gray-200 rounded p-1.5"><p className="text-gray-500">Thickness</p><p className="font-mono font-bold">{test.wall_thickness?.toFixed(2)} mm</p></div>
                       <div className="bg-gray-50 border border-gray-200 rounded p-1.5"><p className="text-gray-500">C-Factor</p><p className="font-mono font-bold">{test.c_factor?.toFixed(4)}</p></div>
                       <div className="bg-gray-50 border border-gray-200 rounded p-1.5"><p className="text-gray-500">Init Defl</p><p className="font-mono font-bold">{test.initial_deflection?.toFixed(3)}%</p></div>
                     </div>

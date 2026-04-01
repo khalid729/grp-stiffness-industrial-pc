@@ -73,7 +73,7 @@ export function PortraitLayout({ children }: PortraitLayoutProps) {
     const poll = setInterval(() => {
       // Skip polling during active test to prevent UI lag
       fetch('/api/status').then(r => r.json()).then(s => {
-        if (s.test && s.test.status >= 2 && s.test.status <= 5) return;
+        if (s.test && s.test.status >= 2 && s.test.status <= 5 && s.test.stage > 0 && s.test.stage < 10) return;
         return Promise.all([
           fetch('/api/parameters').then(r => r.json()).catch(() => ({})),
           fetch('/api/groups/active').then(r => r.json()).catch(() => ({})),
