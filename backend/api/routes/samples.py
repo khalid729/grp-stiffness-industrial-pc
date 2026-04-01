@@ -49,6 +49,9 @@ class SampleCreate(BaseModel):
     pressure_class: Optional[str] = None
     target_sn_class: Optional[int] = None
     num_positions: int = 3
+    crack_stage1_percent: float = 12.0
+    crack_stage2_percent: float = 17.0
+    fracture_max_percent: float = 50.0
     positions: List[PositionData] = []
 
 
@@ -201,6 +204,9 @@ async def create_sample(data: SampleCreate, db: AsyncSession = Depends(get_db)):
         stiffness_class=f"SN{data.target_sn_class}" if data.target_sn_class else None,
         target_sn_class=data.target_sn_class,
         num_positions=data.num_positions,
+        crack_stage1_percent=data.crack_stage1_percent,
+        crack_stage2_percent=data.crack_stage2_percent,
+        fracture_max_percent=data.fracture_max_percent,
     )
     db.add(sample)
     await db.flush()

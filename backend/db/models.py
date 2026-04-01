@@ -74,6 +74,9 @@ class Sample(Base):
 
     # Config
     num_positions = Column(Integer, default=3)
+    crack_stage1_percent = Column(Float, default=12.0)
+    crack_stage2_percent = Column(Float, default=17.0)
+    fracture_max_percent = Column(Float, default=50.0)
     status = Column(String(20), default="ready")  # ready, tested
     created_at = Column(DateTime, default=lambda: datetime.now(timezone(timedelta(hours=3))))
 
@@ -89,6 +92,9 @@ class Sample(Base):
             "nominal_diameter": self.nominal_diameter, "nominal_weight": self.nominal_weight,
             "pressure_class": self.pressure_class, "stiffness_class": self.stiffness_class,
             "target_sn_class": self.target_sn_class, "num_positions": self.num_positions,
+            "crack_stage1_percent": self.crack_stage1_percent,
+            "crack_stage2_percent": self.crack_stage2_percent,
+            "fracture_max_percent": self.fracture_max_percent,
             "status": self.status,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
@@ -139,7 +145,10 @@ class TestGroup(Base):
     test_speed = Column(Float, nullable=True)
 
     # Multi-position config
-    num_positions = Column(Integer, default=3)  # 1 or 3
+    num_positions = Column(Integer, default=3)
+    crack_stage1_percent = Column(Float, default=12.0)
+    crack_stage2_percent = Column(Float, default=17.0)
+    fracture_max_percent = Column(Float, default=50.0)  # 1 or 3
     angles = Column(JSON, default=lambda: [0, 40, 80])  # degrees
     current_position = Column(Integer, default=1)  # 1, 2, or 3
 
@@ -203,6 +212,9 @@ class TestGroup(Base):
             "deflection_percent": self.deflection_percent,
             "test_speed": self.test_speed,
             "num_positions": self.num_positions,
+            "crack_stage1_percent": self.crack_stage1_percent,
+            "crack_stage2_percent": self.crack_stage2_percent,
+            "fracture_max_percent": self.fracture_max_percent,
             "angles": self.angles,
             "current_position": self.current_position,
             "avg_ring_stiffness": self.avg_ring_stiffness,

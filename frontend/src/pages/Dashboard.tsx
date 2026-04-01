@@ -74,7 +74,7 @@ const Dashboard = () => {
     }
   }, [showCrackDialog]);
 
-  const [fractureMaxPercent, setFractureMaxPercent] = useState(50);
+  // fractureMaxPercent comes from activeSample
 
   const isLocalMode = !liveData.remote_mode;
   const controlsDisabled = isLocalMode || !isConnected;
@@ -304,7 +304,20 @@ const Dashboard = () => {
   // Load active sample - refresh when page becomes visible (user returns from TestSetup)
   const loadActiveSample = () => {
     fetch('/api/samples/active').then(r => r.json()).then(d => {
-      if (d.sample_id) fetch('/api/samples/' + d.sample_id).then(r => r.json()).then(setActiveSample).catch(() => {});
+      if (d.sample_id) fetch('/api/samples/' + d.sample_id).then(r => r.json()).then(s => {
+        setActiveSample(s);
+        // Sync sample params to PLC
+        fetch('/api/parameters', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({
+            pipe_diameter: s.pipe_diameter, pipe_length: s.pipe_length,
+            deflection_percent: s.deflection_percent, target_sn_class: s.target_sn_class,
+            crack_stage1_percent: s.crack_stage1_percent || 12,
+            crack_stage2_percent: s.crack_stage2_percent || 17,
+            fracture_max_percent: s.fracture_max_percent || 50,
+          }),
+        });
+      }).catch(() => {});
       else setActiveSample(null);
     }).catch(() => {});
   };
@@ -562,7 +575,7 @@ const Dashboard = () => {
               fetch('/api/parameters', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ test_mode: 3, fracture_max_percent: fractureMaxPercent })
+                body: JSON.stringify({ test_mode: 3, fracture_max_percent: activeSample?.fracture_max_percent || 50 })
               }).then(() => {
                 handleStartTest();
               });
@@ -594,7 +607,7 @@ const Dashboard = () => {
           >
             <span className="text-base text-muted-foreground">Max%</span>
             <div className="flex items-center gap-0.5">
-              <span className="text-primary font-mono text-xl font-bold">{fractureMaxPercent}</span>
+              <span className="text-primary font-mono text-xl font-bold">{activeSample?.fracture_max_percent || 50}</span>
               <span className="text-base text-muted-foreground">%</span>
             </div>
           </button>
@@ -693,8 +706,11 @@ const Dashboard = () => {
       <NumericKeypad
         isOpen={keypadOpen === 'fracture'}
         onClose={() => setKeypadOpen(null)}
-        onConfirm={(value) => { setFractureMaxPercent(value); fetch("/api/parameters", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ fracture_max_percent: value }) }); }}
-        initialValue={fractureMaxPercent}
+        onConfirm={(value) => { 
+          fetch('/api/parameters', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ fracture_max_percent: value }) });
+          if (activeSample) setActiveSample({...activeSample, fracture_max_percent: value});
+        }}
+        initialValue={activeSample?.fracture_max_percent || 50}
         label={t('dashboard.fractureMax')}
         unit="%"
       />

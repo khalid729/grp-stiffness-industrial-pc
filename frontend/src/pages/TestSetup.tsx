@@ -48,6 +48,7 @@ const TestSetup = () => {
     deflection_percent: 5.0, lot_number: '', product_id: '',
     nominal_diameter: 0, nominal_weight: 0, pressure_class: '',
     target_sn_class: 5000, num_positions: 3,
+    crack_stage1_percent: 12.0, crack_stage2_percent: 17.0, fracture_max_percent: 50.0,
   });
   const [positions, setPositions] = useState([
     { position: 1, angle: 0, h_id: 0, v_id: 0, wall_thickness: 0, ring_length: 300 },
@@ -156,6 +157,7 @@ const TestSetup = () => {
       product_id: selectedSample.product_id || '', nominal_diameter: selectedSample.nominal_diameter || 0,
       nominal_weight: selectedSample.nominal_weight || 0, pressure_class: selectedSample.pressure_class || '',
       target_sn_class: selectedSample.target_sn_class || 5000, num_positions: selectedSample.num_positions || 3,
+      crack_stage1_percent: selectedSample.crack_stage1_percent || 12.0, crack_stage2_percent: selectedSample.crack_stage2_percent || 17.0, fracture_max_percent: selectedSample.fracture_max_percent || 50.0,
     });
     const newPos = [
       { position: 1, angle: 0, h_id: 0, v_id: 0, wall_thickness: 0, ring_length: 300 },
@@ -183,14 +185,14 @@ const TestSetup = () => {
   const renderWizard = () => {
     if (wizardStep === 1) return (
       <div className="space-y-3">
-        <h2 className="text-lg font-bold">Client & Project</h2>
+        <h2 className="text-xl font-bold">Client & Project</h2>
         <p className="text-sm text-muted-foreground">Client: <span className="font-bold text-foreground">{selectedClient?.name}</span></p>
         <p className="text-sm text-muted-foreground">Project: <span className="font-bold text-foreground">{selectedProject?.name}</span></p>
       </div>
     );
     if (wizardStep === 2) return (
       <div className="space-y-3">
-        <h2 className="text-lg font-bold">Sample Info</h2>
+        <h2 className="text-xl font-bold">Sample Info</h2>
         <div className="grid grid-cols-2 gap-2">
           {['sample_id', 'operator', 'lot_number', 'product_id'].map(f => (
             <button key={f} onClick={() => { kbValueRef.current = (sampleData as any)[f] || ''; setTextKb({ field: f, value: (sampleData as any)[f] || '' }); setShowKb(true); }}
@@ -225,10 +227,25 @@ const TestSetup = () => {
     );
     if (wizardStep === 3) return (
       <div className="space-y-3">
-        <h2 className="text-lg font-bold">Test Parameters</h2>
+        <h2 className="text-xl font-bold">Test Parameters</h2>
         <div className="flex gap-2">
-          <TouchButton variant={sampleData.num_positions === 1 ? "primary" : "outline"} size="sm" onClick={() => setSampleData(prev => ({ ...prev, num_positions: 1 }))} className="flex-1 min-h-[44px]">1 Position</TouchButton>
-          <TouchButton variant={sampleData.num_positions === 3 ? "primary" : "outline"} size="sm" onClick={() => setSampleData(prev => ({ ...prev, num_positions: 3 }))} className="flex-1 min-h-[44px]">3 Positions</TouchButton>
+          <TouchButton variant={sampleData.num_positions === 1 ? "primary" : "outline"} size="sm" onClick={() => setSampleData(prev => ({ ...prev, num_positions: 1 }))} className="flex-1 min-h-[48px] text-base">1 Position</TouchButton>
+          <TouchButton variant={sampleData.num_positions === 3 ? "primary" : "outline"} size="sm" onClick={() => setSampleData(prev => ({ ...prev, num_positions: 3 }))} className="flex-1 min-h-[48px] text-base">3 Positions</TouchButton>
+        </div>
+        {/* Crack & Fracture percentages */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs"><span className="text-muted-foreground">Crack S1 %</span><span className="font-mono font-bold text-base">{sampleData.crack_stage1_percent}%</span></div>
+            <Slider value={[sampleData.crack_stage1_percent]} onValueChange={v => setSampleData(prev => ({ ...prev, crack_stage1_percent: v[0] }))} min={5} max={30} step={0.5} />
+          </div>
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs"><span className="text-muted-foreground">Crack S2 %</span><span className="font-mono font-bold text-base">{sampleData.crack_stage2_percent}%</span></div>
+            <Slider value={[sampleData.crack_stage2_percent]} onValueChange={v => setSampleData(prev => ({ ...prev, crack_stage2_percent: v[0] }))} min={10} max={35} step={0.5} />
+          </div>
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs"><span className="text-muted-foreground">Fracture Max %</span><span className="font-mono font-bold text-base">{sampleData.fracture_max_percent}%</span></div>
+            <Slider value={[sampleData.fracture_max_percent]} onValueChange={v => setSampleData(prev => ({ ...prev, fracture_max_percent: v[0] }))} min={10} max={80} step={1} />
+          </div>
         </div>
         {[
           { f: 'pipe_diameter', l: 'Pipe Diameter', min: 50, max: 2000, step: 50, u: 'mm' },
@@ -236,7 +253,7 @@ const TestSetup = () => {
           { f: 'deflection_percent', l: 'Deflection %', min: 1, max: 10, step: 0.5, u: '%' },
         ].map(s => (
           <div key={s.f} className="space-y-1">
-            <div className="flex justify-between text-sm"><span className="text-muted-foreground">{s.l}</span><span className="font-mono font-bold">{(sampleData as any)[s.f]} {s.u}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-muted-foreground">{s.l}</span><span className="font-mono font-bold text-lg">{(sampleData as any)[s.f]} {s.u}</span></div>
             <Slider value={[(sampleData as any)[s.f]]} onValueChange={v => setSampleData(prev => ({ ...prev, [s.f]: v[0] }))} min={s.min} max={s.max} step={s.step} />
           </div>
         ))}
@@ -250,7 +267,7 @@ const TestSetup = () => {
       const initD = pos.h_id > 0 && pos.v_id > 0 ? (((pos.h_id - pos.v_id) / ((pos.h_id + pos.v_id) / 2)) * 100).toFixed(3) : '-';
       return (
         <div className="space-y-3">
-          <h2 className="text-lg font-bold">📐 Measurements — {ANGLES[idx]}°</h2>
+          <h2 className="text-xl font-bold">📐 Measurements — {ANGLES[idx]}°</h2>
           <div className="grid grid-cols-2 gap-2">
             {[{ f: 'h_id', l: 'Horizontal ID' }, { f: 'v_id', l: 'Vertical ID' }, { f: 'wall_thickness', l: 'Wall Thickness' }, { f: 'ring_length', l: 'Ring Length' }].map(({ f, l }) => (
               <button key={f} onClick={() => setNumKeypad({ field: `pos_${idx}_${f}`, label: `${l} — ${ANGLES[idx]}°`, value: (pos as any)[f] || 0 })}
@@ -268,12 +285,12 @@ const TestSetup = () => {
       <div className="space-y-3">
         <h2 className="text-lg font-bold flex items-center gap-2"><Check className="w-5 h-5 text-success" /> Review</h2>
         <div className="grid grid-cols-2 gap-2 text-base">
-          {[['Sample', sampleData.sample_id], ['Operator', sampleData.operator], ['Diameter', sampleData.pipe_diameter + 'mm'], ['Target SN', 'SN ' + sampleData.target_sn_class], ['Positions', sampleData.num_positions], ['Deflection', sampleData.deflection_percent + '%']].map(([k, v]) => (
-            <div key={k as string} className="p-2 bg-secondary/20 rounded text-sm"><span className="text-muted-foreground">{k}:</span> <span className="font-bold">{v}</span></div>
+          {[['Sample', sampleData.sample_id], ['Operator', sampleData.operator], ['Diameter', sampleData.pipe_diameter + 'mm'], ['Target SN', 'SN ' + sampleData.target_sn_class], ['Positions', sampleData.num_positions], ['Deflection', sampleData.deflection_percent + '%'], ['Crack', sampleData.crack_stage1_percent + '% / ' + sampleData.crack_stage2_percent + '%'], ['Fracture', sampleData.fracture_max_percent + '%']].map(([k, v]) => (
+            <div key={k as string} className="p-2 bg-secondary/20 rounded text-base"><span className="text-muted-foreground">{k}:</span> <span className="font-bold">{v}</span></div>
           ))}
         </div>
         {positions.slice(0, sampleData.num_positions).map((p, i) => (
-          <div key={i} className="text-sm p-2 bg-secondary/10 rounded">
+          <div key={i} className="text-base p-2 bg-secondary/10 rounded">
             <span className="font-bold">{ANGLES[i]}°:</span> H={p.h_id || '-'} V={p.v_id || '-'} T={p.wall_thickness || '-'} L={p.ring_length}
           </div>
         ))}
