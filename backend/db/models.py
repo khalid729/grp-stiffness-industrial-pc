@@ -5,6 +5,121 @@ from .database import Base
 
 
 
+
+class Client(Base):
+    """Client/Customer model"""
+    __tablename__ = "clients"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    name = Column(String(100), nullable=False, index=True)
+    client_type = Column(String(20), default="external")  # internal, external
+    contact_info = Column(String(200), nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone(timedelta(hours=3))))
+
+    projects = relationship("Project", back_populates="client", cascade="all, delete-orphan")
+
+    def to_dict(self):
+        return {
+            "id": self.id, "name": self.name, "client_type": self.client_type,
+            "contact_info": self.contact_info, "notes": self.notes,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class Project(Base):
+    """Project model - belongs to a client"""
+    __tablename__ = "projects"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String(100), nullable=False)
+    po_number = Column(String(50), nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone(timedelta(hours=3))))
+
+    client = relationship("Client", back_populates="projects")
+    samples = relationship("Sample", back_populates="project", cascade="all, delete-orphan")
+
+    def to_dict(self):
+        return {
+            "id": self.id, "client_id": self.client_id, "name": self.name,
+            "po_number": self.po_number, "notes": self.notes,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class Sample(Base):
+    """Sample model - belongs to a project, reusable across test types"""
+    __tablename__ = "samples"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    sample_id = Column(String(50), nullable=False, index=True)
+    operator = Column(String(100), nullable=True)
+
+    # Pipe parameters
+    pipe_diameter = Column(Float, nullable=True)
+    pipe_length = Column(Float, nullable=True)
+    deflection_percent = Column(Float, default=5.0)
+
+    # Product info
+    lot_number = Column(String(50), nullable=True)
+    product_id = Column(String(50), nullable=True)
+    nominal_diameter = Column(Float, nullable=True)
+    nominal_weight = Column(Float, nullable=True)
+    pressure_class = Column(String(50), nullable=True)
+    stiffness_class = Column(String(50), nullable=True)
+    target_sn_class = Column(Integer, nullable=True)
+
+    # Config
+    num_positions = Column(Integer, default=3)
+    status = Column(String(20), default="ready")  # ready, tested
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone(timedelta(hours=3))))
+
+    project = relationship("Project", back_populates="samples")
+    positions = relationship("SamplePosition", back_populates="sample", cascade="all, delete-orphan", order_by="SamplePosition.position")
+
+    def to_dict(self):
+        return {
+            "id": self.id, "project_id": self.project_id, "sample_id": self.sample_id,
+            "operator": self.operator, "pipe_diameter": self.pipe_diameter,
+            "pipe_length": self.pipe_length, "deflection_percent": self.deflection_percent,
+            "lot_number": self.lot_number, "product_id": self.product_id,
+            "nominal_diameter": self.nominal_diameter, "nominal_weight": self.nominal_weight,
+            "pressure_class": self.pressure_class, "stiffness_class": self.stiffness_class,
+            "target_sn_class": self.target_sn_class, "num_positions": self.num_positions,
+            "status": self.status,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class SamplePosition(Base):
+    """Per-position measurements for a sample"""
+    __tablename__ = "sample_positions"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    sample_id = Column(Integer, ForeignKey("samples.id", ondelete="CASCADE"), nullable=False, index=True)
+    position = Column(Integer, nullable=False)  # 1, 2, 3
+    angle = Column(Float, nullable=False)  # 0, 40, 80
+
+    h_id = Column(Float, nullable=True)
+    v_id = Column(Float, nullable=True)
+    wall_thickness = Column(Float, nullable=True)
+    ring_length = Column(Float, default=300)
+
+    sample = relationship("Sample", back_populates="positions")
+
+    def to_dict(self):
+        return {
+            "id": self.id, "sample_id": self.sample_id,
+            "position": self.position, "angle": self.angle,
+            "h_id": self.h_id, "v_id": self.v_id,
+            "wall_thickness": self.wall_thickness, "ring_length": self.ring_length,
+        }
+
+
+
 class TestGroup(Base):
     """Test group model - groups multiple position tests for the same sample"""
     __tablename__ = "test_groups"
