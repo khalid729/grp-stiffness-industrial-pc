@@ -636,6 +636,35 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* Active Test Info Bar */}
+      {activeSample && (
+        <div className={`w-full rounded-lg px-2 grid grid-cols-5 gap-0 min-h-[80px] text-white ${
+          activeTestMode === 3 ? 'bg-red-600' : activeTestMode === 1 ? 'bg-orange-500' : 
+          (localStorage.getItem('testType') === 'stiffness3' ? 'bg-emerald-600' : 'bg-blue-600')
+        }`}>
+          <div className="flex flex-col justify-center px-2 border-r border-white/20">
+            <span className="text-[10px] opacity-70 uppercase">Sample</span>
+            <p className="font-bold text-lg leading-tight">{activeSample.sample_id}</p>
+          </div>
+          <div className="flex flex-col justify-center px-2 border-r border-white/20">
+            <span className="text-[10px] opacity-70 uppercase">Client</span>
+            <p className="font-bold text-base leading-tight">{activeSample.client_name || '-'}</p>
+          </div>
+          <div className="flex flex-col justify-center px-2 border-r border-white/20">
+            <span className="text-[10px] opacity-70 uppercase">Diameter</span>
+            <p className="font-bold text-lg font-mono leading-tight">DN {activeSample.pipe_diameter}</p>
+          </div>
+          <div className="flex flex-col justify-center px-2 border-r border-white/20">
+            <span className="text-[10px] opacity-70 uppercase">Target</span>
+            <p className="font-bold text-lg font-mono leading-tight">SN {activeSample.target_sn_class}</p>
+          </div>
+          <div className="flex flex-col justify-center px-2">
+            <span className="text-[10px] opacity-70 uppercase">Test Type</span>
+            <p className="font-bold text-lg leading-tight">{activeTestMode === 3 ? 'Fracture' : activeTestMode === 1 ? 'Crack' : (localStorage.getItem('testType') === 'stiffness3' ? '3 Positions' : '1 Position')}</p>
+          </div>
+        </div>
+      )}
+
       {/* Chart - fills remaining space */}
       <div className="chart-container flex-1 min-h-[140px]">
         <ForceDeflectionChart

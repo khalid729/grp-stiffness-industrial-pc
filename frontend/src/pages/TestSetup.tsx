@@ -294,13 +294,15 @@ const TestSetup = () => {
       {level !== 'wizard' && (
         <div className="flex gap-2">
           {[
-            { type: 'stiffness1' as const, label: '1 Position', variant: 'primary' as const },
-            { type: 'stiffness3' as const, label: '3 Positions', variant: 'primary' as const },
-            { type: 'crack' as const, label: 'Crack', variant: 'primary' as const },
-            { type: 'fracture' as const, label: 'Fracture', variant: 'warning' as const },
+            { type: 'stiffness1' as const, label: '1 Position', color: 'bg-blue-600' },
+            { type: 'stiffness3' as const, label: '3 Positions', color: 'bg-emerald-600' },
+            { type: 'crack' as const, label: 'Crack', color: 'bg-orange-500' },
+            { type: 'fracture' as const, label: 'Fracture', color: 'bg-red-600' },
           ].map(b => (
-            <TouchButton key={b.type} variant={testType === b.type ? b.variant : "outline"} size="sm"
-              onClick={() => setTestMode(b.type)} className="flex-1 min-h-[38px] text-sm">{b.label}</TouchButton>
+            <button key={b.type}
+              onClick={() => setTestMode(b.type)}
+              className={`flex-1 min-h-[38px] text-sm font-bold rounded-lg transition-all ${testType === b.type ? b.color + ' text-white shadow-lg' : 'bg-secondary/50 text-muted-foreground hover:bg-secondary'}`}
+            >{b.label}</button>
           ))}
         </div>
       )}
