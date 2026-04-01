@@ -1,864 +1,526 @@
-import { useState, useEffect } from 'react';
-import { TouchButton } from '@/components/ui/TouchButton';
-import { Slider } from '@/components/ui/slider';
-import { Settings2, Save, RotateCcw, CircleDot, Gauge, Target, Loader2, FileText, Package, Briefcase } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useParametersControl, TestParameters, useTestMetadata, TestMetadata } from '@/hooks/useApi';
-import { toast } from 'sonner';
+import { useParametersControl } from '@/hooks/useApi';
+import { TouchButton } from '@/components/ui/TouchButton';
 import { NumericKeypad } from '@/components/ui/NumericKeypad';
 import { VirtualKeyboard } from '@/components/ui/VirtualKeyboard';
+import { Slider } from '@/components/ui/slider';
+import { Badge } from '@/components/ui/badge';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import {
+  Settings2, Save, Plus, ChevronRight, ChevronLeft, Check, Users, FolderOpen, Package, Trash2, Building2, FlaskConical
+} from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
-const defaultParameters: TestParameters = {
-  pipe_diameter: 300,
-  pipe_length: 300,
-  deflection_percent: 5,
-  test_speed: 50,
-  max_stroke: 300,
-  max_force: 200000,
-  target_sn_class: 2500,
-};
-
-const defaultMeta: TestMetadata = {
-  sample_id: '',
-  operator: '',
-  notes: '',
-  lot_number: '',
-  nominal_diameter: null,
-  pressure_class: '',
-  stiffness_class: '',
-  product_id: '',
-  thickness: null,
-  nominal_weight: null,
-  project_name: '',
-  customer_name: '',
-  po_number: '',
-};
-
-// GRP Fiberglass pipe standard options
-const PRESSURE_CLASS_OPTIONS = ['PN1', 'PN6', 'PN10', 'PN16', 'PN20', 'PN25', 'PN32'];
-const STIFFNESS_CLASS_OPTIONS = ['SN1250', 'SN2500', 'SN5000', 'SN10000', 'SN12500'];
+const ANGLES = [0, 40, 80];
+const PRESSURE_OPTIONS = ['PN1', 'PN6', 'PN10', 'PN16', 'PN20', 'PN25', 'PN32'];
+const SN_OPTIONS = [1250, 2500, 5000, 10000, 12500];
 
 const TestSetup = () => {
   const { t } = useLanguage();
-  const [numPositions, setNumPositions] = useState(1);
+  const { setParameters } = useParametersControl();
+
+  // Navigation: clients → projects → samples → detail
+  const [level, setLevel] = useState<'clients' | 'projects' | 'samples' | 'detail' | 'wizard'>('clients');
   const [testType, setTestType] = useState<'stiffness1' | 'stiffness3' | 'crack' | 'fracture'>('stiffness1');
-  const [crackMode, setCrackMode] = useState<'standalone' | 'linked'>('standalone');
-  const [linkedTestId, setLinkedTestId] = useState<number | null>(null);
-  const [showLinkPicker, setShowLinkPicker] = useState(false);
-  const [historyTests, setHistoryTests] = useState<any[]>([]);
-  const [crackEnabled, setCrackEnabled] = useState(false);
-  const [activeTab, setActiveTab] = useState(1);
-  const [measurements, setMeasurements] = useState<{[key: number]: {h_id: number; v_id: number; wall_thickness: number; ring_length: number}}>({
-    1: { h_id: 0, v_id: 0, wall_thickness: 0, ring_length: 300 },
-    2: { h_id: 0, v_id: 0, wall_thickness: 0, ring_length: 300 },
-    3: { h_id: 0, v_id: 0, wall_thickness: 0, ring_length: 300 },
+  const [wizardStep, setWizardStep] = useState(1);
+  const [editingSampleId, setEditingSampleId] = useState<number | null>(null);
+
+  // Data
+  const [clients, setClients] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [samples, setSamples] = useState<any[]>([]);
+  const [selectedClient, setSelectedClient] = useState<any>(null);
+  const [selectedProject, setSelectedProject] = useState<any>(null);
+  const [selectedSample, setSelectedSample] = useState<any>(null);
+
+  // Dialogs
+  const [showNewDialog, setShowNewDialog] = useState<'client' | 'project' | null>(null);
+  const [newName, setNewName] = useState('');
+  const [newType, setNewType] = useState('external');
+  const [newPO, setNewPO] = useState('');
+
+  // Wizard data
+  const [sampleData, setSampleData] = useState({
+    sample_id: '', operator: '', pipe_diameter: 400, pipe_length: 300,
+    deflection_percent: 5.0, lot_number: '', product_id: '',
+    nominal_diameter: 0, nominal_weight: 0, pressure_class: '',
+    target_sn_class: 5000, num_positions: 3,
   });
-  const [measKeypad, setMeasKeypad] = useState<{ pos: number; field: string; label: string } | null>(null);
-  const [crackStage1, setCrackStage1] = useState(12.0);
-  const [crackStage2, setCrackStage2] = useState(17.0);
-  const { parameters: savedParams, isLoading, setParameters } = useParametersControl();
-  const [parameters, setLocalParameters] = useState<TestParameters>(defaultParameters);
+  const [positions, setPositions] = useState([
+    { position: 1, angle: 0, h_id: 0, v_id: 0, wall_thickness: 0, ring_length: 300 },
+    { position: 2, angle: 40, h_id: 0, v_id: 0, wall_thickness: 0, ring_length: 300 },
+    { position: 3, angle: 80, h_id: 0, v_id: 0, wall_thickness: 0, ring_length: 300 },
+  ]);
 
-  const { metadata, saveMetadata } = useTestMetadata();
-  const [meta, setMeta] = useState<TestMetadata>(defaultMeta);
+  // Keypads
+  const [numKeypad, setNumKeypad] = useState<{ field: string; label: string; value: number } | null>(null);
+  const [showKb, setShowKb] = useState(false);
+  const [textKb, setTextKb] = useState<{ field: string; value: string } | null>(null);
+  const kbValueRef = useRef('');
 
-  // Virtual input states
-  const [activeKeypad, setActiveKeypad] = useState<{ field: keyof TestMetadata; label: string; unit: string } | null>(null);
-  const [activeKeyboard, setActiveKeyboard] = useState<keyof TestMetadata | null>(null);
-
-  // Load saved parameters
+  // === Load ===
   useEffect(() => {
-    if (savedParams) {
-      setLocalParameters(prev => ({
-        ...prev,
-        ...savedParams,
-      }));
-      // Sync crack settings from PLC
-      if (savedParams.crack_stage1_percent) setCrackStage1(savedParams.crack_stage1_percent);
-      if (savedParams.crack_stage2_percent) setCrackStage2(savedParams.crack_stage2_percent);
-      if (savedParams.test_mode === 2) setCrackEnabled(true);
-      if (savedParams.test_mode === 3) { setTestType('fracture'); setNumPositions(1); }
-      else if (savedParams.test_mode === 1) { setTestType('crack'); setNumPositions(1); }
-      else if (savedParams.test_mode === 0 || savedParams.test_mode === 2) {
-        // Stiffness - check num_positions from metadata later
-      }
+    fetch('/api/samples/clients').then(r => r.json()).then(d => setClients(d.clients || []));
+    fetch('/api/parameters').then(r => r.json()).then(p => {
+      if (p.test_mode === 3) setTestType('fracture');
+      else if (p.test_mode === 1) setTestType('crack');
+    }).catch(() => {});
+    fetch('/api/samples/active').then(r => r.json()).then(d => {
+      if (d.sample_id) fetch(`/api/samples/${d.sample_id}`).then(r => r.json()).then(setSelectedSample).catch(() => {});
+    });
+  }, []);
+
+  // === Actions ===
+  const loadProjects = (cid: number) => fetch(`/api/samples/projects/${cid}`).then(r => r.json()).then(d => setProjects(d.projects || []));
+  const loadSamples = (pid: number) => fetch(`/api/samples/list/${pid}`).then(r => r.json()).then(d => setSamples(d.samples || []));
+
+  const selectSample = (s: any) => {
+    setSelectedSample(s);
+    fetch(`/api/samples/active/${s.id}`, { method: 'POST' });
+    fetch('/api/parameters', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pipe_diameter: s.pipe_diameter, pipe_length: s.pipe_length, deflection_percent: s.deflection_percent, target_sn_class: s.target_sn_class }),
+    });
+    fetch('/api/test-metadata', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sample_id: s.sample_id, operator: s.operator, lot_number: s.lot_number, product_id: s.product_id,
+        nominal_diameter: s.nominal_diameter, nominal_weight: s.nominal_weight,
+        pressure_class: s.pressure_class, stiffness_class: s.stiffness_class,
+        project_name: selectedProject?.name, customer_name: selectedClient?.name, po_number: selectedProject?.po_number,
+        num_positions: s.num_positions, angles: s.num_positions === 3 ? [0, 40, 80] : [0],
+        positions: (s.positions || []).map((p: any) => ({ position: p.position, angle: p.angle, h_id: p.h_id, v_id: p.v_id, wall_thickness: p.wall_thickness, ring_length: p.ring_length })),
+      }),
+    });
+  };
+
+  const createItem = () => {
+    if (!newName) return;
+    if (showNewDialog === 'client') {
+      fetch('/api/samples/clients', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newName, client_type: newType }) })
+        .then(r => r.json()).then(c => { setClients(prev => [c, ...prev]); setNewName(''); setShowNewDialog(null); });
+    } else if (showNewDialog === 'project' && selectedClient) {
+      fetch('/api/samples/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ client_id: selectedClient.id, name: newName, po_number: newPO }) })
+        .then(r => r.json()).then(p => { setProjects(prev => [p, ...prev]); setNewName(''); setNewPO(''); setShowNewDialog(null); });
     }
-  }, [savedParams]);
+  };
 
-  useEffect(() => {
-    if (metadata) {
-      setMeta({
-        sample_id: metadata.sample_id || '',
-        operator: metadata.operator || '',
-        notes: metadata.notes || '',
-        lot_number: metadata.lot_number || '',
-        nominal_diameter: metadata.nominal_diameter ?? null,
-        pressure_class: metadata.pressure_class || '',
-        stiffness_class: metadata.stiffness_class || '',
-        product_id: metadata.product_id || '',
-        thickness: metadata.thickness ?? null,
-        nominal_weight: metadata.nominal_weight ?? null,
-        project_name: metadata.project_name || '',
-        customer_name: metadata.customer_name || '',
-        po_number: metadata.po_number || '',
+  const saveSample = () => {
+    if (!selectedProject) return;
+    const posData = sampleData.num_positions === 3 ? positions : [positions[0]];
+    const doCreate = () => fetch('/api/samples/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...sampleData, project_id: selectedProject.id, positions: posData }) })
+      .then(r => r.json()).then(result => {
+        loadSamples(selectedProject.id);
+        fetch(`/api/samples/${result.id}`).then(r => r.json()).then(s => { selectSample(s); setLevel('samples'); setWizardStep(1); setEditingSampleId(null); });
       });
-      // Sync numPositions from saved metadata
-      if (metadata.num_positions) {
-        setNumPositions(metadata.num_positions);
-        // Set stiffness type based on positions (only if not crack/fracture)
-        if (metadata.num_positions === 3) setTestType(prev => prev === 'crack' || prev === 'fracture' ? prev : 'stiffness3');
-        else setTestType(prev => prev === 'crack' || prev === 'fracture' ? prev : 'stiffness1');
-      }
+    if (editingSampleId) fetch('/api/samples/' + editingSampleId, { method: 'DELETE' }).then(doCreate);
+    else doCreate();
+  };
+
+  const openEditWizard = () => {
+    if (!selectedSample) return;
+    setSampleData({
+      sample_id: selectedSample.sample_id || '', operator: selectedSample.operator || '',
+      pipe_diameter: selectedSample.pipe_diameter || 400, pipe_length: selectedSample.pipe_length || 300,
+      deflection_percent: selectedSample.deflection_percent || 5.0, lot_number: selectedSample.lot_number || '',
+      product_id: selectedSample.product_id || '', nominal_diameter: selectedSample.nominal_diameter || 0,
+      nominal_weight: selectedSample.nominal_weight || 0, pressure_class: selectedSample.pressure_class || '',
+      target_sn_class: selectedSample.target_sn_class || 5000, num_positions: selectedSample.num_positions || 3,
+    });
+    const newPos = [
+      { position: 1, angle: 0, h_id: 0, v_id: 0, wall_thickness: 0, ring_length: 300 },
+      { position: 2, angle: 40, h_id: 0, v_id: 0, wall_thickness: 0, ring_length: 300 },
+      { position: 3, angle: 80, h_id: 0, v_id: 0, wall_thickness: 0, ring_length: 300 },
+    ];
+    (selectedSample.positions || []).forEach((p: any) => { const i = p.position - 1; if (i >= 0 && i < 3) newPos[i] = { ...newPos[i], h_id: p.h_id || 0, v_id: p.v_id || 0, wall_thickness: p.wall_thickness || 0, ring_length: p.ring_length || 300 }; });
+    setPositions(newPos);
+    setEditingSampleId(selectedSample.id);
+    setLevel('wizard'); setWizardStep(2);
+  };
+
+  const setTestMode = (type: typeof testType) => {
+    setTestType(type);
+    const mode = type === 'fracture' ? 3 : type === 'crack' ? 1 : 0;
+    const np = type === 'stiffness3' ? 3 : 1;
+    fetch('/api/parameters', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ test_mode: mode }) });
+    fetch('/api/test-metadata', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ num_positions: np, angles: np === 3 ? [0, 40, 80] : [0] }) });
+  };
+
+  // === Wizard ===
+  const totalSteps = sampleData.num_positions === 3 ? 6 : 4;
+
+  const renderWizard = () => {
+    if (wizardStep === 1) return (
+      <div className="space-y-3">
+        <h2 className="text-lg font-bold">Client & Project</h2>
+        <p className="text-sm text-muted-foreground">Client: <span className="font-bold text-foreground">{selectedClient?.name}</span></p>
+        <p className="text-sm text-muted-foreground">Project: <span className="font-bold text-foreground">{selectedProject?.name}</span></p>
+      </div>
+    );
+    if (wizardStep === 2) return (
+      <div className="space-y-3">
+        <h2 className="text-lg font-bold">Sample Info</h2>
+        <div className="grid grid-cols-2 gap-2">
+          {['sample_id', 'operator', 'lot_number', 'product_id'].map(f => (
+            <button key={f} onClick={() => { kbValueRef.current = (sampleData as any)[f] || ''; setTextKb({ field: f, value: (sampleData as any)[f] || '' }); setShowKb(true); }}
+              className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg border border-border min-h-[52px]">
+              <span className="text-sm text-muted-foreground">{f.replace('_', ' ')}</span>
+              <span className="font-mono font-bold text-base">{(sampleData as any)[f] || '-'}</span>
+            </button>
+          ))}
+          {[{ f: 'nominal_diameter', l: 'Nom. Dia (mm)' }, { f: 'nominal_weight', l: 'Weight (kg/m)' }].map(({ f, l }) => (
+            <button key={f} onClick={() => setNumKeypad({ field: f, label: l, value: (sampleData as any)[f] || 0 })}
+              className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg border border-border min-h-[52px]">
+              <span className="text-sm text-muted-foreground">{l}</span>
+              <span className="font-mono font-bold text-base">{(sampleData as any)[f] || '-'}</span>
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div><label className="text-xs text-muted-foreground">Pressure</label>
+            <Select value={sampleData.pressure_class || '_none_'} onValueChange={v => setSampleData(prev => ({ ...prev, pressure_class: v === '_none_' ? '' : v }))}>
+              <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="_none_">—</SelectItem>{PRESSURE_OPTIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div><label className="text-xs text-muted-foreground">Target SN</label>
+            <Select value={String(sampleData.target_sn_class)} onValueChange={v => setSampleData(prev => ({ ...prev, target_sn_class: parseInt(v) }))}>
+              <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+              <SelectContent>{SN_OPTIONS.map(sn => <SelectItem key={sn} value={String(sn)}>SN {sn}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+    );
+    if (wizardStep === 3) return (
+      <div className="space-y-3">
+        <h2 className="text-lg font-bold">Test Parameters</h2>
+        <div className="flex gap-2">
+          <TouchButton variant={sampleData.num_positions === 1 ? "primary" : "outline"} size="sm" onClick={() => setSampleData(prev => ({ ...prev, num_positions: 1 }))} className="flex-1 min-h-[44px]">1 Position</TouchButton>
+          <TouchButton variant={sampleData.num_positions === 3 ? "primary" : "outline"} size="sm" onClick={() => setSampleData(prev => ({ ...prev, num_positions: 3 }))} className="flex-1 min-h-[44px]">3 Positions</TouchButton>
+        </div>
+        {[
+          { f: 'pipe_diameter', l: 'Pipe Diameter', min: 50, max: 2000, step: 50, u: 'mm' },
+          { f: 'pipe_length', l: 'Pipe Length', min: 100, max: 500, step: 10, u: 'mm' },
+          { f: 'deflection_percent', l: 'Deflection %', min: 1, max: 10, step: 0.5, u: '%' },
+        ].map(s => (
+          <div key={s.f} className="space-y-1">
+            <div className="flex justify-between text-sm"><span className="text-muted-foreground">{s.l}</span><span className="font-mono font-bold">{(sampleData as any)[s.f]} {s.u}</span></div>
+            <Slider value={[(sampleData as any)[s.f]]} onValueChange={v => setSampleData(prev => ({ ...prev, [s.f]: v[0] }))} min={s.min} max={s.max} step={s.step} />
+          </div>
+        ))}
+      </div>
+    );
+    const measStep = 4;
+    const posCount = sampleData.num_positions === 3 ? 3 : 1;
+    if (wizardStep >= measStep && wizardStep < measStep + posCount) {
+      const idx = wizardStep - measStep;
+      const pos = positions[idx];
+      const initD = pos.h_id > 0 && pos.v_id > 0 ? (((pos.h_id - pos.v_id) / ((pos.h_id + pos.v_id) / 2)) * 100).toFixed(3) : '-';
+      return (
+        <div className="space-y-3">
+          <h2 className="text-lg font-bold">📐 Measurements — {ANGLES[idx]}°</h2>
+          <div className="grid grid-cols-2 gap-2">
+            {[{ f: 'h_id', l: 'Horizontal ID' }, { f: 'v_id', l: 'Vertical ID' }, { f: 'wall_thickness', l: 'Wall Thickness' }, { f: 'ring_length', l: 'Ring Length' }].map(({ f, l }) => (
+              <button key={f} onClick={() => setNumKeypad({ field: `pos_${idx}_${f}`, label: `${l} — ${ANGLES[idx]}°`, value: (pos as any)[f] || 0 })}
+                className="flex items-center justify-between p-4 bg-secondary/30 rounded-lg border border-border min-h-[56px]">
+                <span className="text-sm text-muted-foreground">{l}</span>
+                <span className="font-mono font-bold text-lg">{(pos as any)[f] || '-'} <span className="text-sm">mm</span></span>
+              </button>
+            ))}
+          </div>
+          {pos.h_id > 0 && pos.v_id > 0 && <p className="text-center text-sm text-muted-foreground">Init Deflection: <span className="font-mono font-bold">{initD}%</span></p>}
+        </div>
+      );
     }
-  }, [metadata]);
-
-  const handleSliderChange = (field: keyof TestParameters, values: number[]) => {
-    setLocalParameters(prev => ({ ...prev, [field]: values[0] }));
-    // Auto-save PLC param
-    setTimeout(() => { const p = {...parameters, [field]: values[0]}; setParameters.mutate(p); }, 500);
+    return (
+      <div className="space-y-3">
+        <h2 className="text-lg font-bold flex items-center gap-2"><Check className="w-5 h-5 text-success" /> Review</h2>
+        <div className="grid grid-cols-2 gap-2 text-base">
+          {[['Sample', sampleData.sample_id], ['Operator', sampleData.operator], ['Diameter', sampleData.pipe_diameter + 'mm'], ['Target SN', 'SN ' + sampleData.target_sn_class], ['Positions', sampleData.num_positions], ['Deflection', sampleData.deflection_percent + '%']].map(([k, v]) => (
+            <div key={k as string} className="p-2 bg-secondary/20 rounded text-sm"><span className="text-muted-foreground">{k}:</span> <span className="font-bold">{v}</span></div>
+          ))}
+        </div>
+        {positions.slice(0, sampleData.num_positions).map((p, i) => (
+          <div key={i} className="text-sm p-2 bg-secondary/10 rounded">
+            <span className="font-bold">{ANGLES[i]}°:</span> H={p.h_id || '-'} V={p.v_id || '-'} T={p.wall_thickness || '-'} L={p.ring_length}
+          </div>
+        ))}
+      </div>
+    );
   };
-
-  const quickSave = () => {
-    // Lightweight save - metadata only, no PLC write
-    const updatedMeta = {
-      ...meta,
-      stiffness_class: `SN${parameters.target_sn_class || 2500}`,
-      num_positions: numPositions,
-      angles: numPositions === 3 ? [0, 40, 80] : [0],
-    } as any;
-    const positions: any[] = [];
-    const posCount = testType === 'stiffness3' ? 3 : (testType === 'stiffness1' ? 1 : 0);
-    for (let i = 1; i <= posCount; i++) {
-      const m = measurements[i];
-      if (m) positions.push({ position: i, angle: updatedMeta.angles?.[i-1] || 0, ...m });
-    }
-    updatedMeta.positions = positions;
-    saveMetadata.mutate(updatedMeta);
-  };
-
-  const handleSave = () => {
-    // Determine test_mode: 1-position+crack=2, 3-positions always=2 (Stage5 asks), else=0
-    const testMode = testType === 'fracture' ? 3 : testType === 'crack' ? 1 : (numPositions === 1 && crackEnabled) ? 2 : 0;
-    const updatedParams = {
-      ...parameters,
-      test_mode: testMode,
-      crack_stage1_percent: crackStage1,
-      crack_stage2_percent: crackStage2,
-    };
-    setParameters.mutate(updatedParams);
-    const updatedMeta = {
-      ...meta,
-      stiffness_class: `SN${parameters.target_sn_class || 2500}`,
-      num_positions: numPositions,
-      angles: numPositions === 3 ? [0, 40, 80] : [0],
-    };
-    // Add position measurements
-    const positions = [];
-    const posCount = testType === 'stiffness3' ? 3 : (testType === 'stiffness1' ? 1 : 0);
-    for (let i = 1; i <= posCount; i++) {
-      const m = measurements[i];
-      if (m && m.v_id > 0) {
-        positions.push({ position: i, angle: updatedMeta.angles?.[i-1] || 0, ...m });
-      }
-    }
-    updatedMeta.positions = positions;
-    saveMetadata.mutate(updatedMeta);
-  };
-
-  const handleReset = () => {
-    if (savedParams) {
-      setLocalParameters(prev => ({ ...prev, ...savedParams }));
-    } else {
-      setLocalParameters(defaultParameters);
-    }
-    toast.info(t('testSetup.reset'));
-  };
-
-  // Text field change handler (physical keyboard)
-  const handleTextChange = (field: keyof TestMetadata, value: string) => {
-    setMeta(prev => ({ ...prev, [field]: value }));
-  };
-
-  // Numeric field change handler (physical keyboard)
-  const handleNumericChange = (field: keyof TestMetadata, value: string) => {
-    const num = value === '' ? null : parseFloat(value);
-    setMeta(prev => ({ ...prev, [field]: isNaN(num as number) ? null : num }));
-  };
-
-  const openKeypad = (field: keyof TestMetadata, label: string, unit: string) => {
-    setActiveKeyboard(null);
-    setActiveKeypad({ field, label, unit });
-  };
-
-  const handleKeypadConfirm = (value: number) => {
-    if (activeKeypad) {
-      setMeta(prev => ({ ...prev, [activeKeypad.field]: value || null }));
-      setTimeout(quickSave, 500);
-    }
-  };
-
-  const openKeyboard = (field: keyof TestMetadata) => {
-    setActiveKeypad(null);
-    setActiveKeyboard(prev => prev === field ? prev : field);
-  };
-
-  const targetDeflection = ((parameters.pipe_diameter || 300) * (parameters.deflection_percent || 5)) / 100;
 
   return (
-    <div className="flex flex-col h-full gap-3 animate-slide-up">
-      {/* Header */}
+    <div className="flex flex-col h-full gap-2 animate-slide-up overflow-hidden pb-16">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Settings2 className="w-6 h-6 text-primary" />
           <h1 className="text-2xl font-bold">{t('nav.testSetup')}</h1>
         </div>
+      </div>
+
+      {/* Test Type Buttons - always visible except wizard */}
+      {level !== 'wizard' && (
         <div className="flex gap-2">
-          <TouchButton variant="outline" size="sm" onClick={handleReset}>
-            <RotateCcw className="w-6 h-6" />
-          </TouchButton>
-          <TouchButton variant="success" size="sm" onClick={handleSave} disabled={setParameters.isPending}>
-            {setParameters.isPending ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
-            {t('testSetup.saveBtn')}
-          </TouchButton>
+          {[
+            { type: 'stiffness1' as const, label: '1 Position', variant: 'primary' as const },
+            { type: 'stiffness3' as const, label: '3 Positions', variant: 'primary' as const },
+            { type: 'crack' as const, label: 'Crack', variant: 'primary' as const },
+            { type: 'fracture' as const, label: 'Fracture', variant: 'warning' as const },
+          ].map(b => (
+            <TouchButton key={b.type} variant={testType === b.type ? b.variant : "outline"} size="sm"
+              onClick={() => setTestMode(b.type)} className="flex-1 min-h-[38px] text-sm">{b.label}</TouchButton>
+          ))}
         </div>
-      </div>
+      )}
 
-      {/* Target Deflection Display */}
-      <div className="industrial-card p-3 flex items-center justify-between">
-        <span className="text-base text-muted-foreground">{t('testSetup.targetDeflection')}</span>
-        <span className="status-value text-3xl font-bold text-primary">{targetDeflection.toFixed(2)} mm</span>
-      </div>
-
-      {/* Parameters Grid */}
-      <div className="flex-1 flex flex-col gap-3 overflow-y-auto">
-        {/* Pipe Parameters */}
-        <div className="industrial-card p-3 flex flex-col gap-3">
-          <div className="flex items-center gap-2 text-lg font-semibold">
-            <CircleDot className="w-6 h-6 text-info" />
-            {t('testSetup.pipeParams')}
-          </div>
-
-          <div className="space-y-4 flex-1">
-            <div className="space-y-2">
-              <div className="flex justify-between text-base">
-                <span className="text-muted-foreground">{t('testSetup.pipeDiameter')}</span>
-                <span className="font-mono font-bold">{parameters.pipe_diameter} mm</span>
-              </div>
-              <Slider
-                value={[parameters.pipe_diameter || 300]}
-                onValueChange={(v) => handleSliderChange('pipe_diameter', v)}
-                min={50}
-                max={2000}
-                step={50}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between text-base">
-                <span className="text-muted-foreground">{t('testSetup.pipeLength')}</span>
-                <span className="font-mono font-bold">{parameters.pipe_length} mm</span>
-              </div>
-              <Slider
-                value={[parameters.pipe_length || 300]}
-                onValueChange={(v) => handleSliderChange('pipe_length', v)}
-                min={100}
-                max={500}
-                step={10}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between text-base">
-                <span className="text-muted-foreground">{t('testSetup.deflectionPercent')}</span>
-                <span className="font-mono font-bold">{parameters.deflection_percent}%</span>
-              </div>
-              <Slider
-                value={[parameters.deflection_percent || 5]}
-                onValueChange={(v) => handleSliderChange('deflection_percent', v)}
-                min={1}
-                max={10}
-                step={0.5}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Test Parameters */}
-        <div className="industrial-card p-3 flex flex-col gap-3">
-          <div className="flex items-center gap-2 text-lg font-semibold">
-            <Gauge className="w-6 h-6 text-warning" />
-            {t('testSetup.testParams')}
-          </div>
-
-          <div className="space-y-4 flex-1">
-            <div className="space-y-2">
-              <div className="flex justify-between text-base">
-                <span className="text-muted-foreground">{t('testSetup.testSpeed')}</span>
-                <span className="font-mono font-bold">{parameters.test_speed} mm/min</span>
-              </div>
-              <Slider
-                value={[parameters.test_speed || 50]}
-                onValueChange={(v) => handleSliderChange('test_speed', v)}
-                min={1}
-                max={100}
-                step={1}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between text-base">
-                <span className="text-muted-foreground">{t('testSetup.maxStroke')}</span>
-                <span className="font-mono font-bold">{parameters.max_stroke} mm</span>
-              </div>
-              <Slider
-                value={[parameters.max_stroke || 300]}
-                onValueChange={(v) => handleSliderChange('max_stroke', v)}
-                min={50}
-                max={300}
-                step={10}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between text-base">
-                <span className="text-muted-foreground">{t('testSetup.maxForce')}</span>
-                <span className="font-mono font-bold">{Math.round((parameters.max_force || 200000) / 1000)} kN</span>
-              </div>
-              <Slider
-                value={[Math.round((parameters.max_force || 200000) / 1000)]}
-                onValueChange={(v) => handleSliderChange('max_force', [v[0] * 1000])}
-                min={10}
-                max={200}
-                step={5}
-              />
-            </div>
-
-            {/* Test Type Selection */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-base">
-                <span className="text-muted-foreground">{t('testSetup.testType')}</span>
-                <span className="font-mono font-bold">
-                  {testType === 'stiffness1' ? '1 Position' : testType === 'stiffness3' ? '3 Positions (0°, 40°, 80°)' : 'Fracture'}
-                </span>
-              </div>
-              <div className="flex gap-2">
-                <TouchButton
-                  variant={testType === 'stiffness1' ? "primary" : "outline"}
-                  size="sm"
-                  onClick={() => { setTestType('stiffness1'); setNumPositions(1); fetch('/api/parameters', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({test_mode:0})}); fetch('/api/test-metadata', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...meta, num_positions:1, angles:[0]})}); }}
-                  className="flex-1 min-h-[48px]"
-                >
-                  1 {t('testSetup.position')}
-                </TouchButton>
-                <TouchButton
-                  variant={testType === 'stiffness3' ? "primary" : "outline"}
-                  size="sm"
-                  onClick={() => { setTestType('stiffness3'); setNumPositions(3); fetch('/api/parameters', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({test_mode:0})}); fetch('/api/test-metadata', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...meta, num_positions:3, angles:[0,40,80]})}); }}
-                  className="flex-1 min-h-[48px]"
-                >
-                  3 {t('testSetup.positions')}
-                </TouchButton>
-                <TouchButton
-                  variant={testType === 'crack' ? "primary" : "outline"}
-                  size="sm"
-                  onClick={() => { setTestType('crack'); setNumPositions(1); fetch('/api/parameters', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({test_mode:1})}); fetch('/api/test-metadata', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...meta, num_positions:1, angles:[0]})}); }}
-                  className="flex-1 min-h-[48px]"
-                >
-                  {t('testSetup.crackTest')}
-                </TouchButton>
-                <TouchButton
-                  variant={testType === 'fracture' ? "warning" : "outline"}
-                  size="sm"
-                  onClick={() => { setTestType('fracture'); setNumPositions(1); fetch('/api/parameters', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({test_mode:3})}); fetch('/api/test-metadata', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...meta, num_positions:1, angles:[0]})}); }}
-                  className="flex-1 min-h-[48px]"
-                >
-                  {t('dashboard.group.fracture')}
-                </TouchButton>
-              </div>
-            </div>
-
-
-            {/* Sample Measurements - for stiffness tests */}
-            {(testType === 'stiffness1' || testType === 'stiffness3') && (
-            <div className="space-y-2 mt-2 p-3 bg-secondary/20 rounded-lg">
-              <div className="flex items-center justify-between">
-                <span className="text-base font-semibold">{t('testSetup.sampleMeasurements')}</span>
-                {testType === 'stiffness1' && (
-                  <span className="text-xs text-muted-foreground">ASTM D2412</span>
-                )}
-              </div>
-              {/* Position Tabs */}
-              {testType === 'stiffness3' && (
-                <div className="flex gap-1">
-                  {[1,2,3].map(pos => (
-                    <TouchButton
-                      key={pos}
-                      variant={activeTab === pos ? "primary" : "outline"}
-                      size="sm"
-                      onClick={() => setActiveTab(pos)}
-                      className="flex-1 min-h-[36px] text-sm"
-                    >
-                      {t('testSetup.position')} {pos} ({[0,40,80][pos-1]}°)
-                    </TouchButton>
-                  ))}
-                </div>
-              )}
-              {/* Measurement Fields */}
-              {(() => {
-                const pos = testType === 'stiffness1' ? 1 : activeTab;
-                const m = measurements[pos] || { h_id: 0, v_id: 0, wall_thickness: 0, ring_length: 300 };
-                const initialDefl = m.h_id > 0 && m.v_id > 0 ? (((m.h_id - m.v_id) / ((m.h_id + m.v_id) / 2)) * 100).toFixed(3) : '0';
-                return (
-                  <div className="grid grid-cols-2 gap-2">
-                    <button onClick={() => setMeasKeypad({ pos, field: 'h_id', label: `${t('testSetup.horizontalId')} — P${pos} (${[0,40,80][pos-1]}°)` })} className="flex items-center justify-between p-2 bg-background rounded border border-border text-sm">
-                      <span className="text-muted-foreground text-xs">{t('testSetup.horizontalId')}</span>
-                      <span className="font-mono font-bold">{m.h_id || '-'} <span className="text-xs text-muted-foreground">mm</span></span>
-                    </button>
-                    <button onClick={() => setMeasKeypad({ pos, field: 'v_id', label: `${t('testSetup.verticalId')} — P${pos} (${[0,40,80][pos-1]}°)` })} className="flex items-center justify-between p-2 bg-background rounded border border-border text-sm">
-                      <span className="text-muted-foreground text-xs">{t('testSetup.verticalId')}</span>
-                      <span className="font-mono font-bold">{m.v_id || '-'} <span className="text-xs text-muted-foreground">mm</span></span>
-                    </button>
-                    <button onClick={() => setMeasKeypad({ pos, field: 'wall_thickness', label: `${t('testSetup.wallThickness')} — P${pos} (${[0,40,80][pos-1]}°)` })} className="flex items-center justify-between p-2 bg-background rounded border border-border text-sm">
-                      <span className="text-muted-foreground text-xs">{t('testSetup.wallThickness')}</span>
-                      <span className="font-mono font-bold">{m.wall_thickness || '-'} <span className="text-xs text-muted-foreground">mm</span></span>
-                    </button>
-                    <button onClick={() => setMeasKeypad({ pos, field: 'ring_length', label: `${t('testSetup.ringLength')} — P${pos} (${[0,40,80][pos-1]}°)` })} className="flex items-center justify-between p-2 bg-background rounded border border-border text-sm">
-                      <span className="text-muted-foreground text-xs">{t('testSetup.ringLength')}</span>
-                      <span className="font-mono font-bold">{m.ring_length || '-'} <span className="text-xs text-muted-foreground">mm</span></span>
-                    </button>
-                    {m.h_id > 0 && m.v_id > 0 && (
-                      <div className="col-span-2 text-center text-xs text-muted-foreground">
-                        {t('testSetup.initialDeflection')}: <span className="font-mono font-bold">{initialDefl}%</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
-            )}
-
-            {/* Crack Mode: Standalone or Linked */}
-            {testType === 'crack' && (
-            <div className="space-y-2">
-              <div className="flex gap-2">
-                <TouchButton
-                  variant={crackMode === 'standalone' ? "primary" : "outline"}
-                  size="sm"
-                  onClick={() => { setCrackMode('standalone'); setLinkedTestId(null); }}
-                  className="flex-1 min-h-[48px]"
-                >
-                  {t('testSetup.crackStandalone')}
-                </TouchButton>
-                <TouchButton
-                  variant={crackMode === 'linked' ? "primary" : "outline"}
-                  size="sm"
-                  onClick={() => {
-                    setCrackMode('linked');
-                    fetch('/api/tests?page=1&page_size=20').then(r => r.json()).then(d => {
-                      setHistoryTests(d.tests || []);
-                      setShowLinkPicker(true);
-                    });
-                  }}
-                  className="flex-1 min-h-[48px]"
-                >
-                  {t('testSetup.crackLinked')}
-                </TouchButton>
-              </div>
-              {linkedTestId && (
-                <div className="p-2 bg-success/10 border border-success/30 rounded text-sm text-center">
-                  {t('testSetup.crackLinkedTo')} #{linkedTestId}
-                </div>
-              )}
-              {showLinkPicker && (
-                <div className="max-h-40 overflow-y-auto space-y-1 border rounded p-2">
-                  {historyTests.map((t: any) => (
-                    <div
-                      key={t.id}
-                      className="p-2 bg-secondary/30 rounded text-sm cursor-pointer hover:bg-secondary/50 flex justify-between"
-                      onClick={() => { setLinkedTestId(t.id); setShowLinkPicker(false); }}
-                    >
-                      <span>#{t.id} {t.sample_id || ''}</span>
-                      <span className="font-mono">{t.pipe_diameter}mm SN{t.sn_class}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            )}
-
-            {/* Crack Test Option - only for 1 position */}
-            {numPositions === 1 && testType !== 'fracture' && testType !== 'crack' && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground text-base">{t('testSetup.crackTest')}</span>
-                <div
-                  className={`w-14 h-8 rounded-full cursor-pointer transition-colors flex items-center ${crackEnabled ? 'bg-primary justify-end' : 'bg-secondary justify-start'}`}
-                  onClick={() => setCrackEnabled(!crackEnabled)}
-                >
-                  <div className="w-6 h-6 bg-white rounded-full shadow mx-1" />
-                </div>
-              </div>
-            </div>
-            )}
-
-            {/* Crack Percentages - show when crack is relevant */}
-            {(((crackEnabled || numPositions === 3) && testType !== 'fracture') || testType === 'crack') && (
+      {/* Breadcrumb Path */}
+      {level !== 'wizard' && (
+        <div className="flex items-center gap-1 text-sm px-1 flex-wrap">
+          <button onClick={() => setLevel('clients')} className={`px-2 py-1 rounded ${level === 'clients' ? 'font-bold text-primary' : 'text-muted-foreground hover:text-foreground'}`}>Clients</button>
+          {selectedClient && (
             <>
-              <div className="space-y-2">
-                <div className="flex justify-between text-base">
-                  <span className="text-muted-foreground">{t('testSetup.crackStage1')}</span>
-                  <span className="font-mono font-bold">{crackStage1}%</span>
-                </div>
-                <Slider
-                  value={[crackStage1]}
-                  onValueChange={(v) => setCrackStage1(v[0])}
-                  min={5}
-                  max={30}
-                  step={0.5}
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-base">
-                  <span className="text-muted-foreground">{t('testSetup.crackStage2')}</span>
-                  <span className="font-mono font-bold">{crackStage2}%</span>
-                </div>
-                <Slider
-                  value={[crackStage2]}
-                  onValueChange={(v) => setCrackStage2(v[0])}
-                  min={10}
-                  max={35}
-                  step={0.5}
-                />
-              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              <button onClick={() => { loadProjects(selectedClient.id); setLevel('projects'); }} className={`px-2 py-1 rounded ${level === 'projects' ? 'font-bold text-primary' : 'text-muted-foreground hover:text-foreground'}`}>{selectedClient.name}</button>
             </>
+          )}
+          {selectedProject && (
+            <>
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              <button onClick={() => { loadSamples(selectedProject.id); setLevel('samples'); }} className={`px-2 py-1 rounded ${level === 'samples' || level === 'detail' ? 'font-bold text-primary' : 'text-muted-foreground hover:text-foreground'}`}>{selectedProject.name}</button>
+            </>
+          )}
+          {level === 'detail' && selectedSample && (
+            <>
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              <span className="px-2 py-1 font-bold text-primary">{selectedSample.sample_id}</span>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* === TREE NAVIGATION === */}
+      {level === 'clients' && (
+        <div className="flex-1 flex flex-col gap-2 overflow-y-auto">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-muted-foreground flex items-center gap-1"><Users className="w-4 h-4" /> Clients</span>
+            <TouchButton variant="outline" size="sm" onClick={() => setShowNewDialog('client')} className="px-4 min-h-[44px]"><Plus className="w-5 h-5 mr-1" /> Add Client</TouchButton>
+          </div>
+          {clients.map(c => (
+            <div key={c.id} onClick={() => { setSelectedClient(c); loadProjects(c.id); setLevel('projects'); }}
+              className="industrial-card p-4 cursor-pointer hover:ring-1 hover:ring-primary/50 flex items-center justify-between min-h-[60px]">
+              <div className="flex items-center gap-2">
+                {c.client_type === 'internal' ? <FlaskConical className="w-5 h-5 text-info" /> : <Building2 className="w-5 h-5 text-warning" />}
+                <div>
+                  <span className="font-bold text-base">{c.name}</span>
+                  <Badge variant="outline" className="ml-2 text-xs">{c.client_type}</Badge>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </div>
+          ))}
+          {clients.length === 0 && <p className="text-center text-muted-foreground text-sm py-8">No clients yet</p>}
+        </div>
+      )}
+
+      {level === 'projects' && selectedClient && (
+        <div className="flex-1 flex flex-col gap-2 overflow-y-auto">
+          <div className="flex items-center justify-between">
+            <TouchButton variant="ghost" size="sm" onClick={() => setLevel('clients')} className="px-3 min-h-[40px] text-base"><ChevronLeft className="w-5 h-5 mr-1" /> Back</TouchButton>
+            <TouchButton variant="outline" size="sm" onClick={() => setShowNewDialog('project')} className="px-4 min-h-[44px]"><Plus className="w-5 h-5 mr-1" /> Add Project</TouchButton>
+          </div>
+          {projects.map(p => (
+            <div key={p.id} onClick={() => { setSelectedProject(p); loadSamples(p.id); setLevel('samples'); }}
+              className="industrial-card p-4 cursor-pointer hover:ring-1 hover:ring-primary/50 flex items-center justify-between min-h-[60px]">
+              <div>
+                <span className="font-bold text-base"><FolderOpen className="w-4 h-4 inline mr-1" />{p.name}</span>
+                {p.po_number && <span className="text-xs text-muted-foreground ml-2">PO: {p.po_number}</span>}
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </div>
+          ))}
+          {projects.length === 0 && <p className="text-center text-muted-foreground text-sm py-8">No projects yet</p>}
+        </div>
+      )}
+
+      {level === 'samples' && selectedProject && (
+        <div className="flex-1 flex flex-col gap-2 overflow-y-auto">
+          <div className="flex items-center justify-between">
+            <TouchButton variant="ghost" size="sm" onClick={() => setLevel('projects')} className="px-3 min-h-[40px] text-base"><ChevronLeft className="w-5 h-5 mr-1" /> Back</TouchButton>
+            <TouchButton variant="primary" size="sm" onClick={() => { setEditingSampleId(null); setLevel('wizard'); setWizardStep(2); }} className="px-4 min-h-[44px]"><Plus className="w-5 h-5 mr-1" /> New Sample</TouchButton>
+          </div>
+          {samples.map(s => (
+            <div key={s.id} onClick={() => { selectSample(s); }}
+              className={`industrial-card p-4 cursor-pointer transition-all min-h-[60px] ${selectedSample?.id === s.id ? 'ring-2 ring-primary bg-primary/5' : 'hover:ring-1 hover:ring-primary/50'}`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-bold">{s.sample_id}</span>
+                  <span className="text-sm text-muted-foreground ml-2">DN{s.pipe_diameter} | SN{s.target_sn_class}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">{s.num_positions}P</Badge>
+                  {selectedSample?.id === s.id && <Check className="w-5 h-5 text-success" />}
+                  <TouchButton variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); selectSample(s); setLevel('detail'); }} className="px-3 min-h-[44px]">
+                    <ChevronRight className="w-5 h-5" />
+                  </TouchButton>
+                </div>
+              </div>
+            </div>
+          ))}
+          {samples.length === 0 && <p className="text-center text-muted-foreground text-sm py-8">No samples yet</p>}
+        </div>
+      )}
+
+      {level === 'detail' && selectedSample && (
+        <div className="flex-1 flex flex-col gap-2 overflow-y-auto">
+          <TouchButton variant="ghost" size="sm" onClick={() => setLevel('samples')} className="px-3 min-h-[40px] text-base self-start"><ChevronLeft className="w-5 h-5 mr-1" /> Back</TouchButton>
+          <div className="industrial-card p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold">{selectedSample.sample_id}</h2>
+              <Badge>{selectedSample.num_positions}P | SN{selectedSample.target_sn_class}</Badge>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              {[['Client', selectedSample.client_name], ['Project', selectedSample.project_name], ['Operator', selectedSample.operator], ['Lot', selectedSample.lot_number], ['Product', selectedSample.product_id], ['Pressure', selectedSample.pressure_class]].map(([k, v]) => (
+                <div key={k as string} className="p-2 bg-secondary/20 rounded"><span className="text-muted-foreground">{k}:</span> <span className="font-bold">{(v as string) || '-'}</span></div>
+              ))}
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-sm text-center">
+              <div className="p-2 bg-secondary/20 rounded"><p className="text-muted-foreground text-xs">Diameter</p><p className="font-mono font-bold text-lg">{selectedSample.pipe_diameter} mm</p></div>
+              <div className="p-2 bg-secondary/20 rounded"><p className="text-muted-foreground text-xs">Length</p><p className="font-mono font-bold text-lg">{selectedSample.pipe_length} mm</p></div>
+              <div className="p-2 bg-secondary/20 rounded"><p className="text-muted-foreground text-xs">Deflection</p><p className="font-mono font-bold text-lg">{selectedSample.deflection_percent}%</p></div>
+            </div>
+            {selectedSample.positions?.length > 0 && (
+              <table className="w-full text-sm border border-border">
+                <thead><tr className="bg-secondary/30">
+                  <th className="border border-border px-3 py-2">Angle</th><th className="border border-border px-3 py-2">H_ID</th><th className="border border-border px-3 py-2">V_ID</th><th className="border border-border px-3 py-2">Thick</th><th className="border border-border px-3 py-2">Length</th>
+                </tr></thead>
+                <tbody>{selectedSample.positions.map((p: any) => (
+                  <tr key={p.position}><td className="border border-border px-3 py-2 text-center font-bold">{p.angle}°</td><td className="border border-border px-3 py-2 text-center font-mono font-bold">{p.h_id || '-'}</td><td className="border border-border px-3 py-2 text-center font-mono font-bold">{p.v_id || '-'}</td><td className="border border-border px-3 py-2 text-center font-mono font-bold">{p.wall_thickness || '-'}</td><td className="border border-border px-3 py-2 text-center font-mono font-bold">{p.ring_length || '-'}</td></tr>
+                ))}</tbody>
+              </table>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <TouchButton variant="primary" size="sm" onClick={openEditWizard} className="flex-1 min-h-[44px]">Edit</TouchButton>
+            <TouchButton variant="destructive" size="sm" onClick={() => {
+              fetch('/api/samples/' + selectedSample.id, { method: 'DELETE' }).then(() => { setSelectedSample(null); if (selectedProject) loadSamples(selectedProject.id); setLevel('samples'); });
+            }} className="min-h-[44px] px-4"><Trash2 className="w-5 h-5" /></TouchButton>
+          </div>
+        </div>
+      )}
+
+      {level === 'wizard' && (
+        <div className="flex-1 flex flex-col gap-2 overflow-y-auto">
+          <div className="flex items-center gap-1">
+            {Array.from({ length: totalSteps }, (_, i) => (<div key={i} className={`flex-1 h-2 rounded-full ${i + 1 <= wizardStep ? 'bg-primary' : 'bg-secondary/30'}`} />))}
+            <span className="text-xs text-muted-foreground ml-2">{wizardStep}/{totalSteps}</span>
+          </div>
+          <div className="flex-1 industrial-card p-3 overflow-y-auto">{renderWizard()}</div>
+          <div className="flex gap-2">
+            <TouchButton variant="outline" size="sm" onClick={() => { if (wizardStep <= 2) { setLevel('samples'); setWizardStep(1); } else setWizardStep(p => p - 1); }} className="flex-1 min-h-[44px]">
+              <ChevronLeft className="w-5 h-5 mr-1" /> {wizardStep <= 2 ? 'Cancel' : 'Back'}
+            </TouchButton>
+            {wizardStep < totalSteps ? (
+              <TouchButton variant="primary" size="sm" onClick={() => setWizardStep(p => p + 1)} className="flex-1 min-h-[44px]">Next <ChevronRight className="w-5 h-5 ml-1" /></TouchButton>
+            ) : (
+              <TouchButton variant="success" size="sm" onClick={saveSample} className="flex-1 min-h-[44px]"><Save className="w-5 h-5 mr-1" /> Save</TouchButton>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Active Sample - always visible at bottom */}
+      {selectedSample && level !== 'wizard' && level !== 'detail' && (
+        <div className="industrial-card p-2 bg-primary/5 border-primary/20">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-primary">✓ Active: {selectedSample.sample_id}</span>
+            <span>DN{selectedSample.pipe_diameter} | SN{selectedSample.target_sn_class} | {selectedSample.num_positions}P</span>
+          </div>
+        </div>
+      )}
+
+      {/* New Client/Project - Full screen with keyboard */}
+      {showNewDialog !== null && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/60">
+          <div className="bg-card w-full max-w-lg p-5 rounded-xl border shadow-2xl space-y-3">
+            <h2 className="text-xl font-bold">{showNewDialog === 'client' ? 'New Client' : `New Project — ${selectedClient?.name}`}</h2>
+            
+            <div className="rounded-lg border-2 border-primary px-4 py-3 text-xl font-mono min-h-[52px] bg-secondary/20">
+              {newName || <span className="text-muted-foreground text-base">Enter name...</span>}
+            </div>
+            
+            {showNewDialog === 'client' && (
+              <div className="flex gap-2">
+                <TouchButton variant={newType === 'internal' ? "primary" : "outline"} size="sm" onClick={() => setNewType('internal')} className="flex-1 min-h-[44px]">QC Internal</TouchButton>
+                <TouchButton variant={newType === 'external' ? "primary" : "outline"} size="sm" onClick={() => setNewType('external')} className="flex-1 min-h-[44px]">External Client</TouchButton>
+              </div>
             )}
 
-            {/* Target SN Class - sent to PLC for pass/fail */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-base">
-                <span className="text-muted-foreground">{t('testSetup.targetSnClass')}</span>
-                <span className="font-mono font-bold">SN {parameters.target_sn_class || 2500}</span>
-              </div>
-              <Select
-                value={String(parameters.target_sn_class || 2500)}
-                onValueChange={(v) => setLocalParameters(prev => ({ ...prev, target_sn_class: parseInt(v) }))}
-              >
-                <SelectTrigger className="w-full text-lg h-12">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1250">SN 1250</SelectItem>
-                  <SelectItem value="2500">SN 2500</SelectItem>
-                  <SelectItem value="5000">SN 5000</SelectItem>
-                  <SelectItem value="10000">SN 10000</SelectItem>
-                  <SelectItem value="12500">SN 12500</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </div>
-
-        {/* Product Information */}
-        <div className="industrial-card p-3 flex flex-col gap-3">
-          <div className="flex items-center gap-2 text-lg font-semibold">
-            <Package className="w-6 h-6 text-info" />
-            {t('testSetup.productInfo')}
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {/* Lot Number - text */}
-            <div className="space-y-1">
-              <label className="text-sm text-muted-foreground">{t('testSetup.lotNumber')}</label>
-              <input
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={meta.lot_number}
-                onChange={(e) => handleTextChange('lot_number', e.target.value)}
-                onFocus={() => openKeyboard('lot_number')}
-                placeholder={t('testSetup.lotNumber')}
-              />
-              {activeKeyboard === 'lot_number' && (
-                <VirtualKeyboard
-                  value={meta.lot_number}
-                  onChange={(v) => setMeta(prev => ({ ...prev, lot_number: v }))}
-                  onClose={() => setActiveKeyboard(null)}
-                />
-              )}
-            </div>
-            {/* Product ID - text */}
-            <div className="space-y-1">
-              <label className="text-sm text-muted-foreground">{t('testSetup.productId')}</label>
-              <input
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={meta.product_id}
-                onChange={(e) => handleTextChange('product_id', e.target.value)}
-                onFocus={() => openKeyboard('product_id')}
-                placeholder={t('testSetup.productId')}
-              />
-              {activeKeyboard === 'product_id' && (
-                <VirtualKeyboard
-                  value={meta.product_id}
-                  onChange={(v) => setMeta(prev => ({ ...prev, product_id: v }))}
-                  onClose={() => setActiveKeyboard(null)}
-                />
-              )}
-            </div>
-            {/* Nominal Diameter - number */}
-            <div className="space-y-1">
-              <label className="text-sm text-muted-foreground">{t('testSetup.nominalDiameter')}</label>
-              <div className="flex gap-1">
-                <input
-                  type="number"
-                  step="any"
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={meta.nominal_diameter ?? ''}
-                  onChange={(e) => handleNumericChange('nominal_diameter', e.target.value)}
-                  placeholder="mm"
-                />
-                <button
-                  type="button"
-                  className="px-2 rounded-md border border-input bg-secondary hover:bg-secondary/80 text-xs font-bold shrink-0"
-                  onClick={() => openKeypad('nominal_diameter', t('testSetup.nominalDiameter'), 'mm')}
-                >
-                  123
-                </button>
-              </div>
-            </div>
-            {/* Thickness - number */}
-            <div className="space-y-1">
-              <label className="text-sm text-muted-foreground">{t('testSetup.thickness')}</label>
-              <div className="flex gap-1">
-                <input
-                  type="number"
-                  step="any"
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={meta.thickness ?? ''}
-                  onChange={(e) => handleNumericChange('thickness', e.target.value)}
-                  placeholder="mm"
-                />
-                <button
-                  type="button"
-                  className="px-2 rounded-md border border-input bg-secondary hover:bg-secondary/80 text-xs font-bold shrink-0"
-                  onClick={() => openKeypad('thickness', t('testSetup.thickness'), 'mm')}
-                >
-                  123
-                </button>
-              </div>
-            </div>
-            {/* Nominal Weight - number */}
-            <div className="space-y-1">
-              <label className="text-sm text-muted-foreground">{t('testSetup.nominalWeight')}</label>
-              <div className="flex gap-1">
-                <input
-                  type="number"
-                  step="any"
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={meta.nominal_weight ?? ''}
-                  onChange={(e) => handleNumericChange('nominal_weight', e.target.value)}
-                  placeholder="kg/m"
-                />
-                <button
-                  type="button"
-                  className="px-2 rounded-md border border-input bg-secondary hover:bg-secondary/80 text-xs font-bold shrink-0"
-                  onClick={() => openKeypad('nominal_weight', t('testSetup.nominalWeight'), 'kg/m')}
-                >
-                  123
-                </button>
-              </div>
-            </div>
-            {/* Pressure Class - dropdown select */}
-            <div className="space-y-1">
-              <label className="text-sm text-muted-foreground">{t('testSetup.pressureClass')}</label>
-              <Select
-                value={meta.pressure_class || undefined}
-                onValueChange={(v) => setMeta(prev => ({ ...prev, pressure_class: v === '_none_' ? '' : v }))}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={t('testSetup.pressureClass')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none_">-</SelectItem>
-                  {PRESSURE_CLASS_OPTIONS.map((opt) => (
-                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {/* Stiffness Class - saved as metadata only (display) */}
-            <div className="col-span-2 space-y-1">
-              <label className="text-sm text-muted-foreground">{t('testSetup.stiffnessClass')}</label>
-              <div className="w-full rounded-md border border-input bg-muted px-3 py-2 text-sm text-muted-foreground">
-                SN {parameters.target_sn_class || 2500}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Project Information */}
-        <div className="industrial-card p-3 flex flex-col gap-3">
-          <div className="flex items-center gap-2 text-lg font-semibold">
-            <Briefcase className="w-6 h-6 text-warning" />
-            {t('testSetup.projectInfo')}
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {/* Project Name - text */}
-            <div className="space-y-1">
-              <label className="text-sm text-muted-foreground">{t('testSetup.projectName')}</label>
-              <input
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={meta.project_name}
-                onChange={(e) => handleTextChange('project_name', e.target.value)}
-                onFocus={() => openKeyboard('project_name')}
-                placeholder={t('testSetup.projectName')}
-              />
-              {activeKeyboard === 'project_name' && (
-                <VirtualKeyboard
-                  value={meta.project_name}
-                  onChange={(v) => setMeta(prev => ({ ...prev, project_name: v }))}
-                  onClose={() => setActiveKeyboard(null)}
-                />
-              )}
-            </div>
-            {/* Customer Name - text */}
-            <div className="space-y-1">
-              <label className="text-sm text-muted-foreground">{t('testSetup.customerName')}</label>
-              <input
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={meta.customer_name}
-                onChange={(e) => handleTextChange('customer_name', e.target.value)}
-                onFocus={() => openKeyboard('customer_name')}
-                placeholder={t('testSetup.customerName')}
-              />
-              {activeKeyboard === 'customer_name' && (
-                <VirtualKeyboard
-                  value={meta.customer_name}
-                  onChange={(v) => setMeta(prev => ({ ...prev, customer_name: v }))}
-                  onClose={() => setActiveKeyboard(null)}
-                />
-              )}
-            </div>
-            {/* PO Number - text */}
-            <div className="col-span-2 space-y-1">
-              <label className="text-sm text-muted-foreground">{t('testSetup.poNumber')}</label>
-              <input
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={meta.po_number}
-                onChange={(e) => handleTextChange('po_number', e.target.value)}
-                onFocus={() => openKeyboard('po_number')}
-                placeholder={t('testSetup.poNumber')}
-              />
-              {activeKeyboard === 'po_number' && (
-                <VirtualKeyboard
-                  value={meta.po_number}
-                  onChange={(v) => setMeta(prev => ({ ...prev, po_number: v }))}
-                  onClose={() => setActiveKeyboard(null)}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Test Information */}
-        <div className="industrial-card p-3 flex flex-col gap-3">
-          <div className="flex items-center gap-2 text-lg font-semibold">
-            <FileText className="w-6 h-6 text-primary" />
-            {t('testSetup.testInfo')}
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {/* Sample ID - text */}
-            <div className="space-y-1">
-              <label className="text-sm text-muted-foreground">{t('testSetup.sampleId')}</label>
-              <input
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={meta.sample_id}
-                onChange={(e) => handleTextChange('sample_id', e.target.value)}
-                onFocus={() => openKeyboard('sample_id')}
-                placeholder={t('testSetup.sampleId')}
-              />
-              {activeKeyboard === 'sample_id' && (
-                <VirtualKeyboard
-                  value={meta.sample_id}
-                  onChange={(v) => setMeta(prev => ({ ...prev, sample_id: v }))}
-                  onClose={() => setActiveKeyboard(null)}
-                />
-              )}
-            </div>
-            {/* Operator - text */}
-            <div className="space-y-1">
-              <label className="text-sm text-muted-foreground">{t('testSetup.operator')}</label>
-              <input
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={meta.operator}
-                onChange={(e) => handleTextChange('operator', e.target.value)}
-                onFocus={() => openKeyboard('operator')}
-                placeholder={t('testSetup.operator')}
-              />
-              {activeKeyboard === 'operator' && (
-                <VirtualKeyboard
-                  value={meta.operator}
-                  onChange={(v) => setMeta(prev => ({ ...prev, operator: v }))}
-                  onClose={() => setActiveKeyboard(null)}
-                />
-              )}
-            </div>
-          </div>
-          <div className="space-y-1">
-            <label className="text-sm text-muted-foreground">{t('testSetup.notes')}</label>
-            <input
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={meta.notes}
-              onChange={(e) => handleTextChange('notes', e.target.value)}
-              onFocus={() => openKeyboard('notes')}
-              placeholder={t('testSetup.notes')}
+            <VirtualKeyboard
+              value={newName}
+              onChange={v => setNewName(v)}
+              onClose={() => {}}
             />
-            {activeKeyboard === 'notes' && (
-              <VirtualKeyboard
-                value={meta.notes}
-                onChange={(v) => setMeta(prev => ({ ...prev, notes: v }))}
-                onClose={() => setActiveKeyboard(null)}
-              />
-            )}
+            
+            <div className="flex gap-2">
+              <TouchButton variant="outline" size="sm" onClick={() => { setShowNewDialog(null); setNewName(''); }} className="flex-1 min-h-[48px]">Cancel</TouchButton>
+              <TouchButton variant="primary" size="sm" onClick={createItem} disabled={!newName} className="flex-1 min-h-[48px]">Create</TouchButton>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* ISO Note */}
-      <div className="industrial-card p-2 flex items-center gap-2 text-sm text-muted-foreground">
-        <Target className="w-6 h-6 text-primary flex-shrink-0" />
-        {t('testSetup.isoNote')}
-      </div>
-
-      {/* Numeric Keypad Modal */}
-      <NumericKeypad
-        isOpen={measKeypad !== null}
-        onClose={() => setMeasKeypad(null)}
-        onConfirm={(value) => {
-          if (measKeypad) {
-            setMeasurements(prev => ({
-              ...prev,
-              [measKeypad.pos]: { ...prev[measKeypad.pos], [measKeypad.field]: value }
-            }));
-            setTimeout(quickSave, 500);
+      {/* Keypads */}
+      <NumericKeypad isOpen={numKeypad !== null} onClose={() => setNumKeypad(null)}
+        onConfirm={(v) => { if (numKeypad) { if (numKeypad.field.startsWith('pos_')) { const p = numKeypad.field.split('_'); setPositions(prev => prev.map((pos, i) => i === parseInt(p[1]) ? { ...pos, [p.slice(2).join('_')]: v } : pos)); } else setSampleData(prev => ({ ...prev, [numKeypad.field]: v })); } setNumKeypad(null); }}
+        initialValue={numKeypad?.value || 0} label={numKeypad?.label || ''} unit="mm" />
+      {showKb && textKb && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60" onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            const val = kbValueRef.current;
+            const field = textKb?.field || '';
+            if (field === '_newName') setNewName(val);
+            else if (field === '_newPO') setNewPO(val);
+            else if (field) setSampleData(prev => ({ ...prev, [field]: val }));
+            setShowKb(false);
           }
-          setMeasKeypad(null);
-        }}
-        initialValue={measKeypad ? (measurements[measKeypad.pos]?.[measKeypad.field as keyof typeof measurements[1]] || 0) : 0}
-        label={measKeypad?.label || ''}
-        unit="mm"
-      />
-      <NumericKeypad
-        isOpen={activeKeypad !== null}
-        onClose={() => setActiveKeypad(null)}
-        onConfirm={handleKeypadConfirm}
-        initialValue={(activeKeypad ? (meta[activeKeypad.field] as number) : 0) || 0}
-        label={activeKeypad?.label || ''}
-        unit={activeKeypad?.unit || ''}
-      />
+        }}>
+          <div className="bg-card w-full max-w-md p-4 rounded-xl border shadow-2xl">
+            <div className="flex justify-between mb-2">
+              <span className="font-semibold text-base">{textKb.field.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase())}</span>
+              <TouchButton variant="primary" size="sm" onClick={() => {
+                const val = kbValueRef.current;
+                const field = textKb.field;
+                if (field === '_newName') setNewName(val);
+                else if (field === '_newPO') setNewPO(val);
+                else setSampleData(prev => ({ ...prev, [field]: val }));
+                setShowKb(false);
+              }} className="px-4 min-h-[40px]">Done</TouchButton>
+            </div>
+            <div className="w-full rounded-md border border-primary px-4 py-3 mb-3 text-xl font-mono bg-secondary/20 min-h-[50px]">
+              {textKb.value || <span className="text-muted-foreground">...</span>}
+            </div>
+            <VirtualKeyboard
+              value={textKb.value}
+              onChange={v => {
+                kbValueRef.current = v;
+                setTextKb(prev => prev ? { ...prev, value: v } : null);
+              }}
+              onClose={() => {
+                const val = kbValueRef.current;
+                const field = textKb.field;
+                if (field === '_newName') setNewName(val);
+                else if (field === '_newPO') setNewPO(val);
+                else setSampleData(prev => ({ ...prev, [field]: val }));
+                setShowKb(false);
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
