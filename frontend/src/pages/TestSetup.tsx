@@ -352,7 +352,7 @@ const TestSetup = () => {
                 <TouchButton
                   variant={testType === 'stiffness1' ? "primary" : "outline"}
                   size="sm"
-                  onClick={() => { setTestType('stiffness1'); setNumPositions(1); fetch('/api/parameters', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({test_mode:0})}); }}
+                  onClick={() => { setTestType('stiffness1'); setNumPositions(1); fetch('/api/parameters', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({test_mode:0})}); fetch('/api/test-metadata', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...meta, num_positions:1, angles:[0]})}); }}
                   className="flex-1 min-h-[48px]"
                 >
                   1 {t('testSetup.position')}
@@ -360,7 +360,7 @@ const TestSetup = () => {
                 <TouchButton
                   variant={testType === 'stiffness3' ? "primary" : "outline"}
                   size="sm"
-                  onClick={() => { setTestType('stiffness3'); setNumPositions(3); fetch('/api/parameters', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({test_mode:0})}); }}
+                  onClick={() => { setTestType('stiffness3'); setNumPositions(3); fetch('/api/parameters', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({test_mode:0})}); fetch('/api/test-metadata', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...meta, num_positions:3, angles:[0,40,80]})}); }}
                   className="flex-1 min-h-[48px]"
                 >
                   3 {t('testSetup.positions')}
@@ -368,7 +368,7 @@ const TestSetup = () => {
                 <TouchButton
                   variant={testType === 'crack' ? "primary" : "outline"}
                   size="sm"
-                  onClick={() => { setTestType('crack'); setNumPositions(1); fetch('/api/parameters', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({test_mode:1})}); }}
+                  onClick={() => { setTestType('crack'); setNumPositions(1); fetch('/api/parameters', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({test_mode:1})}); fetch('/api/test-metadata', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...meta, num_positions:1, angles:[0]})}); }}
                   className="flex-1 min-h-[48px]"
                 >
                   {t('testSetup.crackTest')}
@@ -376,7 +376,7 @@ const TestSetup = () => {
                 <TouchButton
                   variant={testType === 'fracture' ? "warning" : "outline"}
                   size="sm"
-                  onClick={() => { setTestType('fracture'); setNumPositions(1); fetch('/api/parameters', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({test_mode:3})}); }}
+                  onClick={() => { setTestType('fracture'); setNumPositions(1); fetch('/api/parameters', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({test_mode:3})}); fetch('/api/test-metadata', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...meta, num_positions:1, angles:[0]})}); }}
                   className="flex-1 min-h-[48px]"
                 >
                   {t('dashboard.group.fracture')}
