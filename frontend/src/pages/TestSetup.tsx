@@ -39,7 +39,7 @@ const TestSetup = () => {
   // Dialogs
   const [showNewDialog, setShowNewDialog] = useState<'client' | 'project' | null>(null);
   const [newName, setNewName] = useState('');
-  const [newType, setNewType] = useState('external');
+  const [newType, setNewType] = useState('external');  // New clients are always external
   const [newPO, setNewPO] = useState('');
 
   // Wizard data
@@ -63,7 +63,18 @@ const TestSetup = () => {
 
   // === Load ===
   useEffect(() => {
-    fetch('/api/samples/clients').then(r => r.json()).then(d => setClients(d.clients || []));
+    fetch('/api/samples/clients').then(r => r.json()).then(d => {
+      const list = d.clients || [];
+      // Ensure QC Internal always exists
+      if (!list.find((c: any) => c.client_type === 'internal')) {
+        fetch('/api/samples/clients', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'QC Internal', client_type: 'internal' }) })
+          .then(r => r.json()).then(qc => setClients([qc, ...list]));
+      } else {
+        // Put QC Internal first
+        const sorted = [...list].sort((a: any, b: any) => a.client_type === 'internal' ? -1 : 1);
+        setClients(sorted);
+      }
+    });
     fetch('/api/parameters').then(r => r.json()).then(p => {
       if (p.test_mode === 3) setTestType('fracture');
       else if (p.test_mode === 1) setTestType('crack');
@@ -280,7 +291,7 @@ const TestSetup = () => {
       {/* Breadcrumb Path */}
       {level !== 'wizard' && (
         <div className="flex items-center gap-1 text-sm px-1 flex-wrap">
-          <button onClick={() => setLevel('clients')} className={`px-2 py-1 rounded ${level === 'clients' ? 'font-bold text-primary' : 'text-muted-foreground hover:text-foreground'}`}>Clients</button>
+          <button onClick={() => { setLevel("clients"); setSelectedClient(null); setSelectedProject(null); }} className={`px-2 py-1 rounded ${level === 'clients' ? 'font-bold text-primary' : 'text-muted-foreground hover:text-foreground'}`}>QC Internal</button>
           {selectedClient && (
             <>
               <ChevronRight className="w-4 h-4 text-muted-foreground" />
@@ -305,31 +316,43 @@ const TestSetup = () => {
       {/* === TREE NAVIGATION === */}
       {level === 'clients' && (
         <div className="flex-1 flex flex-col gap-2 overflow-y-auto">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-muted-foreground flex items-center gap-1"><Users className="w-4 h-4" /> Clients</span>
-            <TouchButton variant="outline" size="sm" onClick={() => setShowNewDialog('client')} className="px-4 min-h-[44px]"><Plus className="w-5 h-5 mr-1" /> Add Client</TouchButton>
-          </div>
-          {clients.map(c => (
+          {/* QC Internal - always first */}
+          {clients.filter((c: any) => c.client_type === 'internal').map(c => (
             <div key={c.id} onClick={() => { setSelectedClient(c); loadProjects(c.id); setLevel('projects'); }}
-              className="industrial-card p-4 cursor-pointer hover:ring-1 hover:ring-primary/50 flex items-center justify-between min-h-[60px]">
-              <div className="flex items-center gap-2">
-                {c.client_type === 'internal' ? <FlaskConical className="w-5 h-5 text-info" /> : <Building2 className="w-5 h-5 text-warning" />}
-                <div>
-                  <span className="font-bold text-base">{c.name}</span>
-                  <Badge variant="outline" className="ml-2 text-xs">{c.client_type}</Badge>
-                </div>
+              className="industrial-card p-4 cursor-pointer hover:ring-2 hover:ring-info/50 flex items-center justify-between min-h-[64px] border-info/30 bg-info/5">
+              <div className="flex items-center gap-3">
+                <FlaskConical className="w-7 h-7 text-info" />
+                <span className="font-bold text-lg">QC Internal</span>
               </div>
-              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+              <ChevronRight className="w-6 h-6 text-muted-foreground" />
             </div>
           ))}
-          {clients.length === 0 && <p className="text-center text-muted-foreground text-sm py-8">No clients yet</p>}
+
+          {/* External Clients */}
+          <div className="flex items-center justify-between mt-1">
+            <span className="text-sm font-semibold text-muted-foreground">Clients</span>
+            <TouchButton variant="outline" size="sm" onClick={() => setShowNewDialog('client')} className="px-4 min-h-[44px]"><Plus className="w-5 h-5 mr-1" /> Add Client</TouchButton>
+          </div>
+          {clients.filter((c: any) => c.client_type !== 'internal').map(c => (
+            <div key={c.id} onClick={() => { setSelectedClient(c); loadProjects(c.id); setLevel('projects'); }}
+              className="industrial-card p-4 cursor-pointer hover:ring-1 hover:ring-warning/50 flex items-center justify-between min-h-[64px]">
+              <div className="flex items-center gap-3">
+                <Building2 className="w-7 h-7 text-warning" />
+                <span className="font-bold text-lg">{c.name}</span>
+              </div>
+              <ChevronRight className="w-6 h-6 text-muted-foreground" />
+            </div>
+          ))}
+          {clients.filter((c: any) => c.client_type !== 'internal').length === 0 && (
+            <p className="text-center text-muted-foreground text-sm py-4">No external clients yet</p>
+          )}
         </div>
       )}
 
       {level === 'projects' && selectedClient && (
         <div className="flex-1 flex flex-col gap-2 overflow-y-auto">
           <div className="flex items-center justify-between">
-            <TouchButton variant="ghost" size="sm" onClick={() => setLevel('clients')} className="px-3 min-h-[40px] text-base"><ChevronLeft className="w-5 h-5 mr-1" /> Back</TouchButton>
+            <TouchButton variant="ghost" size="sm" onClick={() => { setLevel("clients"); setSelectedClient(null); setSelectedProject(null); }} className="px-3 min-h-[40px] text-base"><ChevronLeft className="w-5 h-5 mr-1" /> Back</TouchButton>
             <TouchButton variant="outline" size="sm" onClick={() => setShowNewDialog('project')} className="px-4 min-h-[44px]"><Plus className="w-5 h-5 mr-1" /> Add Project</TouchButton>
           </div>
           {projects.map(p => (
@@ -452,12 +475,7 @@ const TestSetup = () => {
               {newName || <span className="text-muted-foreground text-base">Enter name...</span>}
             </div>
             
-            {showNewDialog === 'client' && (
-              <div className="flex gap-2">
-                <TouchButton variant={newType === 'internal' ? "primary" : "outline"} size="sm" onClick={() => setNewType('internal')} className="flex-1 min-h-[44px]">QC Internal</TouchButton>
-                <TouchButton variant={newType === 'external' ? "primary" : "outline"} size="sm" onClick={() => setNewType('external')} className="flex-1 min-h-[44px]">External Client</TouchButton>
-              </div>
-            )}
+
 
             <VirtualKeyboard
               value={newName}
