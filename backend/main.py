@@ -10,9 +10,10 @@ import logging
 import sys
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 import socketio
 
 from config import settings
@@ -165,6 +166,19 @@ socket_app = socketio.ASGIApp(
     app,
     socketio_path='/socket.io'
 )
+
+class NoCacheStaticMiddleware(BaseHTTPMiddleware):
+    """Disable caching for the kiosk frontend so build updates take effect immediately."""
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        path = request.url.path
+        if path == "/" or path.endswith(".html") or path.startswith("/assets/"):
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+        return response
+
+app.add_middleware(NoCacheStaticMiddleware)
 
 # Serve static files (frontend build) - mount last
 try:

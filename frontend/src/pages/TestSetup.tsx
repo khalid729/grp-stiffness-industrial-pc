@@ -112,6 +112,25 @@ const TestSetup = () => {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pipe_diameter: s.pipe_diameter, pipe_length: s.pipe_length, deflection_percent: s.deflection_percent, target_sn_class: s.target_sn_class }),
     });
+
+    // Auto-pick best stiffness mode based on available measurements:
+    // 3-position is preferred when all 3 are valid; otherwise fall back to 1-position.
+    // Don't override Crack/Fracture if the user explicitly chose them.
+    const validCount = (s.positions || []).filter((p: any) => p && p.h_id && p.v_id && p.wall_thickness).length;
+    const currentType = (localStorage.getItem('testType') || 'stiffness1') as typeof testType;
+    const newType: typeof testType =
+      (currentType === 'crack' || currentType === 'fracture')
+        ? currentType
+        : (validCount >= 3 ? 'stiffness3' : 'stiffness1');
+    setTestType(newType);
+    localStorage.setItem('testType', newType);
+    const mode = newType === 'fracture' ? 3 : newType === 'crack' ? 1 : 0;
+    fetch('/api/parameters', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ test_mode: mode }),
+    });
+
+    const np = newType === 'stiffness3' ? 3 : 1;
     fetch('/api/test-metadata', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -119,7 +138,7 @@ const TestSetup = () => {
         nominal_diameter: s.nominal_diameter, nominal_weight: s.nominal_weight,
         pressure_class: s.pressure_class, stiffness_class: s.stiffness_class,
         project_name: selectedProject?.name, customer_name: selectedClient?.name, po_number: selectedProject?.po_number,
-        num_positions: s.num_positions, angles: s.num_positions === 3 ? [0, 40, 80] : [0],
+        num_positions: np, angles: np === 3 ? [0, 40, 80] : [0],
         positions: (s.positions || []).map((p: any) => ({ position: p.position, angle: p.angle, h_id: p.h_id, v_id: p.v_id, wall_thickness: p.wall_thickness, ring_length: p.ring_length })),
       }),
     });
@@ -138,14 +157,29 @@ const TestSetup = () => {
 
   const saveSample = () => {
     if (!selectedProject) return;
-    const posData = sampleData.num_positions === 3 ? positions : [positions[0]];
-    const doCreate = () => fetch('/api/samples/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...sampleData, project_id: selectedProject.id, positions: posData }) })
-      .then(r => r.json()).then(result => {
-        loadSamples(selectedProject.id);
-        fetch(`/api/samples/${result.id}`).then(r => r.json()).then(s => { selectSample(s); setLevel('samples'); setWizardStep(1); setEditingSampleId(null); });
+    // Always send all 3 positions. Backend MERGES — positions not in the list are preserved.
+    // num_positions is no longer a per-sample setting; the user picks 1P/3P at test time.
+    const posData = positions;
+    const payload = { ...sampleData, num_positions: 3, positions: posData };
+    const finishWith = (id: number) => {
+      loadSamples(selectedProject.id);
+      fetch(`/api/samples/${id}`).then(r => r.json()).then(s => {
+        selectSample(s); setLevel('samples'); setWizardStep(1); setEditingSampleId(null);
       });
-    if (editingSampleId) fetch('/api/samples/' + editingSampleId, { method: 'DELETE' }).then(doCreate);
-    else doCreate();
+    };
+    if (editingSampleId) {
+      fetch('/api/samples/' + editingSampleId, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }).then(r => r.json()).then(result => finishWith(result.id));
+    } else {
+      fetch('/api/samples/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...payload, project_id: selectedProject.id }),
+      }).then(r => r.json()).then(result => finishWith(result.id));
+    }
   };
 
   const openEditWizard = () => {
@@ -180,7 +214,8 @@ const TestSetup = () => {
   };
 
   // === Wizard ===
-  const totalSteps = sampleData.num_positions === 3 ? 6 : 4;
+  // Steps: 1=Client/Project, 2=Sample Info, 3=Sliders, 4=All Measurements (single page), 5=Review
+  const totalSteps = 5;
 
   const renderWizard = () => {
     if (wizardStep === 1) return (
@@ -228,10 +263,6 @@ const TestSetup = () => {
     if (wizardStep === 3) return (
       <div className="space-y-3">
         <h2 className="text-xl font-bold">Test Parameters</h2>
-        <div className="flex gap-2">
-          <TouchButton variant={sampleData.num_positions === 1 ? "primary" : "outline"} size="sm" onClick={() => setSampleData(prev => ({ ...prev, num_positions: 1 }))} className="flex-1 min-h-[48px] text-base">1 Position</TouchButton>
-          <TouchButton variant={sampleData.num_positions === 3 ? "primary" : "outline"} size="sm" onClick={() => setSampleData(prev => ({ ...prev, num_positions: 3 }))} className="flex-1 min-h-[48px] text-base">3 Positions</TouchButton>
-        </div>
         {/* Crack & Fracture percentages */}
         <div className="grid grid-cols-3 gap-2">
           <div className="space-y-1">
@@ -259,25 +290,46 @@ const TestSetup = () => {
         ))}
       </div>
     );
-    const measStep = 4;
-    const posCount = sampleData.num_positions === 3 ? 3 : 1;
-    if (wizardStep >= measStep && wizardStep < measStep + posCount) {
-      const idx = wizardStep - measStep;
-      const pos = positions[idx];
-      const initD = pos.h_id > 0 && pos.v_id > 0 ? (((pos.h_id - pos.v_id) / ((pos.h_id + pos.v_id) / 2)) * 100).toFixed(3) : '-';
+    if (wizardStep === 4) {
+      // All measurements on one page, grouped by attribute (entity-based entry).
+      // Workflow: position the sample horizontal → measure all H_ID at once → rotate vertical → measure V_ID, etc.
+      // Always show 3 columns; user fills what they have. Test type (1P/3P) is chosen later from main page.
+      const posCount = 3;
+      const visibleIdx = Array.from({ length: posCount }, (_, i) => i);
+      const ATTRS: { f: 'h_id' | 'v_id' | 'wall_thickness' | 'ring_length'; l: string; icon: string }[] = [
+        { f: 'h_id', l: 'Horizontal ID', icon: '↔' },
+        { f: 'v_id', l: 'Vertical ID', icon: '↕' },
+        { f: 'wall_thickness', l: 'Wall Thickness', icon: '▦' },
+        { f: 'ring_length', l: 'Ring Length', icon: '⊏⊐' },
+      ];
       return (
         <div className="space-y-3">
-          <h2 className="text-xl font-bold">📐 Measurements — {ANGLES[idx]}°</h2>
-          <div className="grid grid-cols-2 gap-2">
-            {[{ f: 'h_id', l: 'Horizontal ID' }, { f: 'v_id', l: 'Vertical ID' }, { f: 'wall_thickness', l: 'Wall Thickness' }, { f: 'ring_length', l: 'Ring Length' }].map(({ f, l }) => (
-              <button key={f} onClick={() => setNumKeypad({ field: `pos_${idx}_${f}`, label: `${l} — ${ANGLES[idx]}°`, value: (pos as any)[f] || 0 })}
-                className="flex items-center justify-between p-4 bg-secondary/30 rounded-lg border border-border min-h-[56px]">
-                <span className="text-sm text-muted-foreground">{l}</span>
-                <span className="font-mono font-bold text-lg">{(pos as any)[f] || '-'} <span className="text-sm">mm</span></span>
-              </button>
-            ))}
-          </div>
-          {pos.h_id > 0 && pos.v_id > 0 && <p className="text-center text-sm text-muted-foreground">Init Deflection: <span className="font-mono font-bold">{initD}%</span></p>}
+          <h2 className="text-xl font-bold">📐 Measurements (mm)</h2>
+          {posCount === 3 && (
+            <div className="grid gap-1 text-xs text-muted-foreground" style={{ gridTemplateColumns: '1fr repeat(3, 1fr)' }}>
+              <span></span>
+              {visibleIdx.map(i => <span key={i} className="text-center font-bold text-foreground">{ANGLES[i]}°</span>)}
+            </div>
+          )}
+          {ATTRS.map(({ f, l, icon }) => (
+            <div key={f} className="space-y-1">
+              <div className="text-sm font-bold flex items-center gap-2"><span className="text-base">{icon}</span>{l}</div>
+              <div className="grid gap-2" style={{ gridTemplateColumns: posCount === 3 ? '1fr 1fr 1fr' : '1fr' }}>
+                {visibleIdx.map(i => {
+                  const pos = positions[i];
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => setNumKeypad({ field: `pos_${i}_${f}`, label: `${l} — ${ANGLES[i]}°`, value: (pos as any)[f] || 0 })}
+                      className="flex items-center justify-center p-3 bg-secondary/30 rounded-lg border border-border min-h-[52px] font-mono font-bold text-lg"
+                    >
+                      {(pos as any)[f] || '-'}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       );
     }
@@ -307,22 +359,37 @@ const TestSetup = () => {
         </div>
       </div>
 
-      {/* Test Type Buttons - always visible except wizard */}
-      {level !== 'wizard' && (
-        <div className="flex gap-2">
-          {[
-            { type: 'stiffness1' as const, label: '1 Position', color: 'bg-blue-600' },
-            { type: 'stiffness3' as const, label: '3 Positions', color: 'bg-emerald-600' },
-            { type: 'crack' as const, label: 'Crack', color: 'bg-orange-500' },
-            { type: 'fracture' as const, label: 'Fracture', color: 'bg-red-600' },
-          ].map(b => (
-            <button key={b.type}
-              onClick={() => setTestMode(b.type)}
-              className={`flex-1 min-h-[38px] text-sm font-bold rounded-lg transition-all ${testType === b.type ? b.color + ' text-white shadow-lg' : 'bg-secondary/50 text-muted-foreground hover:bg-secondary'}`}
-            >{b.label}</button>
-          ))}
-        </div>
-      )}
+      {/* Test Type Buttons - always visible except wizard.
+          Each button checks the active sample has the data it needs. */}
+      {level !== 'wizard' && (() => {
+        const validPos = (selectedSample?.positions || []).filter(
+          (p: any) => p && p.h_id && p.v_id && p.wall_thickness
+        ).length;
+        const has1 = validPos >= 1;
+        const has3 = validPos >= 3;
+        const buttons = [
+          { type: 'stiffness1' as const, label: '1 Position', color: 'bg-blue-600', enabled: has1 },
+          { type: 'stiffness3' as const, label: '3 Positions', color: 'bg-emerald-600', enabled: has3 },
+          { type: 'crack' as const, label: 'Crack', color: 'bg-orange-500', enabled: has1 },
+          { type: 'fracture' as const, label: 'Fracture', color: 'bg-red-600', enabled: has1 },
+        ];
+        return (
+          <div className="flex gap-2">
+            {buttons.map(b => (
+              <button key={b.type}
+                onClick={() => b.enabled && setTestMode(b.type)}
+                disabled={!b.enabled}
+                title={b.enabled ? '' : 'Sample missing required measurements'}
+                className={`flex-1 min-h-[38px] text-sm font-bold rounded-lg transition-all ${
+                  !b.enabled ? 'bg-secondary/20 text-muted-foreground/40 cursor-not-allowed' :
+                  testType === b.type ? b.color + ' text-white shadow-lg' :
+                  'bg-secondary/50 text-muted-foreground hover:bg-secondary'
+                }`}
+              >{b.label}</button>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Breadcrumb Path */}
       {level !== 'wizard' && (
@@ -420,7 +487,7 @@ const TestSetup = () => {
                   <span className="text-sm text-muted-foreground ml-2">DN{s.pipe_diameter} | SN{s.target_sn_class}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline">{s.num_positions}P</Badge>
+                  <Badge variant="outline">{(s.positions || []).filter((p: any) => p && p.h_id && p.v_id && p.wall_thickness).length}/3</Badge>
                   {selectedSample?.id === s.id && <Check className="w-5 h-5 text-success" />}
                   <TouchButton variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); selectSample(s); setLevel('detail'); }} className="px-3 min-h-[44px]">
                     <ChevronRight className="w-5 h-5" />
@@ -439,7 +506,7 @@ const TestSetup = () => {
           <div className="industrial-card p-3 space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold">{selectedSample.sample_id}</h2>
-              <Badge>{selectedSample.num_positions}P | SN{selectedSample.target_sn_class}</Badge>
+              <Badge>{(selectedSample.positions || []).filter((p: any) => p && p.h_id && p.v_id && p.wall_thickness).length}/3 | SN{selectedSample.target_sn_class}</Badge>
             </div>
             <div className="grid grid-cols-2 gap-2 text-sm">
               {[['Client', selectedSample.client_name], ['Project', selectedSample.project_name], ['Operator', selectedSample.operator], ['Lot', selectedSample.lot_number], ['Product', selectedSample.product_id], ['Pressure', selectedSample.pressure_class]].map(([k, v]) => (
@@ -496,7 +563,7 @@ const TestSetup = () => {
         <div className="industrial-card p-2 bg-primary/5 border-primary/20">
           <div className="flex items-center justify-between text-xs">
             <span className="font-semibold text-primary">✓ Active: {selectedSample.sample_id}</span>
-            <span>DN{selectedSample.pipe_diameter} | SN{selectedSample.target_sn_class} | {selectedSample.num_positions}P</span>
+            <span>DN{selectedSample.pipe_diameter} | SN{selectedSample.target_sn_class} | {(selectedSample.positions || []).filter((p: any) => p && p.h_id && p.v_id && p.wall_thickness).length}/3</span>
           </div>
         </div>
       )}

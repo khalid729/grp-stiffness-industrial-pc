@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
-import { TestReportDialog } from '@/components/reports/TestReportDialog';
 import { GroupReportDialog } from '@/components/reports/GroupReportDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Slider } from '@/components/ui/slider';
@@ -36,7 +35,6 @@ const Dashboard = () => {
   // Keypad state
   const [keypadOpen, setKeypadOpen] = useState<'speed' | 'distance' | 'fracture' | null>(null);
 
-  const [completedTestId, setCompletedTestId] = useState<number | null>(null);
   const [completedGroupId, setCompletedGroupId] = useState<number | null>(null);
   const [groupState, setGroupState] = useState<{
     group_id: number | null;
@@ -170,10 +168,9 @@ const Dashboard = () => {
           const nextPos = data.group.current_position;
           setNextAngle(angles[nextPos - 1] || 0);
         }
-      } else {
-        setGroupState(null);
-        if (data.test_id) setCompletedTestId(data.test_id);
       }
+      // Note: backend always creates a group now (even for 1-position),
+      // so the orphan-test branch was removed.
     });
     return unsub;
   }, []);
@@ -363,16 +360,32 @@ const Dashboard = () => {
   }, []);
   const paramErrorCode = (liveData as any).hmi_ext?.param_error_code || 0;
 
+  // Validate active sample has measurements for the positions the chosen test type needs.
+  // The required count comes from the runtime test type (1P/3P/Crack/Fracture), NOT from
+  // the sample record — the sample is just a measurements bank.
+  const sampleValidationError: string | null = (() => {
+    if (!activeSample) return 'No sample selected';
+    const testType = localStorage.getItem('testType') || 'stiffness1';
+    const required = testType === 'stiffness3' ? 3 : 1;
+    const positions: any[] = activeSample.positions || [];
+    const valid = positions.filter(p => p && p.h_id && p.v_id && p.wall_thickness).map(p => p.position);
+    const missing: number[] = [];
+    for (let i = 1; i <= required; i++) if (!valid.includes(i)) missing.push(i);
+    if (missing.length > 0) return `Position(s) ${missing.join(', ')} missing measurements`;
+    return null;
+  })();
+
   const handleStartTest = async () => {
+    // Validation: block start if sample missing or positions incomplete
+    if (sampleValidationError) {
+      toast.error(sampleValidationError);
+      if (!activeSample) setShowNoSample(true);
+      return;
+    }
     // Show brief dialog only for first test start (not between positions)
     if (activeSample && !briefShownRef.current) {
       briefShownRef.current = true;
       setShowBrief(true);
-      return;
-    }
-    // If no sample, warn
-    if (!activeSample) {
-      setShowNoSample(true);
       return;
     }
     doStartTest();
@@ -463,7 +476,8 @@ const Dashboard = () => {
             variant="success"
             size="sm"
             onClick={handleStartTest}
-            disabled={controlsDisabled || isTestRunning || !safety.ok || activeTestMode === 3}
+            disabled={controlsDisabled || isTestRunning || !safety.ok || activeTestMode === 3 || !!sampleValidationError}
+            title={sampleValidationError || ''}
             className="flex items-center justify-center gap-1.5 w-full min-h-[80px]"
           >
             <Play className="w-6 h-6" />
@@ -723,13 +737,6 @@ const Dashboard = () => {
 
 
 
-      {/* Auto-open Test Report on completion */}
-      <TestReportDialog
-        testId={completedTestId}
-        open={completedTestId !== null && flowDialog !== 'report'}
-        onOpenChange={(open) => { if (!open) { setCompletedTestId(null); fetch('/api/servo/reset', { method: 'POST' }); } }}
-      />
-
       {/* Stage 5 Dialog — Continue to Crack? (after stiffness complete in Mode 2) */}
       <Dialog open={showCrackDialog === 'stage5'} onOpenChange={() => {}}>
         <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
@@ -938,9 +945,12 @@ const Dashboard = () => {
                 {t('testSetup.retryPosition')}
               </TouchButton>
               <TouchButton variant="destructive" size="sm" onClick={() => {
+                // Same sequence as the double-press Stop abort: stop + reset PLC + reset group
                 fetch('/api/command/stop', { method: 'POST' });
+                setTimeout(() => { fetch('/api/servo/reset', { method: 'POST' }); }, 500);
                 fetch('/api/groups/reset', { method: 'POST' });
                 setFlowDialog(null); setGroupState(null); pollActiveRef.current = false;
+                briefShownRef.current = false;
               }} className="flex-1 min-h-[44px] text-sm">
                 {t('actions.abort')}
               </TouchButton>

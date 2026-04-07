@@ -1,5 +1,37 @@
 # سجل التغييرات | Changelog
 
+## 2026-04-07 - Unified Stiffness Flow, Sample-as-Bank, Cache Headers
+
+### Major Changes
+- **Unified stiffness flow** — 1-position and 3-position now use the same group code path. Backend always creates a `TestGroup`, even for 1-position tests, so reports always go through `GroupReportDialog` (the broken legacy 1-position report path is gone).
+- **Sample as a measurements bank** — `num_positions` is no longer a per-sample setting. The wizard always allows entering all 3 positions; the user fills what they have. Test type (1P/3P/Crack/Fracture) is chosen at runtime from the TestSetup main page, NOT inside the wizard.
+- **Auto-pick best test type on sample selection** — when a sample is selected, the active test type defaults to `3 Positions` if all 3 measurements are valid, otherwise `1 Position`. Crack/Fracture choices are preserved if previously selected.
+
+### New Features
+- **Pre-start validation** — `/api/command/start` rejects with a clear message if the active sample is missing measurements for the chosen test type's positions. Frontend Start button is disabled with a tooltip when validation would fail.
+- **PUT /api/samples/{id}** — proper sample update endpoint that MERGES positions instead of deleting them. Switching test type or editing a sample never wipes existing position measurements.
+- **`Cache-Control: no-cache` middleware** — `backend/main.py` now installs `NoCacheStaticMiddleware` so kiosk Chromium never serves stale builds. Resolves the recurring "I built it but the kiosk shows the old UI" problem.
+- **Wizard measurement page redesign** — single page grouped by attribute (Horizontal ID / Vertical ID / Wall Thickness / Ring Length) with 3 angle inputs each. Matches physical workflow: rotate sample once, take all H_ID readings, then rotate, take all V_ID, etc.
+
+### Bug Fixes
+- **Position data wiped on sample edit** — root cause was frontend doing `DELETE` + `POST /create` when editing. Replaced with `PUT` + backend merge logic. Switching from 3-position to 1-position no longer destroys position 2/3 measurements.
+- **Abort button in Position Summary dialog left PLC in COMPLETE state** — now sends `stop` + `servo/reset` + `groups/reset` (same sequence as the double-press Stop button).
+- **Test started but instantly failed without machine moving** — root cause was `Deflection_Target = 0` after the PLC's ASTM D2412 migration removed `FC_Calculate.Deflection_Target`. Backend now writes `target_mm = nominal_diameter × deflection_% / 100` and `test_speed = 12.5 mm/min` to DB1 before sending Start.
+- **TestReportDialog removed from Dashboard** — old single-test report path that was the source of incorrect 1-position reports. `TestReportDialog.tsx` itself is kept because History.tsx still uses it for legacy orphan tests.
+
+### Files Modified
+- backend/api/routes/commands.py — pre-start validation + ASTM target/speed write
+- backend/api/routes/samples.py — new `PUT /samples/{id}` with position merge
+- backend/api/websocket.py — always create TestGroup (even 1-position)
+- backend/main.py — NoCacheStaticMiddleware
+- frontend/src/pages/TestSetup.tsx — wizard redesign + sample-as-bank + auto-pick test type + button disable when sample incomplete
+- frontend/src/pages/Dashboard.tsx — remove TestReportDialog + sampleValidationError using runtime test type + abort button reset fix
+
+### Known Pending
+- HW load cell tare via SIWAREX WP231 (CMD 1/2) — PLC DB4 still 68 bytes; the new HW_Tare/HW_Zero/HW_CMD_* tags described in `GRP_PLC_Complete_Documentation.md` are not yet uploaded. Software tare remains in use until DB4 is extended.
+
+---
+
 ## 2026-03-29 - Crack Test Type, History Fixes & Touch Scroll Fix
 
 ### New Features

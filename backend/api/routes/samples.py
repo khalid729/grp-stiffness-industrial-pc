@@ -55,6 +55,27 @@ class SampleCreate(BaseModel):
     positions: List[PositionData] = []
 
 
+class SampleUpdate(BaseModel):
+    """All fields optional. positions are MERGED — only positions in the list are updated;
+    positions not in the list are preserved."""
+    sample_id: Optional[str] = None
+    operator: Optional[str] = None
+    pipe_diameter: Optional[float] = None
+    pipe_length: Optional[float] = None
+    deflection_percent: Optional[float] = None
+    lot_number: Optional[str] = None
+    product_id: Optional[str] = None
+    nominal_diameter: Optional[float] = None
+    nominal_weight: Optional[float] = None
+    pressure_class: Optional[str] = None
+    target_sn_class: Optional[int] = None
+    num_positions: Optional[int] = None
+    crack_stage1_percent: Optional[float] = None
+    crack_stage2_percent: Optional[float] = None
+    fracture_max_percent: Optional[float] = None
+    positions: Optional[List[PositionData]] = None
+
+
 # === Clients ===
 
 @router.get("/clients")
@@ -227,6 +248,48 @@ async def create_sample(data: SampleCreate, db: AsyncSession = Depends(get_db)):
     await db.refresh(sample)
     logger.info(f"Sample created: {sample.sample_id} with {len(data.positions)} positions")
     return {"id": sample.id, "sample_id": sample.sample_id}
+
+@router.put("/{sample_id}")
+async def update_sample(sample_id: int, data: SampleUpdate, db: AsyncSession = Depends(get_db)):
+    """Update sample fields and merge positions. Positions NOT in the request are preserved."""
+    sample = await db.get(Sample, sample_id)
+    if not sample:
+        raise HTTPException(404, "Sample not found")
+
+    # Update scalar fields (only if provided)
+    update_fields = data.model_dump(exclude_unset=True, exclude={'positions'})
+    for key, value in update_fields.items():
+        setattr(sample, key, value)
+    if 'target_sn_class' in update_fields and update_fields['target_sn_class']:
+        sample.stiffness_class = f"SN{update_fields['target_sn_class']}"
+
+    # Merge positions: update existing rows, insert missing ones, NEVER delete
+    if data.positions is not None:
+        result = await db.execute(
+            select(SamplePosition).where(SamplePosition.sample_id == sample_id)
+        )
+        existing = {p.position: p for p in result.scalars().all()}
+        for p in data.positions:
+            if p.position in existing:
+                row = existing[p.position]
+                row.angle = p.angle
+                row.h_id = p.h_id
+                row.v_id = p.v_id
+                row.wall_thickness = p.wall_thickness
+                row.ring_length = p.ring_length
+            else:
+                db.add(SamplePosition(
+                    sample_id=sample_id,
+                    position=p.position, angle=p.angle,
+                    h_id=p.h_id, v_id=p.v_id,
+                    wall_thickness=p.wall_thickness, ring_length=p.ring_length,
+                ))
+
+    await db.commit()
+    await db.refresh(sample)
+    logger.info(f"Sample {sample_id} updated (positions merged, none deleted)")
+    return {"id": sample.id, "sample_id": sample.sample_id}
+
 
 @router.delete("/{sample_id}")
 async def delete_sample(sample_id: int, db: AsyncSession = Depends(get_db)):

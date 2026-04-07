@@ -29,6 +29,7 @@ broadcast_task: Optional[asyncio.Task] = None
 # Last good test results (saved before PLC clears them)
 _last_good_results: dict = {}
 _test_actually_started: bool = False
+_test_reached_stage11: bool = False
 
 # Calculated deflection state
 _test_start_time: Optional[float] = None
@@ -344,15 +345,14 @@ async def _save_test_result(data: dict):
         else:
             logger.warning(f"D2412: No measurements for pos {current_pos}, skipping calculations")
 
-        # Set position/angle
-        if _group_num_positions >= 1:
-            current_angle = _group_angles[_group_current_position - 1] if _group_current_position <= len(_group_angles) else 0
-            test_record.position = _group_current_position
-            test_record.angle = current_angle
+        # Set position/angle (always — group flow is unified)
+        current_angle = _group_angles[_group_current_position - 1] if _group_current_position <= len(_group_angles) else 0
+        test_record.position = _group_current_position
+        test_record.angle = current_angle
 
         async with AsyncSessionLocal() as session:
-            # Create or link test group
-            if _group_num_positions > 1:
+            # Create or link test group — ALWAYS, even for 1-position tests
+            if True:
                 if _active_group_id is None:
                     # First position - create group
                     group = TestGroup(
@@ -405,8 +405,8 @@ async def _save_test_result(data: dict):
             logger.info(f"Test result saved: Ø{test_record.pipe_diameter}mm, "
                         f"RS={test_record.ring_stiffness:.1f} kN/m², "
                         f"SN{test_record.sn_class}, {'PASS' if test_record.passed else 'FAIL'}")
-            # Update group progress
-            if _active_group_id and _group_num_positions > 1:
+            # Update group progress (always — works for 1-position too)
+            if _active_group_id:
                 group = await session.get(TestGroup, _active_group_id)
                 if group:
                     _group_current_position += 1
@@ -474,7 +474,7 @@ async def _save_test_result(data: dict):
 
 async def broadcast_live_data():
     """Background task to broadcast live data every 100ms"""
-    global _test_start_time, _test_speed, _test_data_points, _test_duration, _last_good_results, _test_actually_started
+    global _test_start_time, _test_speed, _test_data_points, _test_duration, _last_good_results, _test_actually_started, _test_reached_stage11
 
     logger.info("Starting live data broadcast task")
     reconnect_interval = 0
@@ -513,6 +513,7 @@ async def broadcast_live_data():
                 # Detect test start: start deflection timer when test_status becomes 2 (testing)
                 if current_test_status == 2 and last_test_status != 2:
                     _test_actually_started = True
+                    _test_reached_stage11 = False
                     _test_start_time = time.monotonic()
                     _test_duration = None
                     params = data_service.get_parameters()
@@ -558,6 +559,7 @@ async def broadcast_live_data():
                 if last_test_status >= 2 and last_test_status <= 5 and (current_test_status == 0 or current_test_status >= 5):
                     if last_test_status != current_test_status:
                         if (current_test_stage == 11 or last_test_stage == 11) and _test_actually_started:
+                            _test_reached_stage11 = True
                             logger.info(f"Test completed (stage 11) - saving results")
                             _test_actually_started = False
                             save_data = dict(data)
@@ -567,12 +569,18 @@ async def broadcast_live_data():
                                 save_data['crack'] = _last_good_results.get('crack', data.get('crack', {}))
                             saved_test_id = await _save_test_result(save_data)
                         else:
-                            logger.info(f"Test stopped/aborted (stage {current_test_stage}) - NOT saving")
-                            saved_test_id = None
-                            _test_start_time = None
-                            _test_data_points = []
-                            _last_good_results = {}
-                            _test_actually_started = False
+                            if _test_reached_stage11:
+                                # This is a normal reset after completion, not an abort
+                                logger.info(f"Post-completion reset (stage {current_test_stage}) - ignoring")
+                                _test_reached_stage11 = False
+                                saved_test_id = None
+                            else:
+                                logger.info(f"Test stopped/aborted (stage {current_test_stage}) - NOT saving")
+                                saved_test_id = None
+                                _test_start_time = None
+                                _test_data_points = []
+                                _last_good_results = {}
+                                _test_actually_started = False
                         await emit_test_complete({
                             'results': data.get('results', {}),
                             'test': data.get('test', {}),

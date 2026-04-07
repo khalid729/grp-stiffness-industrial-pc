@@ -77,8 +77,64 @@ async def get_safety_status():
 
 @router.post("/command/start", response_model=CommandResponse)
 async def start_test():
-    """Start automated test"""
+    """Start automated test.
+
+    Validates active sample has all required position measurements before starting.
+    Calculates and writes ASTM D2412 deflection_target (nominal_diameter × defl% / 100)
+    and test_speed (12.5 mm/min) to PLC.
+    """
     _check_service()
+    try:
+        from api.routes.samples import _active_sample_id
+        if not _active_sample_id:
+            return CommandResponse(success=False, message="Cannot start: no active sample selected")
+
+        import sqlite3
+        conn = sqlite3.connect('/home/khalid/grp-stiffness-test-machine/backend/grp_test.db')
+        srow = conn.execute(
+            'SELECT pipe_diameter, deflection_percent FROM samples WHERE id=?',
+            (_active_sample_id,)
+        ).fetchone()
+        if not srow:
+            conn.close()
+            return CommandResponse(success=False, message="Cannot start: active sample not found")
+
+        pipe_dia, defl_pct = srow
+        if not pipe_dia or not defl_pct:
+            conn.close()
+            return CommandResponse(success=False, message="Cannot start: sample missing pipe_diameter or deflection_percent")
+
+        # The required position count comes from the runtime test type the user selected
+        # (set by frontend via /api/test-metadata), NOT the sample's num_positions field.
+        from api import websocket as ws
+        required = int(ws._group_num_positions or 1)
+        rows = conn.execute(
+            'SELECT position, h_id, v_id, wall_thickness FROM sample_positions WHERE sample_id=? ORDER BY position',
+            (_active_sample_id,)
+        ).fetchall()
+        conn.close()
+
+        valid_positions = {r[0] for r in rows if r[1] and r[2] and r[3]}
+        missing = [p for p in range(1, required + 1) if p not in valid_positions]
+        if missing:
+            return CommandResponse(
+                success=False,
+                message=f"Cannot start: position(s) {missing} have incomplete measurements (need H_ID, V_ID, wall thickness). Edit the sample first."
+            )
+
+        # ASTM D2412: deflection_target = nominal_pipe_diameter × deflection_% / 100
+        target_mm = float(pipe_dia) * float(defl_pct) / 100.0
+        command_service.plc.write_real(1, 12, target_mm)  # DB1.PARAM_DEFLECTION_TARGET
+        command_service.plc.write_real(1, 16, 12.5)        # DB1.PARAM_TEST_SPEED (ASTM)
+        import logging
+        logging.getLogger(__name__).info(
+            f"Pre-start: target={target_mm:.3f}mm (Ø{pipe_dia}×{defl_pct}%), positions={required} validated"
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Pre-start error: {e}")
+        return CommandResponse(success=False, message=f"Pre-start error: {e}")
+
     result = command_service.start_test()
     return CommandResponse(
         success=result["success"],
