@@ -113,22 +113,37 @@ const TestSetup = () => {
       body: JSON.stringify({ pipe_diameter: s.pipe_diameter, pipe_length: s.pipe_length, deflection_percent: s.deflection_percent, target_sn_class: s.target_sn_class }),
     });
 
-    // Auto-pick best stiffness mode based on available measurements:
-    // 3-position is preferred when all 3 are valid; otherwise fall back to 1-position.
-    // Don't override Crack/Fracture if the user explicitly chose them.
+    // Test type selection logic:
+    //   - First time selecting a NEW sample → auto-pick (3P if all 3 valid, else 1P)
+    //   - Re-selecting the same sample → respect the user's explicit button choice
+    //   - Force-downgrade if current type needs more positions than the sample provides
+    //   - Never override Crack/Fracture
     const validCount = (s.positions || []).filter((p: any) => p && p.h_id && p.v_id && p.wall_thickness).length;
     const currentType = (localStorage.getItem('testType') || 'stiffness1') as typeof testType;
-    const newType: typeof testType =
-      (currentType === 'crack' || currentType === 'fracture')
-        ? currentType
-        : (validCount >= 3 ? 'stiffness3' : 'stiffness1');
-    setTestType(newType);
-    localStorage.setItem('testType', newType);
-    const mode = newType === 'fracture' ? 3 : newType === 'crack' ? 1 : 0;
-    fetch('/api/parameters', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ test_mode: mode }),
-    });
+    const lastAutoPickedSampleId = localStorage.getItem('ts_lastAutoPickedSample');
+    const isNewSample = String(s.id) !== lastAutoPickedSampleId;
+
+    let newType: typeof testType = currentType;
+    if (currentType !== 'crack' && currentType !== 'fracture') {
+      if (isNewSample) {
+        // Fresh sample → pick the preferred default
+        newType = validCount >= 3 ? 'stiffness3' : 'stiffness1';
+      } else if (currentType === 'stiffness3' && validCount < 3) {
+        // Same sample but data became insufficient for 3P → downgrade for safety
+        newType = 'stiffness1';
+      }
+    }
+    localStorage.setItem('ts_lastAutoPickedSample', String(s.id));
+
+    if (newType !== currentType) {
+      setTestType(newType);
+      localStorage.setItem('testType', newType);
+      const mode = newType === 'fracture' ? 3 : newType === 'crack' ? 1 : 0;
+      fetch('/api/parameters', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ test_mode: mode }),
+      });
+    }
 
     const np = newType === 'stiffness3' ? 3 : 1;
     fetch('/api/test-metadata', {

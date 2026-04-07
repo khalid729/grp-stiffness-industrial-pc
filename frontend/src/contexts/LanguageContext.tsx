@@ -15,6 +15,12 @@ const translations: Translations = {
   "nav.settings": { en: "Settings", ar: "الإعدادات" },
 
   // Dashboard
+  "dashboard.returning": { en: "Machine Returning", ar: "الماكينة في وضع الرجوع" },
+  "dashboard.pleaseWait": { en: "Please wait", ar: "الرجاء الانتظار" },
+  "crackPrompt.title": { en: "Stiffness Test Complete", ar: "اكتمل اختبار الصلابة" },
+  "crackPrompt.yes": { en: "Continue to Crack Test", ar: "متابعة لاختبار التشقق" },
+  "crackPrompt.no": { en: "Show Report", ar: "عرض التقرير" },
+  "testSetup.testComplete": { en: "Test Complete", ar: "اكتمل الاختبار" },
   "dashboard.force": { en: "Force", ar: "القوة" },
   "dashboard.weight": { en: "Weight", ar: "الوزن" },
   "dashboard.deflection": { en: "Deflection", ar: "الانحراف" },

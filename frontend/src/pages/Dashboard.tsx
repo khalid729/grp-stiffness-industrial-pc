@@ -50,7 +50,7 @@ const Dashboard = () => {
   const [showNoSample, setShowNoSample] = useState(false);
   const [activeSample, setActiveSample] = useState<any>(null);
   // === Group test flow state ===
-  const [flowDialog, setFlowDialog] = useState<'summary' | 'angle' | 'generating' | 'report' | null>(null);
+  const [flowDialog, setFlowDialog] = useState<'summary' | 'angle' | 'generating' | 'crackPrompt' | 'report' | null>(null);
   const [flowData, setFlowData] = useState<{
     position: number; angle: number; passed: boolean;
     force: number; stiffness: number; sn: number;
@@ -211,21 +211,40 @@ const Dashboard = () => {
           pollActiveRef.current = false;
           setFlowData(prev => ({ ...prev, groupId: g.group_id, isLast: true }));
           setFlowDialog('generating');
+          // Wait until all position tests + their data points are persisted, then either
+          // ask "continue to crack?" (for stiffness tests) or open the report directly.
           const waitForSave = () => {
             fetch('/api/groups/' + g.group_id).then(r => r.json()).then(gd => {
-              if (gd.tests && gd.tests.length >= g.num_positions) {
-                // Extra wait to ensure data points are fully saved
-                setTimeout(() => {
-                  setCompletedGroupId(g.group_id);
-                  setFlowDialog('report');
-                  briefShownRef.current = false;
-                }, 2000);
+              const allTests = gd.tests || [];
+              const allHaveData = allTests.length >= g.num_positions
+                && allTests.every((t: any) => Array.isArray(t.data_points) && t.data_points.length > 0);
+              if (allHaveData) {
+                setCompletedGroupId(g.group_id);
+                briefShownRef.current = false;
+                // Populate flowData from the LAST saved test so crackPrompt can show its result
+                const lastTest = allTests[allTests.length - 1];
+                setFlowData({
+                  position: lastTest?.position || 1,
+                  angle: lastTest?.angle ?? 0,
+                  passed: gd.passed ?? lastTest?.passed ?? false,
+                  force: lastTest?.force_at_target || 0,
+                  stiffness: lastTest?.stis || lastTest?.ring_stiffness || 0,
+                  sn: lastTest?.sn_class || gd.sn_class || 0,
+                  nextAngle: 0,
+                  groupId: g.group_id,
+                  isLast: true,
+                });
+                // For stiffness (1P or 3P), prompt the operator to continue with a crack test.
+                // For Crack/Fracture tests, skip the prompt — go straight to report.
+                const savedType = localStorage.getItem('testType') || 'stiffness1';
+                const isStiffness = savedType === 'stiffness1' || savedType === 'stiffness3';
+                setFlowDialog(isStiffness ? 'crackPrompt' : 'report');
               } else {
-                setTimeout(waitForSave, 1000);
+                setTimeout(waitForSave, 500);
               }
-            }).catch(() => setTimeout(waitForSave, 1000));
+            }).catch(() => setTimeout(waitForSave, 500));
           };
-          setTimeout(waitForSave, 2000);
+          setTimeout(waitForSave, 500);
         } else {
           // Get pass/fail from backend - read the specific group's tests
           fetch('/api/groups/' + g.group_id).then(r => r.json()).then(groupData => {
@@ -322,9 +341,10 @@ const Dashboard = () => {
     loadActiveSample();
     const onVisible = () => { if (document.visibilityState === 'visible') loadActiveSample(); };
     document.addEventListener('visibilitychange', onVisible);
-    // Also poll every 5 seconds in case user switches tabs
+    // Also poll every 5 seconds in case user switches tabs.
+    // PAUSE during active tests — no need to refresh sample while test is running.
     const poll = setInterval(() => {
-      // Check test status from API, not stale closure
+      if (pollActiveRef.current) return;
       fetch('/api/status').then(r => r.json()).then(s => {
         if (!s.test || s.test.status < 2) loadActiveSample();
       }).catch(() => {});
@@ -352,8 +372,10 @@ const Dashboard = () => {
     };
     window.addEventListener('storage', onStorage);
 
-    // Periodic sync (slower - only for PLC changes)
+    // Periodic sync (slower - only for PLC changes).
+    // PAUSE during active tests so no network/state churn interferes with the live chart.
     const interval = setInterval(() => {
+      if (pollActiveRef.current) return;
       fetch('/api/parameters').then(r => r.json()).then((p: any) => setActiveTestMode(p.test_mode || 0)).catch(() => {});
     }, 10000);
     return () => { window.removeEventListener('storage', onStorage); clearInterval(interval); };
@@ -457,6 +479,17 @@ const Dashboard = () => {
 
   return (
     <div className="flex flex-col h-full gap-2 animate-slide-up">
+      {/* Returning overlay — shown while PLC is in stage 10 (RETURN) or status 4 (returning).
+          We watch both because a fast return can flash through stage 10 too quickly. */}
+      {(testStage === 10 || liveData.test_status === 4) && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 pointer-events-none">
+          <div className="bg-card border-2 border-blue-500 rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4">
+            <Loader2 className="w-16 h-16 text-blue-500 animate-spin" />
+            <p className="text-2xl font-bold">{t('dashboard.returning') || 'Machine Returning...'}</p>
+            <p className="text-base text-muted-foreground">{t('dashboard.pleaseWait') || 'Please wait'}</p>
+          </div>
+        </div>
+      )}
       {/* Control Groups - Horizontal Layout - Equal Width */}
       <div className="grid grid-cols-5 gap-2">
         {/* Group 1: Stiffness Test Control */}
@@ -978,6 +1011,80 @@ const Dashboard = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Crack continue prompt — same visual style as the position summary dialog */}
+      <Dialog open={flowDialog === 'crackPrompt'} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="text-center text-lg">
+              {t('testSetup.testComplete') || 'Stiffness Test Complete'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="text-center">
+              <span className={cn(
+                'inline-block px-5 py-2 rounded-lg text-lg font-bold',
+                flowData.passed ? 'bg-success/20 text-success' : 'bg-destructive/20 text-destructive'
+              )}>
+                {flowData.passed ? 'PASS' : 'FAIL'}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="bg-secondary/30 rounded-lg p-2">
+                <p className="text-xs text-muted-foreground">Force</p>
+                <p className="text-base font-bold font-mono">{(flowData.force / 1000).toFixed(2)} kN</p>
+              </div>
+              <div className="bg-secondary/30 rounded-lg p-2">
+                <p className="text-xs text-muted-foreground">Stiffness</p>
+                <p className="text-base font-bold font-mono">{flowData.stiffness.toFixed(0)} N/m²</p>
+              </div>
+              <div className="bg-secondary/30 rounded-lg p-2">
+                <p className="text-xs text-muted-foreground">SN</p>
+                <p className="text-base font-bold font-mono">SN {flowData.sn}</p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="flex flex-col gap-2">
+            <TouchButton
+              variant="primary"
+              size="sm"
+              onClick={async () => {
+                // Switch to crack test on the same sample
+                setFlowDialog(null);
+                localStorage.setItem('testType', 'crack');
+                setActiveTestMode(1);
+                await fetch('/api/parameters', {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ test_mode: 1 }),
+                });
+                await fetch('/api/test-metadata', {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ num_positions: 1, angles: [0] }),
+                });
+                await fetch('/api/groups/reset', { method: 'POST' });
+                setGroupState(null);
+                setCompletedGroupId(null);
+                await fetch('/api/servo/reset', { method: 'POST' });
+                setChartData([]);
+                setTimeout(() => { startTest.mutate(); }, 800);
+                pollActiveRef.current = true;
+              }}
+              className="w-full min-h-[48px] bg-orange-500 hover:bg-orange-600 text-white"
+            >
+              {t('crackPrompt.yes') || 'Continue to Crack Test'}
+            </TouchButton>
+            <TouchButton
+              variant="outline"
+              size="sm"
+              onClick={() => setFlowDialog('report')}
+              className="w-full min-h-[44px] text-sm"
+            >
+              {t('crackPrompt.no') || 'Show Report'}
+            </TouchButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       {/* Generating report progress */}
       {flowDialog === 'generating' && (

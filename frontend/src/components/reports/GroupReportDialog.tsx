@@ -2,7 +2,7 @@ import {
   Dialog,
   DialogContent,
 } from '@/components/ui/dialog';
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Printer, X } from 'lucide-react';
 import {
@@ -16,7 +16,7 @@ interface GroupReportDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function GroupReportDialog({ groupId, open, onOpenChange }: GroupReportDialogProps) {
+function GroupReportDialogImpl({ groupId, open, onOpenChange }: GroupReportDialogProps) {
   const { t, language } = useLanguage();
   const [group, setGroup] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -25,22 +25,22 @@ export function GroupReportDialog({ groupId, open, onOpenChange }: GroupReportDi
   });
 
   useEffect(() => {
-    if (open && groupId) {
-      setIsLoading(true);
-      // Load with retry to ensure data_points are available
-      const loadGroup = () => {
-        fetch(`/api/groups/${groupId}`)
-          .then(r => r.json())
-          .then(data => {
-            setGroup(data);
-            setIsLoading(false);
-
-          })
-          .catch(() => setIsLoading(false));
-      };
-      // Initial delay to let backend finish saving
-      setTimeout(loadGroup, 3000);
+    if (!open || !groupId) {
+      setGroup(null);
+      return;
     }
+    setIsLoading(true);
+    setGroup(null);
+    let cancelled = false;
+    fetch(`/api/groups/${groupId}`)
+      .then(r => r.json())
+      .then(data => {
+        if (cancelled) return;
+        setGroup(data);
+        setIsLoading(false);
+      })
+      .catch(() => { if (!cancelled) setIsLoading(false); });
+    return () => { cancelled = true; };
   }, [open, groupId]);
 
   const displayForce = (val: number | null | undefined) => {
@@ -58,16 +58,15 @@ export function GroupReportDialog({ groupId, open, onOpenChange }: GroupReportDi
 
   const handlePrint = () => { window.print(); };
 
-  if (!group) return null;
-  const tests = group.tests || [];
+  const tests = group?.tests || [];
   const isSinglePosition = tests.length <= 1;
   const test1 = tests[0];
 
   // Calculate averages for display
   const avgForce = tests.length > 0 ? tests.reduce((s: number, t: any) => s + (t.force_at_target || 0), 0) / tests.length : 0;
-  const avgStis = group.avg_stis || (tests.length > 0 ? tests.reduce((s: number, t: any) => s + (t.stis || 0), 0) / tests.length : 0);
-  const avgEir3 = group.avg_ei_over_r3 || (tests.length > 0 ? tests.reduce((s: number, t: any) => s + (t.ei_over_r3 || 0), 0) / tests.length : 0);
-  const avgEmod = group.avg_e_modulus || (tests.length > 0 ? tests.reduce((s: number, t: any) => s + (t.e_modulus || 0), 0) / tests.length : 0);
+  const avgStis = group?.avg_stis || (tests.length > 0 ? tests.reduce((s: number, t: any) => s + (t.stis || 0), 0) / tests.length : 0);
+  const avgEir3 = group?.avg_ei_over_r3 || (tests.length > 0 ? tests.reduce((s: number, t: any) => s + (t.ei_over_r3 || 0), 0) / tests.length : 0);
+  const avgEmod = group?.avg_e_modulus || (tests.length > 0 ? tests.reduce((s: number, t: any) => s + (t.e_modulus || 0), 0) / tests.length : 0);
 
   // Common header component
   const ReportHeader = ({ subtitle }: { subtitle: string }) => (
@@ -161,7 +160,7 @@ export function GroupReportDialog({ groupId, open, onOpenChange }: GroupReportDi
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 print:max-w-none print:max-h-none print:overflow-visible print:shadow-none print:border-none">
         <div id="test-report" className="bg-white text-black print:p-6">
-          {isLoading ? (
+          {isLoading || !group ? (
             <div className="flex items-center justify-center py-20"><p className="text-muted-foreground">{t('report.loading')}</p></div>
           ) : isSinglePosition && test1 ? (
             /* ========== SINGLE POSITION REPORT (1 page) ========== */
@@ -438,3 +437,10 @@ export function GroupReportDialog({ groupId, open, onOpenChange }: GroupReportDi
     </Dialog>
   );
 }
+
+// Memoize to avoid re-rendering on every Dashboard live-data update — those re-renders
+// were causing the chart's ResponsiveContainer to constantly re-measure and flicker.
+export const GroupReportDialog = memo(
+  GroupReportDialogImpl,
+  (prev, next) => prev.groupId === next.groupId && prev.open === next.open
+);

@@ -168,7 +168,9 @@ socket_app = socketio.ASGIApp(
 )
 
 class NoCacheStaticMiddleware(BaseHTTPMiddleware):
-    """Disable caching for the kiosk frontend so build updates take effect immediately."""
+    """Disable caching for the kiosk frontend so build updates take effect immediately.
+    Strips ETag/Last-Modified so the browser cannot do conditional revalidation
+    (which would let it reuse the old cached file)."""
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
         path = request.url.path
@@ -176,6 +178,10 @@ class NoCacheStaticMiddleware(BaseHTTPMiddleware):
             response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
             response.headers["Pragma"] = "no-cache"
             response.headers["Expires"] = "0"
+            # Drop revalidation hints so the browser can't ask "is my cached copy still valid?"
+            for h in ("etag", "last-modified"):
+                if h in response.headers:
+                    del response.headers[h]
         return response
 
 app.add_middleware(NoCacheStaticMiddleware)

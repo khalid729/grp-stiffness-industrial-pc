@@ -126,6 +126,7 @@ async def start_test():
         target_mm = float(pipe_dia) * float(defl_pct) / 100.0
         command_service.plc.write_real(1, 12, target_mm)  # DB1.PARAM_DEFLECTION_TARGET
         command_service.plc.write_real(1, 16, 12.5)        # DB1.PARAM_TEST_SPEED (ASTM)
+        command_service.plc.write_real(1, 50, 400.0)       # DB1.PARAM_RETURN_SPEED — capped at machine max (400 mm/min)
         import logging
         logging.getLogger(__name__).info(
             f"Pre-start: target={target_mm:.3f}mm (Ø{pipe_dia}×{defl_pct}%), positions={required} validated"

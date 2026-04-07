@@ -1,5 +1,34 @@
 # سجل التغييرات | Changelog
 
+## 2026-04-07 (afternoon) - Crack Prompt, Returning Overlay, Chart Flicker, Polling Fixes
+
+### New Features
+- **Crack continue prompt** — after a stiffness test (1P or 3P) finishes, a styled dialog (matching the position summary visuals) shows the result (PASS/FAIL, Force, Stiffness, SN) and asks the operator to either start a crack test on the same sample or open the report. Uses translated strings (`crackPrompt.*` keys added to `LanguageContext.tsx`).
+- **Machine Returning overlay** — full-screen overlay with spinner shown while the machine is returning home (PLC stage 10 OR test_status 4). Tells the operator "wait, the machine is moving back". Uses `dashboard.returning` / `dashboard.pleaseWait` translations.
+- **Faster return** — `/api/command/start` writes `Return_Speed = 400 mm/min` to DB1 before each test (was 100). 400 mm/min is the machine's hardware max — never exceed.
+- **Auto-pick test type per sample** — selecting a NEW sample auto-picks `3 Positions` if all 3 measurements are valid, else `1 Position`. Re-selecting the same sample respects whatever the user explicitly chose. Force-downgrades 3P→1P if the sample's data becomes insufficient. Never silently upgrades 1P→3P.
+
+### Bug Fixes
+- **Auto-report chart flicker** — root cause was Dashboard re-rendering ~50× per second from live data, which re-rendered `GroupReportDialog`, which in turn made Recharts `ResponsiveContainer` re-measure constantly. History didn't have the issue because the History page has no live data updates. Fix: wrap `GroupReportDialog` in `React.memo` with a custom equality check on `groupId` + `open`. Also dropped the 3-second initial fetch delay and made the dialog mount immediately with a loading state, so the chart only renders once the dialog has fully animated open.
+- **"Selected 1 position but ran 3 position"** — `selectSample` was silently UPGRADING the user's `stiffness1` choice to `stiffness3` whenever the sample had 3 valid positions. Frontend display was stale (showed 1P) while backend `_group_num_positions` was 3. Fix: track `ts_lastAutoPickedSample` per-sample-id; auto-pick only fires once per new sample, not every click.
+- **Polling lag every 10 seconds during a test** — a `setInterval(/api/parameters, 10000)` was running unconditionally, causing a brief render hiccup that showed up as a chart blip every 10 seconds. The 5-second active-sample reload interval had the same issue. Both now check `pollActiveRef.current` and skip during active tests.
+- **Crack prompt / returning overlay labels showed as `crackPrompt.title` literals** — `t()` returns the key string when no translation exists, so the `||` fallback in JSX never fired. Added the missing keys to `LanguageContext.tsx`.
+- **Chromium kiosk caching old JS even with `Cache-Control: no-cache`** — the response still had ETag/Last-Modified, so the browser did conditional revalidation and reused the cached file. The `NoCacheStaticMiddleware` now also strips `etag` and `last-modified` from `/`, `*.html`, and `/assets/*` responses. Combined with launching Chromium in `--incognito` mode, builds now take effect immediately.
+
+### Files Modified
+- backend/api/routes/commands.py — write Return_Speed=400 before start
+- backend/main.py — strip ETag/Last-Modified in NoCacheStaticMiddleware
+- frontend/src/components/reports/GroupReportDialog.tsx — React.memo + drop initial setTimeout, mount-with-loading
+- frontend/src/contexts/LanguageContext.tsx — add `crackPrompt.*`, `dashboard.returning`, `dashboard.pleaseWait`, `testSetup.testComplete` keys (AR + EN)
+- frontend/src/pages/Dashboard.tsx — crackPrompt dialog, returning overlay, gate intervals on `pollActiveRef`, drop the orphan TestReportDialog usage
+- frontend/src/pages/TestSetup.tsx — single-page measurements wizard, sample-as-bank, per-sample auto-pick
+
+### Notes
+- HW load cell tare via SIWAREX WP231 is **partially confirmed**: DB4 is now 70 bytes, the new HW_Tare/HW_Zero/HW_CMD_* tags are reachable at byte 68, FC_LoadCell v5.0 picks up the trigger (busy bit goes TRUE), but the WP231 never reports CMD_DONE so the actual tare doesn't complete. WP231PR_DB shows a non-zero status word that looks like an error code. Investigation deferred — needs TIA Portal online debugging of FC_LoadCell ↔ WP231 cycle. Software tare remains in use.
+- Machine max linear speed is 400 mm/min (hardware limit). Do not write any speed parameter higher than this.
+
+---
+
 ## 2026-04-07 - Unified Stiffness Flow, Sample-as-Bank, Cache Headers
 
 ### Major Changes
