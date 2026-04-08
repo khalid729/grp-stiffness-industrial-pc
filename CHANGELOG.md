@@ -1,5 +1,36 @@
 # سجل التغييرات | Changelog
 
+## 2026-04-07 (evening) - Effective Diameter Formula
+
+### Change
+- **Deflection / crack / fracture targets are now computed from an *effective* outer diameter** rather than the raw nominal. The new formula is:
+
+  ```
+  effective_diameter = nominal × 1.02 + 5
+  deflection_target  = effective × deflection_% / 100
+  ```
+
+  For DN400 at 5%: effective = 413 mm, deflection target = 20.65 mm (was 20.00 mm). The 1.02 multiplier and +5 offset come from the manufacturer's relationship between nominal pipe class and actual outer diameter.
+
+### Implementation
+- `/api/command/start` writes the **effective** diameter into `DB1.Pipe_Diameter` before sending Start. The PLC's `FC_Calculate` runs every scan and computes ALL targets (deflection, crack stage 1/2, fracture) from `Pipe_Diameter × percent / 100` — overriding individual targets directly is racy, so updating the diameter itself is the only stable path.
+- `websocket._save_test_result` now reads the **nominal** `pipe_diameter` from the active sample row in the DB and stores that on the saved `Test` and `TestGroup` records, NOT the effective value sitting in PLC. Reports continue to show the original nominal (e.g. "DN400"), not 413 mm.
+
+### Files Modified
+- backend/api/routes/commands.py — write effective_diameter + explicit deflection_target
+- backend/api/websocket.py — fetch nominal from samples DB for saved records (Test + TestGroup)
+
+### Sanity table
+
+| Pipe | Effective | Crack S1 (12%) | Crack S2 (17%) | Fracture (30%) | Stiffness (5%) |
+|---|---|---|---|---|---|
+| DN300 | 311 mm | 37.32 | 52.87 | 93.30 | 15.55 |
+| DN400 | 413 mm | 49.56 | 70.21 | 123.90 | 20.65 |
+| DN500 | 515 mm | 61.80 | 87.55 | 154.50 | 25.75 |
+| DN1000 | 1025 mm | 123.00 | 174.25 | 307.50 | 51.25 |
+
+---
+
 ## 2026-04-07 (afternoon) - Crack Prompt, Returning Overlay, Chart Flicker, Polling Fixes
 
 ### New Features

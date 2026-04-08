@@ -122,14 +122,23 @@ async def start_test():
                 message=f"Cannot start: position(s) {missing} have incomplete measurements (need H_ID, V_ID, wall thickness). Edit the sample first."
             )
 
-        # ASTM D2412: deflection_target = nominal_pipe_diameter × deflection_% / 100
-        target_mm = float(pipe_dia) * float(defl_pct) / 100.0
-        command_service.plc.write_real(1, 12, target_mm)  # DB1.PARAM_DEFLECTION_TARGET
+        # Effective outer diameter (manufacturer formula): nominal × 1.02 + 5
+        # The PLC's FC_Calculate computes ALL targets (deflection / crack / fracture) from
+        # DB1.Pipe_Diameter every scan, so the only way to influence the targets is to
+        # write the EFFECTIVE diameter into Pipe_Diameter. The original nominal is preserved
+        # in the active sample DB and re-written into the saved Test record by websocket.py
+        # so reports still show the nominal value (e.g. DN400, not 413).
+        nominal = float(pipe_dia)
+        effective = nominal * 1.02 + 5.0
+        target_mm = effective * float(defl_pct) / 100.0
+        command_service.plc.write_real(1, 0, effective)    # DB1.PARAM_PIPE_DIAMETER  ← effective
+        command_service.plc.write_real(1, 12, target_mm)   # DB1.PARAM_DEFLECTION_TARGET
         command_service.plc.write_real(1, 16, 12.5)        # DB1.PARAM_TEST_SPEED (ASTM)
-        command_service.plc.write_real(1, 50, 400.0)       # DB1.PARAM_RETURN_SPEED — capped at machine max (400 mm/min)
+        command_service.plc.write_real(1, 50, 400.0)       # DB1.PARAM_RETURN_SPEED (machine max)
         import logging
         logging.getLogger(__name__).info(
-            f"Pre-start: target={target_mm:.3f}mm (Ø{pipe_dia}×{defl_pct}%), positions={required} validated"
+            f"Pre-start: nominal={nominal} effective={effective:.2f} target={target_mm:.3f}mm "
+            f"(at {defl_pct}%), positions={required} validated"
         )
     except Exception as e:
         import logging

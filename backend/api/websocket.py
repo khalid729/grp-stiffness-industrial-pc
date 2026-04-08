@@ -232,8 +232,25 @@ async def _save_test_result(data: dict):
         results = data.get('results', {})
         test_info = data.get('test', {})
 
+        # The PLC's Pipe_Diameter has been overwritten with the EFFECTIVE diameter
+        # (nominal × 1.02 + 5) by /api/command/start so FC_Calculate can produce the
+        # correct targets. Reports must show the original nominal — pull it from the
+        # active sample DB.
+        nominal_pipe_diameter = params.get('pipe_diameter', 0)
+        try:
+            from api.routes.samples import _active_sample_id
+            if _active_sample_id:
+                import sqlite3
+                conn = sqlite3.connect('/home/khalid/grp-stiffness-test-machine/backend/grp_test.db')
+                row = conn.execute('SELECT pipe_diameter FROM samples WHERE id=?', (_active_sample_id,)).fetchone()
+                conn.close()
+                if row and row[0]:
+                    nominal_pipe_diameter = float(row[0])
+        except Exception as e:
+            logger.warning(f"Could not load nominal pipe_diameter from sample: {e}")
+
         test_record = Test(
-            pipe_diameter=params.get('pipe_diameter', 0),
+            pipe_diameter=nominal_pipe_diameter,
             pipe_length=params.get('pipe_length', 300),
             deflection_percent=params.get('deflection_percent', 3),
             force_at_target=results.get('force_at_target', 0),
@@ -358,7 +375,7 @@ async def _save_test_result(data: dict):
                     group = TestGroup(
                         sample_id=_pending_metadata.get('sample_id', ''),
                         operator=_pending_metadata.get('operator', ''),
-                        pipe_diameter=params.get('pipe_diameter', 0),
+                        pipe_diameter=nominal_pipe_diameter,
                         pipe_length=params.get('pipe_length', 300),
                         deflection_percent=params.get('deflection_percent', 3),
                         test_speed=params.get('test_speed', 12),
