@@ -1,5 +1,33 @@
 # سجل التغييرات | Changelog
 
+## 2026-05-06 — Tailscale Remote Access + PLC Connection Diagnosis
+
+### Tailscale installed on industrial PC
+- Installed Tailscale 1.96.4 (`curl -fsSL https://tailscale.com/install.sh | sudo sh`).
+- Registered with hostname `stiffness-machine` in the tailnet.
+- **Tailscale IP: `100.104.47.81`** — use this for stable SSH/HTTP across any network: `ssh khalid@100.104.47.81`.
+- Office WiFi LAN address `192.168.1.100` still works when on the same network.
+
+### PLC connection bug diagnosed
+The backend was logging a flood of `TCP : Unreachable peer` against `192.168.0.100:102`. Root cause: `/etc/netplan/00-installer-config.yaml` has `dhcp4: true` for both ethernet ports, but the PLC subnet `192.168.0.0/24` has no DHCP server, so `enp1s0` ended up with no IPv4 address and could not route to the PLC. Cable was plugged in (`carrier=1`), the wire is fine — purely a netplan misconfiguration that contradicts what `docs/INDUSTRIAL_PC_SETUP.md` already documents.
+
+**Temporary fix (current session):**
+```bash
+sudo ip addr add 192.168.0.10/24 dev enp1s0
+```
+Backend reconnected immediately, `/api/status` returned live force/position values.
+
+**Permanent fix (still TODO):** netplan needs `enp1s0: addresses: [192.168.0.10/24]` instead of `dhcp4: true`. Not committed yet because we did not want to risk losing remote access mid-session. Apply on next physical visit or via Tailscale.
+
+### Thermal check (was suspected as cause of earlier hangs)
+Read system sensors after the machine recovered: CPU package 54 °C, all cores 55 °C (critical = 105 °C), ACPI 27.8 °C, WiFi card 66 °C. No `thermal`/`throttle`/`MCE` lines in dmesg. Hangs are NOT from overheating — likely WiFi driver flakiness or the manual reboot during install. Documented for future reference.
+
+### Files Modified
+- (none in this commit other than docs)
+
+---
+
+
 ## 2026-04-07 (evening) - Effective Diameter Formula
 
 ### Change
