@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     MIN_SPEED: float = 1.0  # mm/min
     MAX_SPEED: float = 100.0  # mm/min
 
+    # Load-cell span correction (workaround for SIWAREX gain drift).
+    # Applied to force readings: scaled = raw_actual × FORCE_SCALE_FACTOR.
+    # Multiplicative so zero stays zero. Set to 1.0 to disable.
+    # Default 1.0658 ≈ 10050 / 9430 from external-vs-machine stiffness comparison.
+    FORCE_SCALE_FACTOR: float = 1.0658
+
     class Config:
         env_file = ".env"
 

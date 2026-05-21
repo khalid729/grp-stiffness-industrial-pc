@@ -2,6 +2,7 @@ import math
 from typing import Dict, Any, Optional
 from snap7.util import get_real, get_int, get_bool
 from .connector import PLCConnector
+from config import settings
 import logging
 
 logger = logging.getLogger(__name__)
@@ -164,14 +165,18 @@ class DataService:
             if db2 is None or db3 is None or db4 is None:
                 return self._get_disconnected_data()
 
+            # Span-correction multiplier for the load-cell (see config.FORCE_SCALE_FACTOR).
+            # `raw` stays unscaled so it remains a true diagnostic of what the PLC delivers.
+            sf = settings.FORCE_SCALE_FACTOR
+
             # Parse data locally (no network calls!)
             return {
                 "force": {
                     "raw": safe_float(get_real(db2, self.RES_LOAD_CELL_RAW)),
-                    "actual": safe_float(get_real(db2, self.RES_LOAD_CELL_ACTUAL)),
-                    "filtered": safe_float(get_real(db2, self.RES_FORCE_FILTERED)),
-                    "kN": safe_float(get_real(db2, self.RES_FORCE_KN)),
-                    "N": safe_float(get_real(db2, self.RES_ACTUAL_FORCE)),
+                    "actual": safe_float(get_real(db2, self.RES_LOAD_CELL_ACTUAL)) * sf,
+                    "filtered": safe_float(get_real(db2, self.RES_FORCE_FILTERED)) * sf,
+                    "kN": safe_float(get_real(db2, self.RES_FORCE_KN)) * sf,
+                    "N": safe_float(get_real(db2, self.RES_ACTUAL_FORCE)) * sf,
                 },
                 "position": {
                     "raw": safe_float(get_real(db2, self.RES_POSITION_RAW)),
@@ -191,8 +196,8 @@ class DataService:
                     "passed": get_bool(db2, self.RES_TEST_PASSED[0], self.RES_TEST_PASSED[1]),
                 },
                 "results": {
-                    "ring_stiffness": get_real(db2, self.RES_RING_STIFFNESS),
-                    "force_at_target": get_real(db2, self.RES_FORCE_AT_TARGET),
+                    "ring_stiffness": get_real(db2, self.RES_RING_STIFFNESS) * sf,
+                    "force_at_target": get_real(db2, self.RES_FORCE_AT_TARGET) * sf,
                     "sn_class": get_int(db2, self.RES_SN_CLASS),
                     "contact_position": get_real(db2, self.RES_CONTACT_POSITION),
                     "data_points": get_int(db2, self.RES_DATA_POINT_COUNT),
@@ -242,8 +247,8 @@ class DataService:
                     "error": get_bool(db4, self.HMI_LAMP_ERROR[0], self.HMI_LAMP_ERROR[1]),
                 },
                 "crack": {
-                    "force_stage1": safe_float(get_real(db2, self.RES_CRACK_FORCE_STAGE1)),
-                    "force_stage2": safe_float(get_real(db2, self.RES_CRACK_FORCE_STAGE2)),
+                    "force_stage1": safe_float(get_real(db2, self.RES_CRACK_FORCE_STAGE1)) * sf,
+                    "force_stage2": safe_float(get_real(db2, self.RES_CRACK_FORCE_STAGE2)) * sf,
                     "deflection_stage1": safe_float(get_real(db2, self.RES_CRACK_DEFLECTION_STAGE1)),
                     "deflection_stage2": safe_float(get_real(db2, self.RES_CRACK_DEFLECTION_STAGE2)),
                     "found_stage1": get_bool(db2, self.RES_CRACK_FOUND_STAGE1[0], self.RES_CRACK_FOUND_STAGE1[1]),
@@ -251,7 +256,7 @@ class DataService:
                     "passed": get_bool(db2, self.RES_CRACK_TEST_PASSED[0], self.RES_CRACK_TEST_PASSED[1]),
                 },
                 "fracture": {
-                    "peak_force": safe_float(get_real(db2, self.RES_FRACTURE_PEAK_FORCE)),
+                    "peak_force": safe_float(get_real(db2, self.RES_FRACTURE_PEAK_FORCE)) * sf,
                     "peak_deflection": safe_float(get_real(db2, self.RES_FRACTURE_PEAK_DEFLECTION)),
                     "detected": get_bool(db2, self.RES_FRACTURE_DETECTED[0], self.RES_FRACTURE_DETECTED[1]),
                 },
@@ -272,7 +277,7 @@ class DataService:
                 "remote_mode": get_bool(db3, self.STATUS_REMOTE_MODE[0], self.STATUS_REMOTE_MODE[1]),
                 "e_stop_active": get_bool(db3, self.STATUS_ESTOP_ACTIVE[0], self.STATUS_ESTOP_ACTIVE[1]),
                 "actual_position": safe_float(get_real(db2, self.RES_POSITION_ACTUAL)),
-                "actual_force": safe_float(get_real(db2, self.RES_FORCE_KN)),
+                "actual_force": safe_float(get_real(db2, self.RES_FORCE_KN)) * sf,
                 "actual_deflection": safe_float(get_real(db2, self.RES_ACTUAL_DEFLECTION)),
                 "target_deflection": get_real(db2, self.RES_DEFLECTION_PERCENT),
                 "test_status": get_int(db2, self.RES_TEST_STATUS),
@@ -391,9 +396,10 @@ class DataService:
     def get_test_results(self) -> Dict[str, Any]:
         if not self.plc.connected:
             return {"ring_stiffness": 0.0, "force_at_target": 0.0, "sn_class": 0, "test_passed": False}
+        sf = settings.FORCE_SCALE_FACTOR
         return {
-            "ring_stiffness": self.plc.read_real(self.DB_RESULTS, self.RES_RING_STIFFNESS) or 0.0,
-            "force_at_target": self.plc.read_real(self.DB_RESULTS, self.RES_FORCE_AT_TARGET) or 0.0,
+            "ring_stiffness": (self.plc.read_real(self.DB_RESULTS, self.RES_RING_STIFFNESS) or 0.0) * sf,
+            "force_at_target": (self.plc.read_real(self.DB_RESULTS, self.RES_FORCE_AT_TARGET) or 0.0) * sf,
             "sn_class": self.plc.read_int(self.DB_RESULTS, self.RES_SN_CLASS) or 0,
             "test_passed": self.plc.read_bool(self.DB_RESULTS, *self.RES_TEST_PASSED) or False,
             "deflection_percent": self.plc.read_real(self.DB_RESULTS, self.RES_DEFLECTION_PERCENT) or 0.0,

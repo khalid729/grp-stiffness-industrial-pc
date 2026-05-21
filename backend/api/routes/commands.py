@@ -80,7 +80,7 @@ async def start_test():
     """Start automated test.
 
     Validates active sample has all required position measurements before starting.
-    Calculates and writes ASTM D2412 deflection_target (nominal_diameter × defl% / 100)
+    Calculates and writes deflection_target (Nom. Dia × defl% / 100)
     and test_speed (12.5 mm/min) to PLC.
     """
     _check_service()
@@ -92,17 +92,17 @@ async def start_test():
         import sqlite3
         conn = sqlite3.connect('/home/khalid/grp-stiffness-test-machine/backend/grp_test.db')
         srow = conn.execute(
-            'SELECT pipe_diameter, deflection_percent FROM samples WHERE id=?',
+            'SELECT nominal_diameter, deflection_percent FROM samples WHERE id=?',
             (_active_sample_id,)
         ).fetchone()
         if not srow:
             conn.close()
             return CommandResponse(success=False, message="Cannot start: active sample not found")
 
-        pipe_dia, defl_pct = srow
-        if not pipe_dia or not defl_pct:
+        nom_dia, defl_pct = srow
+        if not nom_dia or not defl_pct:
             conn.close()
-            return CommandResponse(success=False, message="Cannot start: sample missing pipe_diameter or deflection_percent")
+            return CommandResponse(success=False, message="Cannot start: sample missing Nom. Dia or deflection_percent")
 
         # The required position count comes from the runtime test type the user selected
         # (set by frontend via /api/test-metadata), NOT the sample's num_positions field.
@@ -122,22 +122,18 @@ async def start_test():
                 message=f"Cannot start: position(s) {missing} have incomplete measurements (need H_ID, V_ID, wall thickness). Edit the sample first."
             )
 
-        # Effective outer diameter (manufacturer formula): nominal × 1.02 + 5
-        # The PLC's FC_Calculate computes ALL targets (deflection / crack / fracture) from
-        # DB1.Pipe_Diameter every scan, so the only way to influence the targets is to
-        # write the EFFECTIVE diameter into Pipe_Diameter. The original nominal is preserved
-        # in the active sample DB and re-written into the saved Test record by websocket.py
-        # so reports still show the nominal value (e.g. DN400, not 413).
-        nominal = float(pipe_dia)
-        effective = nominal * 1.02 + 5.0
-        target_mm = effective * float(defl_pct) / 100.0
-        command_service.plc.write_real(1, 0, effective)    # DB1.PARAM_PIPE_DIAMETER  ← effective
+        # Nom. Dia (nominal_diameter) is the actual OD used for all PLC targets.
+        # The PLC's FC_Calculate computes deflection/crack/fracture targets from
+        # DB1.Pipe_Diameter every scan, so Nom. Dia is written there directly.
+        nominal = float(nom_dia)
+        target_mm = nominal * float(defl_pct) / 100.0
+        command_service.plc.write_real(1, 0, nominal)      # DB1.PARAM_PIPE_DIAMETER  ← Nom. Dia
         command_service.plc.write_real(1, 12, target_mm)   # DB1.PARAM_DEFLECTION_TARGET
         command_service.plc.write_real(1, 16, 12.5)        # DB1.PARAM_TEST_SPEED (ASTM)
         command_service.plc.write_real(1, 50, 400.0)       # DB1.PARAM_RETURN_SPEED (machine max)
         import logging
         logging.getLogger(__name__).info(
-            f"Pre-start: nominal={nominal} effective={effective:.2f} target={target_mm:.3f}mm "
+            f"Pre-start: nom_dia={nominal} target={target_mm:.3f}mm "
             f"(at {defl_pct}%), positions={required} validated"
         )
     except Exception as e:
