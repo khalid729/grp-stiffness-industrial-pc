@@ -327,6 +327,7 @@ export interface WifiNetwork {
   signal: number;
   security: string;
   saved?: boolean;
+  in_use?: boolean;
 }
 
 export interface WifiStatus {

@@ -8,6 +8,7 @@ import logging
 import re
 import re as regex
 import socket
+import time
 from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -100,10 +101,15 @@ def _saved_wifi_ssids() -> set[str]:
 
 @router.get("/wifi/scan")
 async def scan_wifi_networks():
-    """Scan for available WiFi networks. Each entry includes `saved: bool` so
-    the UI can connect to known networks without prompting for the password.
+    """Scan for available WiFi networks. Each entry includes:
+      - `saved`: profile exists in NM (skip password prompt)
+      - `in_use`: this AP is currently active (UI shows "Connected" marker)
     """
-    success, output = run_command(["sudo", "nmcli", "-t", "-f", "SSID,SIGNAL,SECURITY", "dev", "wifi", "list", "--rescan", "yes"])
+    # IN-USE is `*` for the currently-active AP, empty otherwise.
+    success, output = run_command([
+        "sudo", "nmcli", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY",
+        "dev", "wifi", "list", "--rescan", "yes",
+    ])
     if not success:
         raise HTTPException(status_code=500, detail=f"Failed to scan WiFi: {output}")
     saved = _saved_wifi_ssids()
@@ -112,15 +118,17 @@ async def scan_wifi_networks():
     for line in output.split("\n"):
         if line.strip():
             parts = line.split(":")
-            if len(parts) >= 3:
-                ssid = parts[0].strip()
+            if len(parts) >= 4:
+                in_use = parts[0].strip() == "*"
+                ssid = parts[1].strip()
                 if ssid and ssid not in seen_ssids and ssid != "--":
                     seen_ssids.add(ssid)
                     networks.append({
                         "ssid": ssid,
-                        "signal": int(parts[1]) if parts[1].isdigit() else 0,
-                        "security": parts[2] if len(parts) > 2 else "Open",
+                        "signal": int(parts[2]) if parts[2].isdigit() else 0,
+                        "security": parts[3] if len(parts) > 3 else "Open",
                         "saved": ssid in saved,
+                        "in_use": in_use,
                     })
     networks.sort(key=lambda x: x["signal"], reverse=True)
     return {"networks": networks}
@@ -192,6 +200,12 @@ async def connect_wifi(request: WifiConnectRequest):
     has_password = bool(request.password and request.password.strip())
     exists = _profile_exists(request.ssid)
 
+    # nmcli's `-w N` waits up to N seconds for activation before returning.
+    # We use a moderate value so a slow AP (slow DHCP) doesn't kill the request,
+    # and after nmcli returns we fall back to checking the actual active state —
+    # NM often completes the swap in the background even after nmcli times out.
+    NMCLI_WAIT = "12"
+
     if exists and has_password:
         # Update the stored password on the existing profile, then activate.
         ok, out = run_command([
@@ -201,22 +215,31 @@ async def connect_wifi(request: WifiConnectRequest):
         if not ok:
             logger.error(f"Failed to update PSK on {request.ssid}: {out}")
             raise HTTPException(status_code=400, detail=f"Failed to update password: {out}")
-        success, output = run_command(["sudo", "nmcli", "con", "up", request.ssid], timeout=60)
+        success, output = run_command(["sudo", "nmcli", "-w", NMCLI_WAIT, "con", "up", request.ssid], timeout=18)
     elif exists:
         # No password — reuse stored credentials.
-        success, output = run_command(["sudo", "nmcli", "con", "up", request.ssid], timeout=60)
+        success, output = run_command(["sudo", "nmcli", "-w", NMCLI_WAIT, "con", "up", request.ssid], timeout=18)
     else:
         # New SSID — create profile + connect in one shot.
         if not has_password:
             raise HTTPException(status_code=400, detail="Password required for a new network")
         success, output = run_command([
-            "sudo", "nmcli", "dev", "wifi", "connect",
+            "sudo", "nmcli", "-w", NMCLI_WAIT, "dev", "wifi", "connect",
             request.ssid, "password", request.password,
-        ], timeout=60)
+        ], timeout=18)
 
     if not success:
-        logger.error(f"Failed to connect to WiFi {request.ssid}: {output}")
-        raise HTTPException(status_code=400, detail=f"Failed to connect: {output}")
+        # nmcli may have timed out while NM is still finishing activation.
+        # Give it a moment and re-check the actual active connection.
+        time.sleep(3)
+        active_ok, active_out = run_command(["nmcli", "-t", "-f", "NAME", "con", "show", "--active"])
+        if active_ok and request.ssid in active_out.splitlines():
+            logger.info(f"WiFi {request.ssid} activated after nmcli timeout")
+            success = True
+            output = "Activated after wait (slow AP)"
+        else:
+            logger.error(f"Failed to connect to WiFi {request.ssid}: {output}")
+            raise HTTPException(status_code=400, detail=f"Failed to connect: {output}")
 
     # Defensive: make sure autoconnect is on for the profile we just brought up.
     run_command(["sudo", "nmcli", "con", "modify", request.ssid, "connection.autoconnect", "yes"])

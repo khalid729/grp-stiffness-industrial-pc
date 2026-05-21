@@ -22,6 +22,7 @@ interface WifiNetwork {
   signal: number;
   security: boolean;
   saved?: boolean;
+  in_use?: boolean;
 }
 
 const Settings = () => {
@@ -99,6 +100,8 @@ const Settings = () => {
   const [ipKeypadOpen, setIpKeypadOpen] = useState<string | null>(null);
 
   const handleSelectNetwork = (network: WifiNetwork) => {
+    // Already on this AP — no-op (avoids unnecessary swap + UI flash).
+    if (network.in_use) return;
     // Saved network: skip the password dialog and use the stored credentials.
     // Backend handles empty password by running `nmcli con up <ssid>`.
     if (network.saved) {
@@ -293,14 +296,20 @@ const Settings = () => {
               {networks.map((network: WifiNetwork) => (
                 <div
                   key={network.ssid}
-                  className="flex items-center justify-between p-2 bg-secondary/30 rounded text-sm hover:bg-secondary/50 cursor-pointer"
+                  className={cn(
+                    "flex items-center justify-between p-2 rounded text-sm",
+                    network.in_use
+                      ? "bg-success/15 border border-success/40 cursor-default"
+                      : "bg-secondary/30 hover:bg-secondary/50 cursor-pointer"
+                  )}
                   onClick={() => handleSelectNetwork(network)}
                 >
                   <span className="flex items-center gap-1">
+                    {network.in_use && <Wifi className="w-3 h-3 text-success" />}
                     {getSignalIcon(network.signal)}
                     {network.ssid}
                     {network.security && <Lock className="w-2.5 h-2.5" />}
-                    {network.saved && <Check className="w-3 h-3 text-success" />}
+                    {network.saved && !network.in_use && <Check className="w-3 h-3 text-success" />}
                   </span>
                   <Badge variant="outline" className="text-sm px-1 py-0">
                     {network.signal}%
