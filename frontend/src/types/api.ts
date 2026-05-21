@@ -326,12 +326,14 @@ export interface WifiNetwork {
   ssid: string;
   signal: number;
   security: string;
+  saved?: boolean;
 }
 
 export interface WifiStatus {
   connected: boolean;
   ssid: string | null;
   ip_address: string | null;
+  internet_ok?: boolean;
 }
 
 export interface LanStatus {

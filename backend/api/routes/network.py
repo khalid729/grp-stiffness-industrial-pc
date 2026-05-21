@@ -7,9 +7,19 @@ import os
 import logging
 import re
 import re as regex
+import socket
 from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+
+
+def _tcp_reachable(host: str, port: int, timeout: float = 1.5) -> bool:
+    """Quick TCP connect test — used as a light internet-reachability probe."""
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/network", tags=["Network"])
@@ -75,12 +85,28 @@ def get_wifi_interface() -> Optional[str]:
     return None
 
 
+def _saved_wifi_ssids() -> set[str]:
+    """Return the set of SSIDs that have a saved NM profile (regardless of state)."""
+    ok, out = run_command(["nmcli", "-t", "-f", "NAME,TYPE", "con", "show"])
+    if not ok:
+        return set()
+    saved = set()
+    for line in out.splitlines():
+        parts = line.split(":")
+        if len(parts) >= 2 and parts[1] == "802-11-wireless":
+            saved.add(parts[0])
+    return saved
+
+
 @router.get("/wifi/scan")
 async def scan_wifi_networks():
-    """Scan for available WiFi networks"""
+    """Scan for available WiFi networks. Each entry includes `saved: bool` so
+    the UI can connect to known networks without prompting for the password.
+    """
     success, output = run_command(["sudo", "nmcli", "-t", "-f", "SSID,SIGNAL,SECURITY", "dev", "wifi", "list", "--rescan", "yes"])
     if not success:
         raise HTTPException(status_code=500, detail=f"Failed to scan WiFi: {output}")
+    saved = _saved_wifi_ssids()
     networks = []
     seen_ssids = set()
     for line in output.split("\n"):
@@ -93,7 +119,8 @@ async def scan_wifi_networks():
                     networks.append({
                         "ssid": ssid,
                         "signal": int(parts[1]) if parts[1].isdigit() else 0,
-                        "security": parts[2] if len(parts) > 2 else "Open"
+                        "security": parts[2] if len(parts) > 2 else "Open",
+                        "saved": ssid in saved,
                     })
     networks.sort(key=lambda x: x["signal"], reverse=True)
     return {"networks": networks}
@@ -122,31 +149,88 @@ async def get_wifi_status():
             if "inet " in line:
                 ip_address = line.split()[1].split("/")[0]
                 break
+    # Internet reachability probe — uses a TCP connect (no ICMP perms needed,
+    # and faster + more reliable than ping). 1.1.1.1:53 is Cloudflare DNS.
+    internet_ok = _tcp_reachable("1.1.1.1", 53, timeout=1.5)
+
     return {
         "connected": wifi_connection is not None and ip_address is not None,
         "ssid": wifi_connection,
-        "ip_address": ip_address
+        "ip_address": ip_address,
+        "internet_ok": internet_ok,
     }
+
+
+def _profile_exists(ssid: str) -> bool:
+    """Check if a NetworkManager connection profile with this name exists."""
+    ok, out = run_command(["nmcli", "-t", "-f", "NAME", "con", "show"])
+    if not ok:
+        return False
+    return ssid in out.splitlines()
 
 
 @router.post("/wifi/connect")
 async def connect_wifi(request: WifiConnectRequest):
-    """Connect to a WiFi network"""
+    """Connect to a WiFi network.
+
+    Behavior depends on whether a profile for `ssid` already exists:
+
+      - **Existing profile + password provided**: update the stored PSK with
+        `nmcli con modify`, then activate with `con up`. We do NOT use
+        `nmcli dev wifi connect` here because it triggers a partial profile
+        rewrite that can fail with `802-11-wireless-security.key-mgmt:
+        property is missing` and crash wpa_supplicant (observed once, took
+        the wifi card down until reboot).
+
+      - **Existing profile + no password**: `con up` using the stored PSK.
+
+      - **New SSID**: `nmcli dev wifi connect SSID password XXX` creates a
+        fresh profile.
+    """
     logger.info(f"Attempting to connect to WiFi: {request.ssid}")
-    success, output = run_command([
-        "sudo", "nmcli", "dev", "wifi", "connect",
-        request.ssid, "password", request.password
-    ], timeout=60)
+
+    has_password = bool(request.password and request.password.strip())
+    exists = _profile_exists(request.ssid)
+
+    if exists and has_password:
+        # Update the stored password on the existing profile, then activate.
+        ok, out = run_command([
+            "sudo", "nmcli", "con", "modify", request.ssid,
+            "802-11-wireless-security.psk", request.password,
+        ])
+        if not ok:
+            logger.error(f"Failed to update PSK on {request.ssid}: {out}")
+            raise HTTPException(status_code=400, detail=f"Failed to update password: {out}")
+        success, output = run_command(["sudo", "nmcli", "con", "up", request.ssid], timeout=60)
+    elif exists:
+        # No password — reuse stored credentials.
+        success, output = run_command(["sudo", "nmcli", "con", "up", request.ssid], timeout=60)
+    else:
+        # New SSID — create profile + connect in one shot.
+        if not has_password:
+            raise HTTPException(status_code=400, detail="Password required for a new network")
+        success, output = run_command([
+            "sudo", "nmcli", "dev", "wifi", "connect",
+            request.ssid, "password", request.password,
+        ], timeout=60)
+
     if not success:
         logger.error(f"Failed to connect to WiFi {request.ssid}: {output}")
         raise HTTPException(status_code=400, detail=f"Failed to connect: {output}")
+
+    # Defensive: make sure autoconnect is on for the profile we just brought up.
+    run_command(["sudo", "nmcli", "con", "modify", request.ssid, "connection.autoconnect", "yes"])
     logger.info(f"Successfully connected to WiFi: {request.ssid}")
     return {"success": True, "message": f"Connected to {request.ssid}"}
 
 
 @router.post("/wifi/disconnect")
 async def disconnect_wifi():
-    """Disconnect from current WiFi network"""
+    """Disconnect the wireless device. Non-sticky — NetworkManager will
+    re-activate the highest-priority autoconnect=yes profile in range. To
+    switch networks, just call /wifi/connect with the new SSID (no need to
+    disconnect first; nmcli handles the swap atomically).
+    """
     iface = get_wifi_interface() or "wlan0"
     success, output = run_command(["sudo", "nmcli", "dev", "disconnect", iface])
     if not success:
