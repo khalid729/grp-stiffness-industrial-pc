@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse, StreamingResponse
+from starlette.concurrency import run_in_threadpool
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from sqlalchemy.orm import selectinload
@@ -28,6 +29,21 @@ def set_services(pdf_gen, excel_exp):
     global pdf_generator, excel_exporter
     pdf_generator = pdf_gen
     excel_exporter = excel_exp
+
+
+async def _render_pdf(test: Test, db: AsyncSession, force_unit: str) -> bytes:
+    """The PDF of what History opens for this test: the whole group report when
+    the test belongs to a group, otherwise the single-test report. Rendering
+    runs in a worker thread so it does not stall live PLC broadcasting."""
+    if test.group_id:
+        group = (await db.execute(select(TestGroup).where(TestGroup.id == test.group_id))).scalar_one_or_none()
+        if group:
+            tests = (await db.execute(
+                select(Test).options(selectinload(Test.data_points))
+                .where(Test.group_id == group.id).order_by(Test.position)
+            )).scalars().all()
+            return await run_in_threadpool(pdf_generator.generate_group_report, group, tests, force_unit=force_unit)
+    return await run_in_threadpool(pdf_generator.generate_test_report, test, force_unit=force_unit)
 
 
 # ========== Test History ==========
@@ -134,7 +150,7 @@ async def download_pdf_report(
         raise HTTPException(status_code=404, detail="Test not found")
 
     # Generate PDF
-    pdf_buffer = pdf_generator.generate_test_report(test, force_unit=force_unit)
+    pdf_buffer = await _render_pdf(test, db, force_unit)
 
     filename = f"test_report_{test_id}_{test.test_date.strftime('%Y%m%d')}.pdf"
 
@@ -247,7 +263,7 @@ async def bulk_download(
             if req.format == "pdf":
                 if pdf_generator is None:
                     continue
-                data = pdf_generator.generate_test_report(test, force_unit=req.force_unit)
+                data = await _render_pdf(test, db, req.force_unit)
                 filename = f"test_report_{test_id}_{date_str}.pdf"
             else:
                 if excel_exporter is None:
@@ -508,7 +524,7 @@ async def export_to_usb(
                 if pdf_generator is None:
                     errors.append(f"Test {test_id}: PDF generator not available")
                     continue
-                data = pdf_generator.generate_test_report(test, force_unit=req.force_unit)
+                data = await _render_pdf(test, db, req.force_unit)
                 filename = f"test_report_{test_id}_{date_str}.pdf"
             else:
                 if excel_exporter is None:
