@@ -2,7 +2,7 @@
 
 The layout follows frontend/src/components/reports/GroupReportDialog.tsx and
 TestReportDialog.tsx as they print on A4 (index.css, @media print): the same
-sections, order, wording, colours and chart. Keep the two in step when the
+sections, order, wording, fonts and chart. Keep the two in step when the
 dialogs change.
 
 All geometry below is in CSS px; the canvas is scaled px -> pt.
@@ -35,8 +35,11 @@ W = 190 * mm / PX              # #test-report { max-width: 190mm }
 
 BLACK = '#000000'
 GRAY_900, GRAY_800, GRAY_500, GRAY_400 = '#111827', '#1f2937', '#6b7280', '#9ca3af'
-GRAY_200, GRAY_100, GRAY_50 = '#e5e7eb', '#f3f4f6', '#f9fafb'
-GREEN_700, RED_700, ORANGE_50, BLUE_600 = '#15803d', '#b91c1c', '#fff7ed', '#2563eb'
+# Lines and fills are one Tailwind step darker than in the dialogs (gray-200
+# lines, gray-50 / gray-100 / orange-50 fills): at the dialogs' values they
+# come out fainter in a PDF than they look on the machine's screen.
+LINE, FILL, HEAD_FILL, CRACK_HEAD_FILL = '#d1d5db', '#f3f4f6', '#e5e7eb', '#ffedd5'
+GREEN_700, RED_700, BLUE_600 = '#15803d', '#b91c1c', '#2563eb'
 BADGE = {
     True: dict(text='PASS', bg='#dcfce7', fg='#166534', border='#4ade80'),
     False: dict(text='FAIL', bg='#fee2e2', fg='#991b1b', border='#f87171'),
@@ -208,8 +211,8 @@ def _info_card(s: _Sheet, y, columns, row_gap=4, title_mb=8, tracking=0, label_c
         return sum(r[2].get('lh', 16) if len(r) > 2 else 16 for r in rows) + row_gap * (len(rows) - 1)
 
     h = 2 + 12 + 16 + title_mb + max(body_height(rows) for _, rows in columns) + 12
-    s.box(0, y, W, h, border=GRAY_200, radius=8)
-    s.line(W / 2 - 0.5, y + 1, W / 2 - 0.5, y + h - 1, GRAY_200)
+    s.box(0, y, W, h, border=LINE, radius=8)
+    s.line(W / 2 - 0.5, y + 1, W / 2 - 0.5, y + h - 1, LINE)
     for (title, rows), left, right in zip(columns, (13, W / 2 + 12), (W / 2 - 13, W - 13)):
         s.text(left, y + 13, title.upper(), SEMIBOLD, 12, GRAY_400, tracking=tracking)
         ry = y + 13 + 16 + title_mb
@@ -246,7 +249,7 @@ def _stat_cards(s: _Sheet, y, cards, gap=8, pad=6, radius=4):
     h = 2 + 2 * pad + max(sum(line[4] for line in card) for card in wrapped)
     for i, card in enumerate(wrapped):
         x = i * (cw + gap)
-        s.box(x, y, cw, h, GRAY_50, GRAY_200, 1, radius)
+        s.box(x, y, cw, h, FILL, LINE, 1, radius)
         ly = y + 1 + pad
         for text, font, size, color, lh in card:
             s.text(x + cw / 2, ly, text, font, size, color, lh=lh, align='center')
@@ -254,7 +257,7 @@ def _stat_cards(s: _Sheet, y, cards, gap=8, pad=6, radius=4):
     return y + h
 
 
-def _table(s: _Sheet, y, head: Sequence[str], rows, head_bg=GRAY_100):
+def _table(s: _Sheet, y, head: Sequence[str], rows, head_bg=HEAD_FILL):
     """Centered grid table. A row is (cells, background); a cell is a string or
     (text, font, color[, size]). Columns share the width by content, like HTML."""
     def norm(cell):
@@ -280,9 +283,9 @@ def _table(s: _Sheet, y, head: Sequence[str], rows, head_bg=GRAY_100):
         ry += rh
     total = sum(heights) + 1
     for edge in [0] + [sum(heights[:i + 1]) for i in range(len(heights))]:
-        s.line(0, y + edge + 0.5, W, y + edge + 0.5, GRAY_200)
+        s.line(0, y + edge + 0.5, W, y + edge + 0.5, LINE)
     for edge in [0.5] + [sum(widths[:i + 1]) for i in range(len(widths) - 1)] + [W - 0.5]:
-        s.line(edge, y, edge, y + total, GRAY_200)
+        s.line(edge, y, edge, y + total, LINE)
     return y + total
 
 
@@ -337,7 +340,7 @@ def _chart(s: _Sheet, y, test: Test, height=220):
         s.text(W / 2, y + 32, 'No chart data available', SANS, 16, GRAY_400, lh=24, align='center')
         return y + 88
 
-    s.box(0, y, W, height, GRAY_50, GRAY_200, 1, 8)
+    s.box(0, y, W, height, FILL, LINE, 1, 8)
     ox, oy, sw, sh = 13, y + 13, W - 26, height - 26       # the chart's SVG
     left, right, top, bottom = 70, sw - 20, 10, sh - 50    # plot area inside it
     forces = [p.force * 1000 for p in points]
@@ -352,10 +355,10 @@ def _chart(s: _Sheet, y, test: Test, height=220):
 
     dash = [3, 3]
     for v in y_ticks:
-        s.line(ox + left, oy + py(v), ox + right, oy + py(v), GRAY_200, dash=dash)
+        s.line(ox + left, oy + py(v), ox + right, oy + py(v), LINE, dash=dash)
     grid_xs = {xs[i] for i in _fitting_ticks(xs, labels, 9.25, sw)} | {left, right}
     for gx in grid_xs:
-        s.line(ox + gx, oy + top, ox + gx, oy + bottom, GRAY_200, dash=dash)
+        s.line(ox + gx, oy + top, ox + gx, oy + bottom, LINE, dash=dash)
 
     s.line(ox + left, oy + bottom, ox + right, oy + bottom, GRAY_500)
     s.line(ox + left, oy + top, ox + left, oy + bottom, GRAY_500)
@@ -433,7 +436,7 @@ class PDFGenerator:
         ], **card) + 16
 
         # Project information: one card, three label/value pairs side by side
-        s.box(0, y, W, 70, border=GRAY_200, radius=8)
+        s.box(0, y, W, 70, border=LINE, radius=8)
         s.text(13, y + 13, 'PROJECT INFORMATION', SEMIBOLD, 12, GRAY_400, tracking=0.05)
         col = (W - 26 - 64) / 3
         for i, (label, value) in enumerate([('Project Name', test.project_name),
@@ -529,7 +532,7 @@ class PDFGenerator:
             mono_bold(_fixed(group.avg_ei_over_r3 or mean(t.ei_over_r3 for t in tests), 4)),
             mono_bold(_fixed(group.avg_e_modulus or mean(t.e_modulus for t in tests), 0)),
             (target, BOLD, BLACK), verdict(group.passed, size=16),
-        ], GRAY_50))
+        ], FILL))
         y = _table(s, y, ['Angle', f'Force ({unit})', 'STIS (N/m²)', 'EI/R³', 'E-mod', 'Target SN', 'Result'], rows) + 12
 
         if any(t.v_id for t in tests):
@@ -550,7 +553,7 @@ class PDFGenerator:
             y = _table(s, y, ['Stage', 'Defl %', 'Defl (mm)', f'Force ({unit})', 'Result'], [([
                 name, mono(f'{_num(percent)}%'), mono(_fixed(deflection, 2)), mono(_force(force, unit)),
                 verdict(not found, 'OK', 'CRACK'),
-            ], None) for name, percent, deflection, force, found in stages], head_bg=ORANGE_50) + 12
+            ], None) for name, percent, deflection, force, found in stages], head_bg=CRACK_HEAD_FILL) + 12
 
         _footer(s, y + 4)
 
