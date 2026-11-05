@@ -99,19 +99,28 @@ const Settings = () => {
   // IP Keypad state
   const [ipKeypadOpen, setIpKeypadOpen] = useState<string | null>(null);
 
-  const handleSelectNetwork = (network: WifiNetwork) => {
-    // Already on this AP — no-op (avoids unnecessary swap + UI flash).
-    if (network.in_use) return;
-    // Saved network: skip the password dialog and use the stored credentials.
-    // Backend handles empty password by running `nmcli con up <ssid>`.
-    if (network.saved) {
-      connectWifi.mutate({ ssid: network.ssid, password: "" });
-      return;
-    }
+  const askForPassword = (network: WifiNetwork) => {
     setSelectedNetwork(network);
     setWifiPassword("");
     setShowPasswordDialog(true);
     setShowKeyboard(true);
+  };
+
+  const handleSelectNetwork = (network: WifiNetwork) => {
+    // Already on this AP — no-op (avoids unnecessary swap + UI flash).
+    if (network.in_use) return;
+    // Saved network: try the stored credentials first (backend runs
+    // `nmcli con up <ssid>` for an empty password). If that fails — usually
+    // because the AP's password was changed — ask for the new one; the backend
+    // then updates the saved profile.
+    if (network.saved) {
+      connectWifi.mutate(
+        { ssid: network.ssid, password: "" },
+        { onError: () => askForPassword(network) },
+      );
+      return;
+    }
+    askForPassword(network);
   };
 
   const handleConnectWifi = () => {
