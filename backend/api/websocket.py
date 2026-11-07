@@ -304,6 +304,11 @@ async def _save_test_result(data: dict):
         # the source of truth; whatever the frontend posted only fills the gaps.
         meta = dict(_pending_metadata)
         meta.update(_load_active_sample_metadata())
+        # Stiffness class is the test target (SN 2500/5000/10000...), so it is
+        # always known even when the sample form left it blank.
+        _target_sn = params.get('target_sn_class', 0) or 0
+        if not meta.get('stiffness_class') and _target_sn:
+            meta['stiffness_class'] = f"SN {int(_target_sn)}"
         logger.info(f"Report metadata: sample={meta.get('sample_id')!r} customer={meta.get('customer_name')!r} project={meta.get('project_name')!r}")
         if meta.get('sample_id'):
             test_record.sample_id = meta.get('sample_id')

@@ -31,9 +31,13 @@ interface ReportInfoEditorProps {
 
 export function ReportInfoEditor({ kind, id, initial, onSaved, onCancel }: ReportInfoEditorProps) {
   const { t } = useLanguage();
-  const [values, setValues] = useState<Record<string, string>>(() =>
-    Object.fromEntries(REPORT_INFO_FIELDS.map(f => [f.key, (initial[f.key] ?? '') as string]))
-  );
+  const [values, setValues] = useState<Record<string, string>>(() => {
+    const v = Object.fromEntries(REPORT_INFO_FIELDS.map(f => [f.key, (initial[f.key] ?? '') as string]));
+    // Stiffness class is known from the test target even if it was never typed in.
+    const target = (initial as any).target_sn_class;
+    if (!v.stiffness_class && target) v.stiffness_class = `SN ${target}`;
+    return v;
+  });
   const [active, setActive] = useState<string>(REPORT_INFO_FIELDS[0].key);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

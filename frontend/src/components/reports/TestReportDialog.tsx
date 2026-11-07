@@ -222,7 +222,7 @@ export function TestReportDialog({ testId, open, onOpenChange }: TestReportDialo
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">{t('report.stiffnessClass')}</span>
-                      <span className="font-medium text-gray-800">{test.stiffness_class || '-'}</span>
+                      <span className="font-medium text-gray-800">{test.stiffness_class || (test.target_sn_class ? `SN ${test.target_sn_class}` : '-')}</span>
                     </div>
                   </div>
                 </div>

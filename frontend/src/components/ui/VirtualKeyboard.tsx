@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import { cn } from "@/lib/utils";
 import { Delete, Check, Space } from "lucide-react";
 
@@ -9,27 +9,49 @@ interface VirtualKeyboardProps {
 }
 
 export function VirtualKeyboard({ value, onChange, onClose }: VirtualKeyboardProps) {
-  // Shift works like a phone keyboard: one tap = next letter uppercase,
-  // double-tap (within 400 ms) = Caps Lock until tapped again.
+  // Shift works like a phone keyboard: one tap = next letter uppercase;
+  // double-tap (within 600 ms) OR long-press (500 ms) = Caps Lock until tapped again.
+  // Uses pointerdown (not click) so touch panels register both taps immediately.
   const [isShift, setIsShift] = useState(false);
   const [isCaps, setIsCaps] = useState(false);
   const [isSymbols, setIsSymbols] = useState(false);
   const lastShiftTap = useRef(0);
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const holdFired = useRef(false);
   const upper = isShift || isCaps;
 
-  const handleShift = () => {
+  const clearHold = () => {
+    if (holdTimer.current) { clearTimeout(holdTimer.current); holdTimer.current = null; }
+  };
+
+  const handleShiftDown = (e: ReactPointerEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    holdFired.current = false;
     const now = Date.now();
     if (isCaps) {
       setIsCaps(false);
       setIsShift(false);
-    } else if (now - lastShiftTap.current < 400) {
+      lastShiftTap.current = 0;
+      return;
+    }
+    if (now - lastShiftTap.current < 600) {
       setIsCaps(true);
       setIsShift(false);
-    } else {
-      setIsShift(!isShift);
+      lastShiftTap.current = 0;
+      return;
     }
     lastShiftTap.current = now;
+    setIsShift(!isShift);
+    clearHold();
+    holdTimer.current = setTimeout(() => {
+      holdFired.current = true;
+      setIsCaps(true);
+      setIsShift(false);
+      lastShiftTap.current = 0;
+    }, 500);
   };
+
+  const handleShiftUp = () => clearHold();
 
   const letters = [
     ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
@@ -65,8 +87,13 @@ export function VirtualKeyboard({ value, onChange, onClose }: VirtualKeyboardPro
         <div key={rowIndex} className="flex justify-center gap-1">
           {rowIndex === 2 && !isSymbols && (
             <button
-              onClick={handleShift}
-              title="Tap: capital letter · Double-tap: Caps Lock"
+              onPointerDown={handleShiftDown}
+              onPointerUp={handleShiftUp}
+              onPointerCancel={handleShiftUp}
+              onPointerLeave={handleShiftUp}
+              onContextMenu={(e) => e.preventDefault()}
+              title="Tap: capital letter · Double-tap or hold: Caps Lock"
+              style={{ touchAction: 'manipulation', userSelect: 'none', WebkitUserSelect: 'none' }}
               className={cn(
                 "w-12 h-11 rounded-lg font-bold text-lg transition-colors",
                 isCaps

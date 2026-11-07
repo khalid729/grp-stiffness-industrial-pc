@@ -122,7 +122,7 @@ function GroupReportDialogImpl({ groupId, open, onOpenChange }: GroupReportDialo
         <div className="space-y-1 text-xs">
           <div className="flex justify-between"><span className="text-gray-500">{t('report.lotNumber')}</span><span className="font-medium">{group.lot_number || '-'}</span></div>
           <div className="flex justify-between"><span className="text-gray-500">{t('report.productId')}</span><span className="font-medium">{group.product_id || '-'}</span></div>
-          <div className="flex justify-between"><span className="text-gray-500">{t('report.stiffnessClass')}</span><span className="font-medium">{group.stiffness_class || '-'}</span></div>
+          <div className="flex justify-between"><span className="text-gray-500">{t('report.stiffnessClass')}</span><span className="font-medium">{group.stiffness_class || (group.target_sn_class ? `SN ${group.target_sn_class}` : '-')}</span></div>
         </div>
       </div>
       <div className="p-3">

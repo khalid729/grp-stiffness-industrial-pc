@@ -431,7 +431,7 @@ class PDFGenerator:
             ('Project Information', [
                 ('Nominal Weight', mm_or_dash(test.nominal_weight, 'kg/m'), dark),
                 ('Pressure Class', test.pressure_class or '-', dark),
-                ('Stiffness Class', test.stiffness_class or '-', dark),
+                ('Stiffness Class', test.stiffness_class or (f"SN {test.target_sn_class}" if test.target_sn_class else '-'), dark),
             ]),
         ], **card) + 16
 
@@ -501,7 +501,7 @@ class PDFGenerator:
             ('Product Information', [
                 ('Lot Number', group.lot_number or '-'),
                 ('Product ID', group.product_id or '-'),
-                ('Stiffness Class', group.stiffness_class or '-'),
+                ('Stiffness Class', group.stiffness_class or (f"SN {group.target_sn_class}" if group.target_sn_class else '-')),
             ]),
             ('Project Information', [
                 ('Project Name', group.project_name or '-'),

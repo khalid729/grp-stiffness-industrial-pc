@@ -82,7 +82,7 @@ export default function PrintGroupReport() {
               <div className="flex justify-between"><span className="text-gray-500">{t('report.lotNumber')}</span><span className="font-medium">{group.lot_number || '-'}</span></div>
               <div className="flex justify-between"><span className="text-gray-500">{t('report.productId')}</span><span className="font-medium">{group.product_id || '-'}</span></div>
               <div className="flex justify-between"><span className="text-gray-500">{t('report.nominalDiameter')}</span><span className="font-medium">{group.nominal_diameter ? `${group.nominal_diameter} mm` : '-'}</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">{t('report.stiffnessClass')}</span><span className="font-medium">{group.stiffness_class || '-'}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">{t('report.stiffnessClass')}</span><span className="font-medium">{group.stiffness_class || (group.target_sn_class ? `SN ${group.target_sn_class}` : '-')}</span></div>
             </div>
           </div>
           <div className="p-3">
