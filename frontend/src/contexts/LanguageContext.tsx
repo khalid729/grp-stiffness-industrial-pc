@@ -98,7 +98,7 @@ const translations: Translations = {
   // Test Setup - Product Information
   "testSetup.productInfo": { en: "Product Information", ar: "معلومات المنتج" },
   "testSetup.lotNumber": { en: "Lot Number", ar: "رقم الدفعة" },
-  "testSetup.nominalDiameter": { en: "Nominal Diameter", ar: "القطر الاسمي" },
+  "testSetup.nominalDiameter": { en: "Measured OD", ar: "القطر الخارجي المقاس" },
   "testSetup.pressureClass": { en: "Pressure Class", ar: "فئة الضغط" },
   "testSetup.stiffnessClass": { en: "Stiffness Class", ar: "فئة الصلابة" },
   "testSetup.productId": { en: "Product ID", ar: "معرف المنتج" },
@@ -251,7 +251,7 @@ const translations: Translations = {
 
   // Test Setup extras
   "testSetup.testInfo": { en: "Test Information", ar: "معلومات الاختبار" },
-  "testSetup.sampleId": { en: "Sample ID", ar: "رقم العينة" },
+  "testSetup.sampleId": { en: "Sample No", ar: "رقم العينة" },
   "testSetup.operator": { en: "Operator", ar: "المشغل" },
   "testSetup.notes": { en: "Notes", ar: "ملاحظات" },
 
@@ -262,7 +262,7 @@ const translations: Translations = {
   "report.testInfo": { en: "Test Information", ar: "معلومات الاختبار" },
   "report.testId": { en: "Test ID", ar: "رقم الاختبار" },
   "report.date": { en: "Date", ar: "التاريخ" },
-  "report.sampleId": { en: "Sample ID", ar: "رقم العينة" },
+  "report.sampleId": { en: "Sample No", ar: "رقم العينة" },
   "report.operator": { en: "Operator", ar: "المشغل" },
   "report.parameters": { en: "Test Parameters", ar: "معاملات الاختبار" },
   "report.pipeDiameter": { en: "Pipe Diameter", ar: "قطر الأنبوب" },
@@ -286,7 +286,7 @@ const translations: Translations = {
   // Report - Product Information
   "report.productInfo": { en: "Product Information", ar: "معلومات المنتج" },
   "report.lotNumber": { en: "Lot Number", ar: "رقم الدفعة" },
-  "report.nominalDiameter": { en: "Nominal Diameter", ar: "القطر الاسمي" },
+  "report.nominalDiameter": { en: "Measured OD", ar: "القطر الخارجي المقاس" },
   "report.pressureClass": { en: "Pressure Class", ar: "فئة الضغط" },
   "report.stiffnessClass": { en: "Stiffness Class", ar: "فئة الصلابة" },
   "report.productId": { en: "Product ID", ar: "معرف المنتج" },

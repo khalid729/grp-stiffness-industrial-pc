@@ -411,7 +411,7 @@ class PDFGenerator:
             ('Test Information', [
                 ('Test ID', f'#{test.id}', dict(font=SEMIBOLD, color=GRAY_900)),
                 ('Date', _date(test.test_date), dark),
-                ('Sample ID', test.sample_id or '-', dark),
+                ('Sample No', test.sample_id or '-', dark),
                 ('Operator', test.operator or '-', dark),
             ]),
             ('Test Parameters', [
@@ -425,7 +425,7 @@ class PDFGenerator:
             ('Product Information', [
                 ('Lot Number', test.lot_number or '-', dark),
                 ('Product ID', test.product_id or '-', dark),
-                ('Nominal Diameter', mm_or_dash(test.nominal_diameter, 'mm'), dark),
+                ('Measured OD', mm_or_dash(test.nominal_diameter, 'mm'), dark),
                 ('Thickness', mm_or_dash(test.thickness, 'mm'), dark),
             ]),
             ('Project Information', [
@@ -486,7 +486,7 @@ class PDFGenerator:
         speed = f'{_num(group.test_speed)} mm/min' if group.test_speed is not None else '-'
         y = _info_card(s, y, [
             ('Test Information', [
-                ('Sample ID', group.sample_id or '-'),
+                ('Sample No', group.sample_id or '-'),
                 ('Date', _date(group.test_date)),
                 ('Operator', group.operator or '-'),
             ]),
@@ -563,7 +563,7 @@ class PDFGenerator:
             ('Test Information', [
                 ('Test ID', f'#{test.id}', dict(font=SEMIBOLD)),
                 ('Date', _date(test.test_date)),
-                ('Sample ID', group.sample_id or '-'),
+                ('Sample No', group.sample_id or '-'),
                 ('Angle', _angle(test.angle)),
             ]),
             ('Results', [

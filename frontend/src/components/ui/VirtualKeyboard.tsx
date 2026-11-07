@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { Delete, Check, Space } from "lucide-react";
 
@@ -9,8 +9,27 @@ interface VirtualKeyboardProps {
 }
 
 export function VirtualKeyboard({ value, onChange, onClose }: VirtualKeyboardProps) {
+  // Shift works like a phone keyboard: one tap = next letter uppercase,
+  // double-tap (within 400 ms) = Caps Lock until tapped again.
   const [isShift, setIsShift] = useState(false);
+  const [isCaps, setIsCaps] = useState(false);
   const [isSymbols, setIsSymbols] = useState(false);
+  const lastShiftTap = useRef(0);
+  const upper = isShift || isCaps;
+
+  const handleShift = () => {
+    const now = Date.now();
+    if (isCaps) {
+      setIsCaps(false);
+      setIsShift(false);
+    } else if (now - lastShiftTap.current < 400) {
+      setIsCaps(true);
+      setIsShift(false);
+    } else {
+      setIsShift(!isShift);
+    }
+    lastShiftTap.current = now;
+  };
 
   const letters = [
     ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
@@ -25,9 +44,9 @@ export function VirtualKeyboard({ value, onChange, onClose }: VirtualKeyboardPro
   ];
 
   const handleKey = (key: string) => {
-    const char = isShift ? key.toUpperCase() : key;
+    const char = upper ? key.toUpperCase() : key;
     onChange(value + char);
-    if (isShift) setIsShift(false);
+    if (isShift && !isCaps) setIsShift(false);
   };
 
   const handleBackspace = () => {
@@ -46,13 +65,18 @@ export function VirtualKeyboard({ value, onChange, onClose }: VirtualKeyboardPro
         <div key={rowIndex} className="flex justify-center gap-1">
           {rowIndex === 2 && !isSymbols && (
             <button
-              onClick={() => setIsShift(!isShift)}
+              onClick={handleShift}
+              title="Tap: capital letter · Double-tap: Caps Lock"
               className={cn(
                 "w-12 h-11 rounded-lg font-bold text-lg transition-colors",
-                isShift ? "bg-primary text-primary-foreground" : "bg-secondary hover:bg-secondary/80"
+                isCaps
+                  ? "bg-primary text-primary-foreground ring-2 ring-primary-foreground/60 underline underline-offset-4"
+                  : isShift
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary hover:bg-secondary/80"
               )}
             >
-              ⇧
+              {isCaps ? "⇪" : "⇧"}
             </button>
           )}
           {row.map((key) => (
@@ -61,7 +85,7 @@ export function VirtualKeyboard({ value, onChange, onClose }: VirtualKeyboardPro
               onClick={() => handleKey(key)}
               className="w-9 h-11 bg-secondary hover:bg-secondary/80 rounded-lg font-mono text-lg transition-colors"
             >
-              {isShift && !isSymbols ? key.toUpperCase() : key}
+              {upper && !isSymbols ? key.toUpperCase() : key}
             </button>
           ))}
           {rowIndex === 2 && (

@@ -102,7 +102,7 @@ async def start_test():
         nom_dia, defl_pct = srow
         if not nom_dia or not defl_pct:
             conn.close()
-            return CommandResponse(success=False, message="Cannot start: sample missing Nom. Dia or deflection_percent")
+            return CommandResponse(success=False, message="Cannot start: sample missing Measured OD or deflection %")
 
         # The required position count comes from the runtime test type the user selected
         # (set by frontend via /api/test-metadata), NOT the sample's num_positions field.

@@ -51,7 +51,7 @@ class ExcelExporter:
         # Headers
         headers = [
             'ID', 'Group', 'Date', 'Customer', 'Project', 'PO Number',
-            'Sample ID', 'Operator', 'Lot Number', 'Product ID',
+            'Sample No', 'Operator', 'Lot Number', 'Product ID',
             'Pressure Class', 'Stiffness Class', 'Angle (°)',
             'Diameter (mm)', 'Length (mm)', 'Deflection %',
             f'Force@Target ({fu})', 'STIS (N/m²)', 'Target SN',
@@ -187,7 +187,7 @@ class ExcelExporter:
             ['Test ID', test.id],
             ['Group', f"G{test.group_id}" if test.group_id else ''],
             ['Date', test.test_date.strftime('%Y-%m-%d %H:%M') if test.test_date else ''],
-            ['Sample ID', test.sample_id or ''],
+            ['Sample No', test.sample_id or ''],
             ['Operator', test.operator or ''],
             ['Position Angle (°)', test.angle if test.angle is not None else ''],
             ['', ''],
@@ -201,7 +201,7 @@ class ExcelExporter:
             ['Product ID', test.product_id or ''],
             ['Pressure Class', test.pressure_class or ''],
             ['Stiffness Class', test.stiffness_class or ''],
-            ['Nominal Diameter (mm)', test.nominal_diameter if test.nominal_diameter else ''],
+            ['Measured OD (mm)', test.nominal_diameter if test.nominal_diameter else ''],
             ['', ''],
             ['Parameters', ''],
             ['Pipe Diameter (mm)', test.pipe_diameter],

@@ -60,6 +60,12 @@ const TestSetup = () => {
   const [numKeypad, setNumKeypad] = useState<{ field: string; label: string; value: number } | null>(null);
   const [showKb, setShowKb] = useState(false);
   const [textKb, setTextKb] = useState<{ field: string; value: string } | null>(null);
+  // User-facing labels for sample text fields. "Sample No" (not "ID") because
+  // "ID" on this machine means inside diameter (H_ID / V_ID).
+  const FIELD_LABELS: Record<string, string> = {
+    sample_id: 'Sample No', operator: 'Operator', lot_number: 'Lot Number', product_id: 'Product ID',
+    _newName: 'Name', _newPO: 'PO Number',
+  };
   const kbValueRef = useRef('');
 
   // Persist navigation state
@@ -247,11 +253,11 @@ const TestSetup = () => {
           {['sample_id', 'operator', 'lot_number', 'product_id'].map(f => (
             <button key={f} onClick={() => { kbValueRef.current = (sampleData as any)[f] || ''; setTextKb({ field: f, value: (sampleData as any)[f] || '' }); setShowKb(true); }}
               className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg border border-border min-h-[52px]">
-              <span className="text-sm text-muted-foreground">{f.replace('_', ' ')}</span>
+              <span className="text-sm text-muted-foreground">{FIELD_LABELS[f] || f.replace('_', ' ')}</span>
               <span className="font-mono font-bold text-base">{(sampleData as any)[f] || '-'}</span>
             </button>
           ))}
-          {[{ f: 'nominal_diameter', l: 'Nom. Dia (mm)' }, { f: 'nominal_weight', l: 'Weight (kg/m)' }].map(({ f, l }) => (
+          {[{ f: 'nominal_diameter', l: 'Measured OD (mm)' }, { f: 'nominal_weight', l: 'Weight (kg/m)' }].map(({ f, l }) => (
             <button key={f} onClick={() => setNumKeypad({ field: f, label: l, value: (sampleData as any)[f] || 0 })}
               className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg border border-border min-h-[52px]">
               <span className="text-sm text-muted-foreground">{l}</span>
@@ -352,7 +358,7 @@ const TestSetup = () => {
       <div className="space-y-3">
         <h2 className="text-lg font-bold flex items-center gap-2"><Check className="w-5 h-5 text-success" /> Review</h2>
         <div className="grid grid-cols-2 gap-2 text-base">
-          {[['Sample', sampleData.sample_id], ['Operator', sampleData.operator], ['Diameter', sampleData.pipe_diameter + 'mm'], ['Target SN', 'SN ' + sampleData.target_sn_class], ['Positions', sampleData.num_positions], ['Deflection', sampleData.deflection_percent + '%'], ['Crack', sampleData.crack_stage1_percent + '% / ' + sampleData.crack_stage2_percent + '%'], ['Fracture', sampleData.fracture_max_percent + '%']].map(([k, v]) => (
+          {[['Sample No', sampleData.sample_id], ['Operator', sampleData.operator], ['Nominal Dia', sampleData.pipe_diameter + 'mm'], ['Measured OD', (sampleData.nominal_diameter || '-') + 'mm'], ['Target SN', 'SN ' + sampleData.target_sn_class], ['Positions', sampleData.num_positions], ['Deflection', sampleData.deflection_percent + '%'], ['Crack', sampleData.crack_stage1_percent + '% / ' + sampleData.crack_stage2_percent + '%'], ['Fracture', sampleData.fracture_max_percent + '%']].map(([k, v]) => (
             <div key={k as string} className="p-2 bg-secondary/20 rounded text-base"><span className="text-muted-foreground">{k}:</span> <span className="font-bold">{v}</span></div>
           ))}
         </div>
@@ -626,7 +632,7 @@ const TestSetup = () => {
         }}>
           <div className="bg-card w-full max-w-md p-4 rounded-xl border shadow-2xl">
             <div className="flex justify-between mb-2">
-              <span className="font-semibold text-base">{textKb.field.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase())}</span>
+              <span className="font-semibold text-base">{FIELD_LABELS[textKb.field] || textKb.field.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase())}</span>
               <TouchButton variant="primary" size="sm" onClick={() => {
                 const val = kbValueRef.current;
                 const field = textKb.field;
