@@ -5,9 +5,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useState, useEffect } from "react";
+import { useQueryClient } from '@tanstack/react-query';
 import { useTestDetail } from '@/hooks/useApi';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Printer, X } from 'lucide-react';
+import { Printer, X, Pencil } from 'lucide-react';
+import { ReportInfoEditor } from './ReportInfoEditor';
 import {
   LineChart,
   Line,
@@ -28,6 +30,9 @@ interface TestReportDialogProps {
 export function TestReportDialog({ testId, open, onOpenChange }: TestReportDialogProps) {
   const { t, language } = useLanguage();
   const { data: test, isLoading } = useTestDetail(open ? testId : null);
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  useEffect(() => { setEditing(false); }, [open, testId]);
 
   // Report settings
   const [forceUnit, setForceUnit] = useState<'N' | 'kN'>(() => {
@@ -79,7 +84,20 @@ export function TestReportDialog({ testId, open, onOpenChange }: TestReportDialo
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 print:max-w-none print:max-h-none print:overflow-visible print:shadow-none print:border-none">
         {/* A4 Paper Report */}
-        <div id="test-report" className="bg-white text-black p-8 print:p-6">
+        {editing && test ? (
+          <ReportInfoEditor
+            kind="test"
+            id={test.id}
+            initial={test}
+            onCancel={() => setEditing(false)}
+            onSaved={(updated) => {
+              queryClient.setQueryData(['test-detail', test.id], (prev: any) => ({ ...prev, ...updated }));
+              queryClient.invalidateQueries({ queryKey: ['tests'] });
+              setEditing(false);
+            }}
+          />
+        ) : null}
+        <div id="test-report" className={`bg-white text-black p-8 print:p-6 ${editing ? 'hidden print:block' : ''}`}>
           {isLoading ? (
             <div className="flex items-center justify-center py-20">
               <p className="text-muted-foreground">{t('report.loading')}</p>
@@ -351,6 +369,7 @@ export function TestReportDialog({ testId, open, onOpenChange }: TestReportDialo
         </div>
 
         {/* Action buttons (hidden in print) */}
+        {!editing && (
         <div className="flex justify-between items-center gap-3 p-4 border-t bg-background print:hidden">
           <button
             onClick={() => onOpenChange(false)}
@@ -359,14 +378,25 @@ export function TestReportDialog({ testId, open, onOpenChange }: TestReportDialo
             <X className="w-4 h-4 inline-block mr-1" />
             {t('report.close')}
           </button>
-          <button
-            onClick={handlePrint}
-            className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
-          >
-            <Printer className="w-4 h-4 inline-block mr-1" />
-            {t('report.print')}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setEditing(true)}
+              disabled={!test}
+              className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-secondary transition-colors disabled:opacity-50"
+            >
+              <Pencil className="w-4 h-4 inline-block mr-1" />
+              {t('report.editInfo')}
+            </button>
+            <button
+              onClick={handlePrint}
+              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+            >
+              <Printer className="w-4 h-4 inline-block mr-1" />
+              {t('report.print')}
+            </button>
+          </div>
         </div>
+        )}
       </DialogContent>
     </Dialog>
   );

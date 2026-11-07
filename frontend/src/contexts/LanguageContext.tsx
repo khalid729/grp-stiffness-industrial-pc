@@ -298,6 +298,10 @@ const translations: Translations = {
   "report.projectName": { en: "Project Name", ar: "اسم المشروع" },
   "report.customerName": { en: "Customer Name", ar: "اسم العميل" },
   "report.poNumber": { en: "PO Number", ar: "رقم أمر الشراء" },
+  "report.editInfo": { en: "Edit Info", ar: "تعديل البيانات" },
+  "report.editInfoHint": { en: "Customer, project and sample details only — test results cannot be changed.", ar: "بيانات العميل والمشروع والعينة فقط — لا يمكن تغيير نتائج الاختبار." },
+  "report.save": { en: "Save", ar: "حفظ" },
+  "report.cancel": { en: "Cancel", ar: "إلغاء" },
 
   // Export / USB
   "export.title": { en: "Reports & USB Export", ar: "التقارير وتصدير USB" },

@@ -3,8 +3,10 @@ import {
   DialogContent,
 } from '@/components/ui/dialog';
 import { useState, useEffect, memo } from "react";
+import { useQueryClient } from '@tanstack/react-query';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Printer, X } from 'lucide-react';
+import { Printer, X, Pencil } from 'lucide-react';
+import { ReportInfoEditor } from './ReportInfoEditor';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer,
@@ -18,13 +20,16 @@ interface GroupReportDialogProps {
 
 function GroupReportDialogImpl({ groupId, open, onOpenChange }: GroupReportDialogProps) {
   const { t, language } = useLanguage();
+  const queryClient = useQueryClient();
   const [group, setGroup] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [forceUnit] = useState<'N' | 'kN'>(() => {
     return (localStorage.getItem('report_force_unit') as 'N' | 'kN') || 'N';
   });
 
   useEffect(() => {
+    setEditing(false);
     if (!open || !groupId) {
       setGroup(null);
       return;
@@ -159,7 +164,21 @@ function GroupReportDialogImpl({ groupId, open, onOpenChange }: GroupReportDialo
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 print:max-w-none print:max-h-none print:overflow-visible print:shadow-none print:border-none">
-        <div id="test-report" className="bg-white text-black print:p-6">
+        {editing && group ? (
+          <ReportInfoEditor
+            kind="group"
+            id={group.id}
+            initial={group}
+            onCancel={() => setEditing(false)}
+            onSaved={(updated) => {
+              // PATCH returns the group without its tests — keep the loaded tests.
+              setGroup((prev: any) => ({ ...prev, ...updated, tests: prev?.tests || [] }));
+              queryClient.invalidateQueries({ queryKey: ['tests'] });
+              setEditing(false);
+            }}
+          />
+        ) : null}
+        <div id="test-report" className={`bg-white text-black print:p-6 ${editing ? 'hidden print:block' : ''}`}>
           {isLoading || !group ? (
             <div className="flex items-center justify-center py-20"><p className="text-muted-foreground">{t('report.loading')}</p></div>
           ) : isSinglePosition && test1 ? (
@@ -425,14 +444,21 @@ function GroupReportDialogImpl({ groupId, open, onOpenChange }: GroupReportDialo
         </div>
 
         {/* Action buttons */}
-        <div className="flex justify-between items-center gap-3 p-4 border-t bg-background print:hidden">
-          <button onClick={() => onOpenChange(false)} className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-secondary">
-            <X className="w-4 h-4 inline-block mr-1" />{t('report.close')}
-          </button>
-          <button onClick={handlePrint} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">
-            <Printer className="w-4 h-4 inline-block mr-1" />{t('report.print')}
-          </button>
-        </div>
+        {!editing && (
+          <div className="flex justify-between items-center gap-3 p-4 border-t bg-background print:hidden">
+            <button onClick={() => onOpenChange(false)} className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-secondary">
+              <X className="w-4 h-4 inline-block mr-1" />{t('report.close')}
+            </button>
+            <div className="flex gap-2">
+              <button onClick={() => setEditing(true)} disabled={!group} className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-secondary disabled:opacity-50">
+                <Pencil className="w-4 h-4 inline-block mr-1" />{t('report.editInfo')}
+              </button>
+              <button onClick={handlePrint} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">
+                <Printer className="w-4 h-4 inline-block mr-1" />{t('report.print')}
+              </button>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

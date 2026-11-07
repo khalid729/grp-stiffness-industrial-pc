@@ -351,6 +351,65 @@ async def get_group(group_id: int, db: AsyncSession = Depends(get_db)):
     return group_dict
 
 
+# ========== Report info editing (non-result fields only) ==========
+
+class ReportInfoUpdate(BaseModel):
+    """Fields QC may change on an issued report. Deliberately excludes every
+    measured/calculated value (forces, STIS, pass/fail, measurements, dates)."""
+    sample_id: Optional[str] = None
+    operator: Optional[str] = None
+    customer_name: Optional[str] = None
+    project_name: Optional[str] = None
+    po_number: Optional[str] = None
+    lot_number: Optional[str] = None
+    product_id: Optional[str] = None
+    pressure_class: Optional[str] = None
+    stiffness_class: Optional[str] = None
+    notes: Optional[str] = None
+
+
+REPORT_INFO_FIELDS = set(ReportInfoUpdate.model_fields.keys())
+
+
+def _apply_report_info(obj, data: ReportInfoUpdate) -> dict:
+    changes = data.model_dump(exclude_unset=True)
+    for key, value in changes.items():
+        if key in REPORT_INFO_FIELDS and hasattr(obj, key):
+            setattr(obj, key, (value or '').strip() or None)
+    return changes
+
+
+@router.patch("/groups/{group_id}")
+async def update_group_info(group_id: int, data: ReportInfoUpdate, db: AsyncSession = Depends(get_db)):
+    """Update customer/project/sample info on a group report. Propagates to
+    every position test in the group so single-test PDFs/Excel match."""
+    group = await db.get(TestGroup, group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    changes = _apply_report_info(group, data)
+    tests = (await db.execute(select(Test).where(Test.group_id == group_id))).scalars().all()
+    for t in tests:
+        _apply_report_info(t, data)
+
+    await db.commit()
+    logger.info(f"Group {group_id} report info updated: {list(changes.keys())}")
+    return {"success": True, "updated": list(changes.keys()), "group": group.to_dict()}
+
+
+@router.patch("/tests/{test_id}")
+async def update_test_info(test_id: int, data: ReportInfoUpdate, db: AsyncSession = Depends(get_db)):
+    """Update customer/project/sample info on a standalone (ungrouped) test."""
+    test = await db.get(Test, test_id)
+    if not test:
+        raise HTTPException(status_code=404, detail="Test not found")
+
+    changes = _apply_report_info(test, data)
+    await db.commit()
+    logger.info(f"Test {test_id} report info updated: {list(changes.keys())}")
+    return {"success": True, "updated": list(changes.keys()), "test": test.to_dict()}
+
+
 @router.post("/groups/{group_id}/retry/{position}")
 async def retry_position(group_id: int, position: int, db: AsyncSession = Depends(get_db)):
     """Delete a position test so it can be retried"""

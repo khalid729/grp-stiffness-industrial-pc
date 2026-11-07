@@ -50,9 +50,11 @@ class ExcelExporter:
 
         # Headers
         headers = [
-            'ID', 'Date', 'Sample ID', 'Operator',
+            'ID', 'Group', 'Date', 'Customer', 'Project', 'PO Number',
+            'Sample ID', 'Operator', 'Lot Number', 'Product ID',
+            'Pressure Class', 'Stiffness Class', 'Angle (°)',
             'Diameter (mm)', 'Length (mm)', 'Deflection %',
-            f'Force@Target ({fu})', f'Max Force ({fu})', 'Ring Stiffness (kN/m²)',
+            f'Force@Target ({fu})', 'STIS (N/m²)', 'Target SN',
             'SN Class', 'Result'
         ]
 
@@ -65,17 +67,27 @@ class ExcelExporter:
 
         # Data rows
         for row_num, test in enumerate(tests, 2):
+            stis = test.stis if test.stis else test.ring_stiffness
             data = [
                 test.id,
+                f"G{test.group_id}" if test.group_id else '',
                 test.test_date.strftime('%Y-%m-%d %H:%M') if test.test_date else '',
+                test.customer_name or '',
+                test.project_name or '',
+                test.po_number or '',
                 test.sample_id or '',
                 test.operator or '',
+                test.lot_number or '',
+                test.product_id or '',
+                test.pressure_class or '',
+                test.stiffness_class or '',
+                test.angle if test.angle is not None else '',
                 test.pipe_diameter,
                 test.pipe_length,
                 test.deflection_percent,
                 self._convert_force(test.force_at_target, force_unit),
-                self._convert_force(test.max_force, force_unit),
-                round(test.ring_stiffness, 0) if test.ring_stiffness else '',
+                round(stis, 0) if stis else '',
+                f"SN {test.target_sn_class}" if test.target_sn_class else '',
                 f"SN {test.sn_class}" if test.sn_class else '',
                 'PASS' if test.passed else 'FAIL'
             ]
@@ -91,7 +103,7 @@ class ExcelExporter:
                     cell.font = Font(bold=True)
 
         # Adjust column widths
-        column_widths = [8, 18, 15, 15, 14, 14, 14, 18, 16, 20, 12, 10]
+        column_widths = [8, 8, 18, 20, 20, 14, 18, 15, 14, 14, 14, 14, 10, 14, 14, 14, 18, 16, 12, 12, 10]
         for col, width in enumerate(column_widths, 1):
             ws.column_dimensions[get_column_letter(col)].width = width
 
@@ -117,7 +129,8 @@ class ExcelExporter:
         failed_tests = total_tests - passed_tests
         pass_rate = (passed_tests / total_tests * 100) if total_tests > 0 else 0
 
-        avg_stiffness = sum(t.ring_stiffness for t in tests if t.ring_stiffness) / max(1, sum(1 for t in tests if t.ring_stiffness))
+        stis_vals = [(t.stis or t.ring_stiffness) for t in tests if (t.stis or t.ring_stiffness)]
+        avg_stiffness = sum(stis_vals) / max(1, len(stis_vals))
 
         # SN class distribution
         sn_distribution = {}
@@ -136,7 +149,7 @@ class ExcelExporter:
             ['Passed', passed_tests],
             ['Failed', failed_tests],
             ['Pass Rate', f"{pass_rate:.1f}%"],
-            ['Average Ring Stiffness', f"{avg_stiffness:.0f} kN/m²"],
+            ['Average STIS', f"{avg_stiffness:.0f} N/m²"],
             ['', ''],
             ['SN Class Distribution', ''],
         ]
@@ -172,19 +185,42 @@ class ExcelExporter:
             ['Test Report', ''],
             ['', ''],
             ['Test ID', test.id],
+            ['Group', f"G{test.group_id}" if test.group_id else ''],
             ['Date', test.test_date.strftime('%Y-%m-%d %H:%M') if test.test_date else ''],
             ['Sample ID', test.sample_id or ''],
             ['Operator', test.operator or ''],
+            ['Position Angle (°)', test.angle if test.angle is not None else ''],
+            ['', ''],
+            ['Project Information', ''],
+            ['Customer Name', test.customer_name or ''],
+            ['Project Name', test.project_name or ''],
+            ['PO Number', test.po_number or ''],
+            ['', ''],
+            ['Product Information', ''],
+            ['Lot Number', test.lot_number or ''],
+            ['Product ID', test.product_id or ''],
+            ['Pressure Class', test.pressure_class or ''],
+            ['Stiffness Class', test.stiffness_class or ''],
+            ['Nominal Diameter (mm)', test.nominal_diameter if test.nominal_diameter else ''],
             ['', ''],
             ['Parameters', ''],
             ['Pipe Diameter (mm)', test.pipe_diameter],
             ['Sample Length (mm)', test.pipe_length],
             ['Deflection Target (%)', test.deflection_percent],
             ['', ''],
+            ['Sample Measurements', ''],
+            ['Horizontal ID (mm)', test.h_id if test.h_id else ''],
+            ['Vertical ID (mm)', test.v_id if test.v_id else ''],
+            ['Wall Thickness (mm)', test.wall_thickness if test.wall_thickness else ''],
+            ['Ring Length (mm)', test.ring_length if test.ring_length else ''],
+            ['Initial Deflection (%)', round(test.initial_deflection, 3) if test.initial_deflection else ''],
+            ['', ''],
             ['Results', ''],
             [f'Force at Target ({fu})', self._convert_force(test.force_at_target, force_unit)],
-            [f'Max Force ({fu})', self._convert_force(test.max_force, force_unit)],
-            ['Ring Stiffness (kN/m²)', round(test.ring_stiffness, 0) if test.ring_stiffness else ''],
+            ['STIS (N/m²)', round(test.stis or test.ring_stiffness or 0, 0) or ''],
+            ['EI/R³ (N/mm²)', round(test.ei_over_r3, 4) if test.ei_over_r3 else ''],
+            ['E-Modulus (N/mm²)', round(test.e_modulus, 0) if test.e_modulus else ''],
+            ['Target SN', f"SN {test.target_sn_class}" if test.target_sn_class else ''],
             ['SN Class', f"SN {test.sn_class}" if test.sn_class else ''],
             ['Result', 'PASS' if test.passed else 'FAIL'],
         ]
@@ -193,7 +229,8 @@ class ExcelExporter:
             cell_label = ws_info.cell(row=row_num, column=1, value=label)
             cell_value = ws_info.cell(row=row_num, column=2, value=value)
 
-            if label in ['Test Report', 'Parameters', 'Results']:
+            if label in ['Test Report', 'Project Information', 'Product Information',
+                         'Parameters', 'Sample Measurements', 'Results']:
                 cell_label.font = Font(bold=True, size=12)
 
         ws_info.column_dimensions['A'].width = 25
@@ -212,7 +249,7 @@ class ExcelExporter:
 
             for row_num, dp in enumerate(sorted(test.data_points, key=lambda x: x.timestamp), 2):
                 ws_data.cell(row=row_num, column=1, value=round(dp.timestamp, 3))
-                ws_data.cell(row=row_num, column=2, value=self._convert_force(dp.force, force_unit))
+                ws_data.cell(row=row_num, column=2, value=self._convert_force(dp.force * 1000, force_unit))  # dp.force is kN
                 ws_data.cell(row=row_num, column=3, value=round(dp.deflection, 3))
                 ws_data.cell(row=row_num, column=4, value=round(dp.position, 3) if dp.position else '')
 

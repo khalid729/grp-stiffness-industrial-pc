@@ -125,6 +125,44 @@ def get_pending_metadata() -> dict:
     return dict(_pending_metadata)
 
 
+_DB_PATH = '/home/khalid/grp-stiffness-test-machine/backend/grp_test.db'
+
+
+def _load_active_sample_metadata() -> dict:
+    """Report metadata for the active sample, read straight from the DB
+    (sample -> project -> client). The frontend's /api/test-metadata posts are
+    NOT reliable for this: Dashboard/TestSetup re-post {num_positions, angles}
+    on mount, on test-type change and after a stop, and each post replaces
+    the whole pending dict — so by the time a test is saved the customer and
+    project names are usually gone."""
+    try:
+        from api.routes.samples import _active_sample_id
+        if not _active_sample_id:
+            return {}
+        import sqlite3
+        conn = sqlite3.connect(_DB_PATH)
+        row = conn.execute(
+            'SELECT s.sample_id, s.operator, s.lot_number, s.product_id, s.nominal_diameter, '
+            's.nominal_weight, s.pressure_class, s.stiffness_class, '
+            'p.name, p.po_number, c.name '
+            'FROM samples s '
+            'LEFT JOIN projects p ON p.id = s.project_id '
+            'LEFT JOIN clients c ON c.id = p.client_id '
+            'WHERE s.id = ?',
+            (_active_sample_id,),
+        ).fetchone()
+        conn.close()
+        if not row:
+            return {}
+        keys = ['sample_id', 'operator', 'lot_number', 'product_id', 'nominal_diameter',
+                'nominal_weight', 'pressure_class', 'stiffness_class',
+                'project_name', 'po_number', 'customer_name']
+        return {k: v for k, v in zip(keys, row) if v not in (None, '')}
+    except Exception as e:
+        logger.warning(f"Could not load active sample metadata: {e}")
+        return {}
+
+
 def set_services(data_svc, cmd_svc, plc=None):
     """Set service instances from main.py"""
     global data_service, command_service, plc_connector
@@ -262,35 +300,39 @@ async def _save_test_result(data: dict):
             duration=_test_duration,
         )
 
-        # Apply pending metadata
-        if _pending_metadata.get('sample_id'):
-            test_record.sample_id = _pending_metadata.get('sample_id')
-        if _pending_metadata.get('operator'):
-            test_record.operator = _pending_metadata.get('operator')
-        if _pending_metadata.get('notes'):
-            test_record.notes = _pending_metadata.get('notes')
+        # Apply metadata: the active sample (-> project -> client) from the DB is
+        # the source of truth; whatever the frontend posted only fills the gaps.
+        meta = dict(_pending_metadata)
+        meta.update(_load_active_sample_metadata())
+        logger.info(f"Report metadata: sample={meta.get('sample_id')!r} customer={meta.get('customer_name')!r} project={meta.get('project_name')!r}")
+        if meta.get('sample_id'):
+            test_record.sample_id = meta.get('sample_id')
+        if meta.get('operator'):
+            test_record.operator = meta.get('operator')
+        if meta.get('notes'):
+            test_record.notes = meta.get('notes')
 
         # Apply new product/project metadata
-        if _pending_metadata.get('lot_number'):
-            test_record.lot_number = _pending_metadata.get('lot_number')
-        if _pending_metadata.get('nominal_diameter'):
-            test_record.nominal_diameter = _pending_metadata.get('nominal_diameter')
-        if _pending_metadata.get('pressure_class'):
-            test_record.pressure_class = _pending_metadata.get('pressure_class')
-        if _pending_metadata.get('stiffness_class'):
-            test_record.stiffness_class = _pending_metadata.get('stiffness_class')
-        if _pending_metadata.get('product_id'):
-            test_record.product_id = _pending_metadata.get('product_id')
-        if _pending_metadata.get('thickness'):
-            test_record.thickness = _pending_metadata.get('thickness')
-        if _pending_metadata.get('nominal_weight'):
-            test_record.nominal_weight = _pending_metadata.get('nominal_weight')
-        if _pending_metadata.get('project_name'):
-            test_record.project_name = _pending_metadata.get('project_name')
-        if _pending_metadata.get('customer_name'):
-            test_record.customer_name = _pending_metadata.get('customer_name')
-        if _pending_metadata.get('po_number'):
-            test_record.po_number = _pending_metadata.get('po_number')
+        if meta.get('lot_number'):
+            test_record.lot_number = meta.get('lot_number')
+        if meta.get('nominal_diameter'):
+            test_record.nominal_diameter = meta.get('nominal_diameter')
+        if meta.get('pressure_class'):
+            test_record.pressure_class = meta.get('pressure_class')
+        if meta.get('stiffness_class'):
+            test_record.stiffness_class = meta.get('stiffness_class')
+        if meta.get('product_id'):
+            test_record.product_id = meta.get('product_id')
+        if meta.get('thickness'):
+            test_record.thickness = meta.get('thickness')
+        if meta.get('nominal_weight'):
+            test_record.nominal_weight = meta.get('nominal_weight')
+        if meta.get('project_name'):
+            test_record.project_name = meta.get('project_name')
+        if meta.get('customer_name'):
+            test_record.customer_name = meta.get('customer_name')
+        if meta.get('po_number'):
+            test_record.po_number = meta.get('po_number')
 
         test_record.test_date = datetime.now(SAUDI_TZ)
 
@@ -373,8 +415,8 @@ async def _save_test_result(data: dict):
                 if _active_group_id is None:
                     # First position - create group
                     group = TestGroup(
-                        sample_id=_pending_metadata.get('sample_id', ''),
-                        operator=_pending_metadata.get('operator', ''),
+                        sample_id=meta.get('sample_id', ''),
+                        operator=meta.get('operator', ''),
                         pipe_diameter=nominal_pipe_diameter,
                         pipe_length=params.get('pipe_length', 300),
                         deflection_percent=params.get('deflection_percent', 3),
@@ -384,16 +426,16 @@ async def _save_test_result(data: dict):
                         current_position=1,
                         status='in_progress',
                         target_sn_class=params.get('target_sn_class', 0),
-                        lot_number=_pending_metadata.get('lot_number', ''),
-                        nominal_diameter=_pending_metadata.get('nominal_diameter'),
-                        pressure_class=_pending_metadata.get('pressure_class', ''),
-                        stiffness_class=_pending_metadata.get('stiffness_class', ''),
-                        product_id=_pending_metadata.get('product_id', ''),
-                        thickness=_pending_metadata.get('thickness'),
-                        nominal_weight=_pending_metadata.get('nominal_weight'),
-                        project_name=_pending_metadata.get('project_name', ''),
-                        customer_name=_pending_metadata.get('customer_name', ''),
-                        po_number=_pending_metadata.get('po_number', ''),
+                        lot_number=meta.get('lot_number', ''),
+                        nominal_diameter=meta.get('nominal_diameter'),
+                        pressure_class=meta.get('pressure_class', ''),
+                        stiffness_class=meta.get('stiffness_class', ''),
+                        product_id=meta.get('product_id', ''),
+                        thickness=meta.get('thickness'),
+                        nominal_weight=meta.get('nominal_weight'),
+                        project_name=meta.get('project_name', ''),
+                        customer_name=meta.get('customer_name', ''),
+                        po_number=meta.get('po_number', ''),
                     )
                     session.add(group)
                     await session.flush()
